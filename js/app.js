@@ -513,29 +513,43 @@ function renderTimerTeks(totalDetik) {
 
 /**
  * Menjeda atau melanjutkan sesi latihan.
+ *
+ * CARA KERJA:
+ * Fungsi ini HANYA memanggil pause() dan resume() milik tiap modul, tidak pernah
+ * start(). Aturan itu bukan gaya penulisan, melainkan inti kontrak siklus hidup
+ * yang didokumentasikan di kepala js/speech.js: start() adalah satu-satunya
+ * fungsi yang mengosongkan akumulator, sehingga memanggilnya di sini akan
+ * menghapus seluruh hitungan kata, kata pengisi, dan frame yang sudah terkumpul
+ * setiap kali pengguna menjeda sesi.
+ *
+ * Timer sesi ikut membeku karena tickTimerSesi berhenti menambah detik selama
+ * state.sesiDijeda bernilai true. Dengan begitu durasi yang dipakai menghitung
+ * WPM rata-rata hanya berisi waktu bicara yang sebenarnya.
+ *
+ * Preview kamera sengaja dibiarkan hidup selama jeda supaya pengguna tidak
+ * kehilangan bingkai dirinya, tetapi tidak ada satu pun frame yang dianalisis.
  */
 function toggleJedaSesi() {
   if (!state.sesiBerjalan) return;
 
   if (!state.sesiDijeda) {
-    // Masuk mode jeda
+    // Masuk mode jeda: semua modul berhenti sementara, akumulator dipertahankan
     state.sesiDijeda = true;
     DOM.tombolJedaSesi.textContent = 'Lanjut';
 
-    // Hentikan modul analisis sementara (kamera preview tetap hidup)
-    speechModule.stop();
-    audioModule.stop();
-    faceModule.stop();
-    if (state.analisisPosturAktif) poseModule.stop();
+    speechModule.pause();
+    audioModule.pause();
+    faceModule.pause();
+    poseModule.pause();
   } else {
-    // Lanjutkan sesi
+    // Lanjutkan sesi dari akumulator yang sama
     state.sesiDijeda = false;
     DOM.tombolJedaSesi.textContent = 'Jeda';
 
-    speechModule.start();
-    audioModule.start();
-    faceModule.start({}, DOM.videoPreviewSesi);
-    if (state.analisisPosturAktif) poseModule.start();
+    speechModule.resume();
+    audioModule.resume();
+    faceModule.resume();
+    poseModule.resume();
   }
 }
 

@@ -10,24 +10,49 @@
  * 3. Menghitung jumlah kata dan estimasi kecepatan berbicara (WPM - Words Per Minute).
  * 4. Mendeteksi kata pengisi (filler words) seperti "eee", "emm", "anu", dll.
  * 5. Menangani auto-restart otomatis saat event onend terpicu oleh browser.
- * 
- * Modul ini mengekspor antarmuka standar:
- * - isSupported(): Memeriksa ketersediaan webkitSpeechRecognition di browser.
- * - start(callbacks): Memulai recognition stream.
- * - stop(): Menghentikan recognition dan mematikan auto-restart.
- * - getResults(): Mengembalikan agregat data kata, WPM, dan rincian kata pengisi.
+ *
+ * ============================================================================
+ * KONTRAK SIKLUS HIDUP MODUL ANALISIS (BERLAKU UNTUK SEMUA MODUL)
+ * ============================================================================
+ * Setiap modul analisis Podium (speech, audio, face, pose, dan nanti materi)
+ * WAJIB mengekspor lima fungsi berikut dengan makna yang persis sama:
+ *
+ *   start(callbacks)  Inisialisasi + NOL-kan seluruh akumulator. Dipanggil tepat
+ *                     sekali di awal sesi. Ini satu-satunya fungsi yang boleh
+ *                     menghapus data yang sudah terkumpul.
+ *   pause()           Berhenti sementara. Sampling/pengenalan dimatikan, TAPI
+ *                     seluruh akumulator dipertahankan apa adanya.
+ *   resume()          Lanjut dari kondisi terjeda. Tidak boleh menyentuh akumulator.
+ *   stop()            Hentikan total dan lepas resource. Akumulator tetap utuh
+ *                     supaya getResults() masih bisa dibaca sesudahnya.
+ *   getResults()      Kembalikan AGREGAT jadi (angka/persentase), bukan data per frame.
+ *
+ * KENAPA KONTRAK INI ADA:
+ * Sebelumnya tombol Jeda memanggil stop() lalu start() lagi. Karena start()
+ * me-reset akumulator, satu kali menjeda sesi menghapus seluruh hitungan kata,
+ * kata pengisi, dan frame yang sudah terkumpul. Bug itu bukan milik satu modul,
+ * melainkan cacat kontrak: modul mana pun yang ditambahkan kemudian akan
+ * mewarisinya. Karena itu aturannya dibuat mutlak: TOMBOL JEDA TIDAK PERNAH
+ * MEMANGGIL start().
+ *
+ * ATURAN STATUS:
+ * Setiap modul memegang satu variabel status bernilai 'berjalan' | 'dijeda' |
+ * 'berhenti'. Semua loop, interval, dan handler asinkron harus memeriksa status
+ * ini, bukan menebak dari ada tidaknya timer. Khusus speech.js, handler onend
+ * milik Chrome hanya boleh menghidupkan ulang pengenalan saat status bernilai
+ * 'berjalan'; inilah yang mencegah pause() tanpa sengaja memicu auto-restart.
  * ============================================================================
  */
 
 // Pemeriksaan dukungan Web Speech API
 const SpeechRecognitionClass = window.webkitSpeechRecognition || window.SpeechRecognition;
 
-// Objek recognition aktif
+// Objek recognition yang sedang berlaku. Selalu tepat satu instans di seluruh
+// aplikasi (lihat Bagian 5.4 brief: dilarang membuat listener Web Speech kedua).
 let recognition = null;
 
-// Status internal
-let sesiBerjalan = false;
-let sengajaBerhenti = false;
+// Status siklus hidup modul: 'berjalan' | 'dijeda' | 'berhenti'
+let status = 'berhenti';
 
 // Akumulasi data
 let transkripFinalGabungan = '';
@@ -54,7 +79,7 @@ let eventCallbacks = {
 
 /**
  * Memeriksa apakah peramban saat ini mendukung Web Speech API.
- * 
+ *
  * @returns {boolean} True jika webkitSpeechRecognition tersedia
  */
 export function isSupported() {
@@ -62,24 +87,19 @@ export function isSupported() {
 }
 
 /**
- * Menginisialisasi dan memulai pengenalan suara.
- * 
+ * Memulai sesi pengenalan suara dari nol.
+ *
  * CARA KERJA:
- * 1. Membuat instans baru dari `webkitSpeechRecognition`.
- * 2. Mengatur konfigurasi:
- *    - `continuous = true`: Pengenalan tidak berhenti setelah satu kalimat selesai.
- *    - `interimResults = true`: Memberikan hasil praduga sebelum kalimat difinalisasi.
- *    - `lang = 'id-ID'`: Mengarahkan model bahasa ke Bahasa Indonesia.
- * 3. Mendaftarkan event listener penting:
- *    - `onresult`: Memproses potongan kata interim dan final.
- *    - `onerror`: Menangkap galat jaringan atau perizinan.
- *    - `onend`: Mengimplementasikan auto-restart otomatis jika sesi masih aktif
- *      (mengatasi kebiasaan Chrome yang memutus recognition di sesi panjang).
- * 
+ * 1. Mengosongkan seluruh akumulator sesi. Ini SATU-SATUNYA fungsi yang boleh
+ *    melakukannya, sesuai kontrak di kepala berkas.
+ * 2. Menyetel status ke 'berjalan' sebelum instans dibuat, supaya handler onend
+ *    tahu bahwa auto-restart memang diinginkan.
+ * 3. Membuat instans recognition baru dan menyalakannya.
+ *
  * @param {Object} callbacks - Kumpulan fungsi callback untuk memproses data suara
- * @param {Object} opsi - Opsi tambahan (misal daftar kata pengisi khusus)
+ * @returns {boolean} True jika pengenalan berhasil dijalankan
  */
-export function start(callbacks = {}, opsi = {}) {
+export function start(callbacks = {}) {
   if (!isSupported()) {
     console.error('Web Speech API tidak didukung di browser ini.');
     if (typeof callbacks.onError === 'function') {
@@ -89,38 +109,104 @@ export function start(callbacks = {}, opsi = {}) {
   }
 
   eventCallbacks = { ...eventCallbacks, ...callbacks };
-  sesiBerjalan = true;
-  sengajaBerhenti = false;
 
-  // Reset data sesi
+  // Reset data sesi (hanya di sini, tidak pernah di resume)
   transkripFinalGabungan = '';
   transkripInterimTerbaru = '';
   kataPerWaktu = [];
   rincianFiller = {};
   totalFiller = 0;
 
-  inisialisasiRecognition();
+  status = 'berjalan';
+  return inisialisasiRecognition();
+}
+
+/**
+ * Menjeda pengenalan suara tanpa kehilangan satu pun data yang sudah terkumpul.
+ *
+ * CARA KERJA:
+ * Status diubah menjadi 'dijeda' TERLEBIH DAHULU, baru instans dimatikan.
+ * Urutan ini yang menentukan segalanya: Chrome akan memicu event onend begitu
+ * pengenalan berhenti, dan handler onend hanya menghidupkan ulang bila status
+ * bernilai 'berjalan'. Dengan status sudah 'dijeda' saat onend tiba, auto-restart
+ * tidak pernah terpicu, dan mikrofon benar-benar berhenti didengarkan.
+ *
+ * @returns {boolean} True jika modul memang sedang berjalan dan berhasil dijeda
+ */
+export function pause() {
+  if (status !== 'berjalan') return false;
+  status = 'dijeda';
+  lepasInstansRecognition();
+  if (typeof eventCallbacks.onStatusChange === 'function') {
+    eventCallbacks.onStatusChange('paused');
+  }
   return true;
 }
 
 /**
- * Fungsi internal pembuat instans recognition.
+ * Melanjutkan pengenalan suara setelah dijeda.
+ *
+ * CARA KERJA:
+ * Membuat instans recognition baru lalu menyalakannya, TANPA menyentuh satu pun
+ * akumulator. Instans dibuat ulang alih-alih memakai yang lama karena objek
+ * SpeechRecognition yang sudah berakhir bisa menolak start() dengan
+ * InvalidStateError; membuat yang baru jauh lebih dapat diprediksi.
+ *
+ * @returns {boolean} True jika berhasil dilanjutkan
+ */
+export function resume() {
+  if (status !== 'dijeda') return false;
+  status = 'berjalan';
+  return inisialisasiRecognition();
+}
+
+/**
+ * Menghentikan pengenalan suara secara total.
+ *
+ * CARA KERJA:
+ * Status diubah ke 'berhenti' lebih dulu agar onend tidak menghidupkan ulang,
+ * lalu instans dilepas. Akumulator sengaja TIDAK dikosongkan supaya
+ * getResults() masih bisa dibaca oleh Layar Rapor setelah sesi selesai.
+ */
+export function stop() {
+  status = 'berhenti';
+  lepasInstansRecognition();
+  if (typeof eventCallbacks.onStatusChange === 'function') {
+    eventCallbacks.onStatusChange('stopped');
+  }
+}
+
+/**
+ * Membuat dan menyalakan satu instans SpeechRecognition baru.
+ *
+ * CARA KERJA:
+ * 1. Melepas instans lama lebih dulu supaya tidak pernah ada dua pendengar aktif.
+ * 2. Menyetel konfigurasi:
+ *    - continuous = true: pengenalan tidak berhenti setelah satu kalimat.
+ *    - interimResults = true: hasil praduga dikirim sebelum kalimat difinalkan.
+ *    - lang = 'id-ID': mengarahkan model bahasa ke Bahasa Indonesia.
+ * 3. Memasang handler onresult, onerror, dan onend.
+ *
+ * Setiap handler onend menyimpan rujukan ke instans miliknya sendiri, lalu
+ * memeriksa apakah instans itu masih instans yang berlaku. Tanpa pemeriksaan ini,
+ * handler milik instans lama bisa ikut menghidupkan ulang instans baru saat
+ * resume(), dan aplikasi berakhir dengan dua pengenalan berjalan bersamaan.
+ *
+ * @returns {boolean} True jika recognition.start() berhasil dipanggil
  */
 function inisialisasiRecognition() {
-  try {
-    if (recognition) {
-      try { recognition.abort(); } catch (e) {}
-    }
+  lepasInstansRecognition();
 
-    recognition = new SpeechRecognitionClass();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'id-ID';
+  try {
+    const instans = new SpeechRecognitionClass();
+    instans.continuous = true;
+    instans.interimResults = true;
+    instans.lang = 'id-ID';
 
     // ------------------------------------------------------------------------
     // Event: onresult
     // ------------------------------------------------------------------------
-    recognition.onresult = (event) => {
+    instans.onresult = (event) => {
       let interimSegment = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -147,7 +233,7 @@ function inisialisasiRecognition() {
     // ------------------------------------------------------------------------
     // Event: onerror
     // ------------------------------------------------------------------------
-    recognition.onerror = (event) => {
+    instans.onerror = (event) => {
       // Galat 'no-speech' normal terjadi saat jeda hening dan tidak perlu mematikan sesi
       if (event.error === 'no-speech') {
         return;
@@ -161,45 +247,68 @@ function inisialisasiRecognition() {
     // ------------------------------------------------------------------------
     // Event: onend (Auto-Restart Bagian 8.4)
     // ------------------------------------------------------------------------
-    recognition.onend = () => {
-      // Jika sesi masih berjalan dan bukan sengaja dimatikan oleh tombol jeda/selesai,
-      // hidupkan kembali secara instan agar pengguna tidak merasakan jeda.
-      if (sesiBerjalan && !sengajaBerhenti) {
-        try {
-          recognition.start();
-          if (typeof eventCallbacks.onStatusChange === 'function') {
-            eventCallbacks.onStatusChange('restarted');
-          }
-        } catch (e) {
-          // Bila restart instan gagal, coba lagi dalam jeda waktu singkat 100ms
-          setTimeout(() => {
-            if (sesiBerjalan && !sengajaBerhenti) {
-              try { recognition.start(); } catch (err) {}
-            }
-          }, 100);
-        }
-      } else {
+    instans.onend = () => {
+      // Handler milik instans yang sudah dilepas wajib diam total.
+      if (instans !== recognition) return;
+
+      // Hanya status 'berjalan' yang boleh memicu auto-restart. Saat pause() atau
+      // stop() dipanggil, status sudah berubah lebih dulu sehingga baris ini
+      // tidak pernah menghidupkan mikrofon kembali tanpa diminta.
+      if (status !== 'berjalan') return;
+
+      try {
+        instans.start();
         if (typeof eventCallbacks.onStatusChange === 'function') {
-          eventCallbacks.onStatusChange('stopped');
+          eventCallbacks.onStatusChange('restarted');
         }
+      } catch (e) {
+        // Bila restart instan gagal, coba lagi dalam jeda waktu singkat 100ms
+        setTimeout(() => {
+          if (instans === recognition && status === 'berjalan') {
+            try { instans.start(); } catch (err) {}
+          }
+        }, 100);
       }
     };
 
-    recognition.start();
+    recognition = instans;
+    instans.start();
+
     if (typeof eventCallbacks.onStatusChange === 'function') {
       eventCallbacks.onStatusChange('active');
     }
+    return true;
   } catch (err) {
     console.error('Gagal menjalankan recognition.start():', err);
     if (typeof eventCallbacks.onError === 'function') {
       eventCallbacks.onError(err);
     }
+    return false;
+  }
+}
+
+/**
+ * Melepas instans recognition yang sedang berlaku.
+ *
+ * CARA KERJA:
+ * Rujukan modul dikosongkan LEBIH DULU, baru instansnya dimatikan. Dengan urutan
+ * ini, handler onend milik instans tersebut langsung gagal pada pemeriksaan
+ * identitas dan tidak melakukan apa-apa, berapa pun lama Chrome menunda eventnya.
+ */
+function lepasInstansRecognition() {
+  if (!recognition) return;
+  const lama = recognition;
+  recognition = null;
+  try {
+    lama.stop();
+  } catch (e) {
+    try { lama.abort(); } catch (err) {}
   }
 }
 
 /**
  * Memproses teks final untuk menghitung kata, kecepatan berbicara, dan kata pengisi.
- * 
+ *
  * @param {string} potonganTeks - Potongan kalimat final yang baru saja diterima
  */
 function prosesPotonganFinal(potonganTeks) {
@@ -253,28 +362,8 @@ function hitungWpmBergulir() {
 }
 
 /**
- * Menghentikan pengenalan suara secara sengaja.
- * 
- * CARA KERJA:
- * 1. Mengubah flag `sesiBerjalan` menjadi false dan `sengajaBerhenti` menjadi true
- *    agar handler `onend` tidak melakukan auto-restart.
- * 2. Memanggil `recognition.stop()`.
- */
-export function stop() {
-  sesiBerjalan = false;
-  sengajaBerhenti = true;
-  if (recognition) {
-    try {
-      recognition.stop();
-    } catch (e) {
-      try { recognition.abort(); } catch (err) {}
-    }
-  }
-}
-
-/**
  * Mengambil ringkasan hasil analisis ucapan untuk rapor.
- * 
+ *
  * @param {number} durasiDetik - Durasi latihan dalam detik
  * @returns {Object} Data metrik suara lengkap
  */

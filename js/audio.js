@@ -12,10 +12,15 @@
  * 4. Mendeteksi bunyi vokal tertahan seperti "eeee" (heuristik sinyal audio
  *    berenergi konstan > 800 ms tanpa perubahan kata pada speech recognizer).
  * 
- * Modul ini mengekspor antarmuka standar:
+ * Modul ini mengikuti KONTRAK SIKLUS HIDUP yang didokumentasikan lengkap di
+ * kepala js/speech.js: start / pause / resume / stop / getResults, dengan aturan
+ * mutlak bahwa hanya start() yang boleh mengosongkan akumulator.
+ *
  * - initAudio(stream): Menghubungkan aliran mikrofon ke AnalyserNode.
- * - start(callbacks): Memulai proses analisis dan loop pemantauan frame audio.
- * - stop(): Menghentikan pemantauan dan membersihkan node audio.
+ * - start(callbacks): Mengosongkan akumulator lalu memulai loop pemantauan frame.
+ * - pause(): Menghentikan sampling sementara tanpa membuang akumulator.
+ * - resume(): Melanjutkan sampling dari akumulator yang sama.
+ * - stop(): Menghentikan pemantauan (node audio dilepas terpisah via cleanupAudio).
  * - getResults(): Mengembalikan ringkasan metrik audio untuk rapor akhir.
  * ============================================================================
  */
@@ -26,8 +31,8 @@ let mediaStreamSource = null;
 let analyserNode = null;
 let animFrameId = null;
 
-// Flag status
-let sedangBerjalan = false;
+// Status siklus hidup modul: 'berjalan' | 'dijeda' | 'berhenti'
+let status = 'berhenti';
 
 // Buffer penampung data gelombang suara (Time-Domain)
 let timeDomainBuffer = null;
@@ -148,10 +153,9 @@ export function hitungRMS() {
  * @param {Object} callbacks - Kumpulan fungsi callback untuk merespons event audio
  */
 export function start(callbacks = {}) {
-  sedangBerjalan = true;
   eventCallbacks = { ...eventCallbacks, ...callbacks };
 
-  // Reset metrik akumulasi sesi
+  // Reset metrik akumulasi sesi. Hanya start() yang boleh melakukan ini.
   totalRmsAkumulasi = 0;
   jumlahSampleRms = 0;
   jedaDaftar = [];
@@ -160,12 +164,34 @@ export function start(callbacks = {}) {
   totalBunyiPengisiAudio = 0;
   riwayatWaktuBunyiAudio = [];
 
+  status = 'berjalan';
+  mulaiLoopPantauAudio();
+}
+
+/**
+ * Menjalankan perulangan pembacaan frame audio.
+ *
+ * CARA KERJA:
+ * 1. Membatalkan frame yang mungkin masih terjadwal, supaya tidak pernah ada dua
+ *    perulangan berjalan bersamaan. Ini penting karena meter volume di Layar
+ *    Persiapan dan analisis di Layar Sesi memakai modul yang sama.
+ * 2. Membangunkan AudioContext bila peramban menidurkannya.
+ * 3. Setiap frame membaca RMS, menambahkannya ke akumulator rata-rata volume,
+ *    lalu mengirimkannya ke callback visualizer.
+ * 4. Perulangan berhenti sendiri begitu status bukan lagi 'berjalan'.
+ */
+function mulaiLoopPantauAudio() {
+  if (animFrameId) {
+    cancelAnimationFrame(animFrameId);
+    animFrameId = null;
+  }
+
   if (audioContext && audioContext.state === 'suspended') {
     audioContext.resume();
   }
 
   function loopPantauAudio() {
-    if (!sedangBerjalan) return;
+    if (status !== 'berjalan') return;
 
     const rms = hitungRMS();
 
@@ -186,15 +212,49 @@ export function start(callbacks = {}) {
 }
 
 /**
- * Menghentikan proses pemantauan audio dan mematikan perulangan.
- * 
+ * Menjeda sampling audio tanpa membuang satu pun angka yang sudah terkumpul.
+ *
  * CARA KERJA:
- * 1. Mengubah flag `sedangBerjalan` menjadi false.
- * 2. Membatalkan animasi frame `cancelAnimationFrame(animFrameId)`.
- * 3. Menghitung durasi jeda terakhir jika sesi berakhir saat peserta sedang diam.
+ * Status diubah ke 'dijeda' dan frame berikutnya dibatalkan. Rata-rata volume
+ * sesi tetap dihitung dari sampel sebelum jeda, sehingga durasi terjeda tidak
+ * ikut menyeret rata-rata ke bawah seolah-olah pengguna berbicara pelan.
+ *
+ * @returns {boolean} True jika modul memang sedang berjalan
+ */
+export function pause() {
+  if (status !== 'berjalan') return false;
+  status = 'dijeda';
+  if (animFrameId) {
+    cancelAnimationFrame(animFrameId);
+    animFrameId = null;
+  }
+  return true;
+}
+
+/**
+ * Melanjutkan sampling audio setelah dijeda, tanpa menyentuh akumulator.
+ *
+ * @returns {boolean} True jika berhasil dilanjutkan
+ */
+export function resume() {
+  if (status !== 'dijeda') return false;
+  status = 'berjalan';
+  mulaiLoopPantauAudio();
+  return true;
+}
+
+/**
+ * Menghentikan proses pemantauan audio secara total.
+ *
+ * CARA KERJA:
+ * 1. Mengubah status menjadi 'berhenti' sehingga perulangan berhenti sendiri.
+ * 2. Membatalkan frame yang masih terjadwal.
+ * 3. Akumulator sengaja dibiarkan utuh supaya getResults() masih bisa dibaca
+ *    Layar Rapor setelah sesi berakhir. Pelepasan node audio dilakukan terpisah
+ *    lewat cleanupAudio() saat kamera dan mikrofon dimatikan.
  */
 export function stop() {
-  sedangBerjalan = false;
+  status = 'berhenti';
   if (animFrameId) {
     cancelAnimationFrame(animFrameId);
     animFrameId = null;

@@ -38,8 +38,11 @@
 let tersedia = false;
 
 let landmarker = null;
-let sedangBerjalan = false;
 let intervalId = null;
+
+// Status siklus hidup modul: 'berjalan' | 'dijeda' | 'berhenti'.
+// Kontrak lengkapnya didokumentasikan di kepala js/speech.js.
+let status = 'berhenti';
 
 // Metrik sesi (dihitung ulang setiap start)
 let totalFrameDianalisis = 0;
@@ -106,26 +109,62 @@ export function start(callbacks = {}, videoElement = null) {
   frameWajahTakTerlihat = 0;
 
   if (!isReady()) {
-    sedangBerjalan = false;
+    status = 'berhenti';
     if (typeof callbacksEksternal.onGazeUpdate === 'function') {
       callbacksEksternal.onGazeUpdate('belum aktif');
     }
     return false;
   }
 
-  sedangBerjalan = true;
+  status = 'berjalan';
 
   // TODO Tahap 2: ganti isi interval ini dengan landmarker.detectForVideo(videoElement, now)
   // lalu klasifikasikan blendshapes eyeLookDownLeft + eyeLookDownRight terhadap
   // CONFIG.LOOK_DOWN_THRESHOLD, dan catat frame tanpa wajah ke frameWajahTakTerlihat.
+  // Loop inferensinya wajib berhenti sendiri begitu status bukan 'berjalan'.
+  return true;
+}
+
+/**
+ * Menjeda inferensi arah pandang tanpa membuang penghitung frame.
+ *
+ * CARA KERJA:
+ * Status diubah ke 'dijeda' dan interval inferensi dilepas, sementara seluruh
+ * penghitung frame dibiarkan utuh. Frame selama jeda tidak boleh dicatat sama
+ * sekali, karena pengguna memang sedang tidak berlatih; mencatatnya akan
+ * menurunkan persentase kontak pandang tanpa sebab.
+ *
+ * @returns {boolean} True jika modul memang sedang berjalan
+ */
+export function pause() {
+  if (status !== 'berjalan') return false;
+  status = 'dijeda';
+  if (intervalId) {
+    clearInterval(intervalId);
+    intervalId = null;
+  }
+  return true;
+}
+
+/**
+ * Melanjutkan inferensi arah pandang dari penghitung frame yang sama.
+ *
+ * @returns {boolean} True jika berhasil dilanjutkan
+ */
+export function resume() {
+  if (status !== 'dijeda') return false;
+  status = 'berjalan';
+  // TODO Tahap 2: hidupkan kembali interval inferensi di sini, tanpa reset metrik.
   return true;
 }
 
 /**
  * Menghentikan analisis arah pandang dan melepas loop inferensi.
+ *
+ * Penghitung frame dibiarkan utuh agar getResults() tetap bisa dibaca Rapor.
  */
 export function stop() {
-  sedangBerjalan = false;
+  status = 'berhenti';
   if (intervalId) {
     clearInterval(intervalId);
     intervalId = null;
