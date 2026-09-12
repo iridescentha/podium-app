@@ -37,12 +37,30 @@ export const CONFIG = {
   WPM_BUCKET_DETIK: 30,     // Lebar tiap titik pada grafik kecepatan bicara
   WPM_BUCKET_MIN_DETIK: 10, // Potongan terakhir lebih pendek dari ini dibuang
 
-  // Daftar Kata Pengisi Standar (Transkrip).
+  // --------------------------------------------------------------------------
+  // KATA PENGISI YANG DIDETEKSI DARI TRANSKRIP
+  //
+  // Daftar ini sengaja hanya berisi KATA ASLI, bukan bunyi ragu.
+  //
+  // Dasarnya pengujian lapangan 12 September 2026 di Chrome desktop: bunyi
+  // "eee" dan "emm" yang diucapkan sengaja, ditahan sekitar satu detik,
+  // sebanyak lima kali masing-masing, TIDAK MUNCUL SAMA SEKALI di transkrip
+  // id-ID, baik pada hasil sementara maupun hasil final. Pengenal suara Chrome
+  // dilatih menghasilkan teks yang enak dibaca, jadi ia membuang disfluensi
+  // non-leksikal sebelum teksnya sampai ke aplikasi. Menyimpan bunyi itu di
+  // daftar ini hanya akan menciptakan ilusi bahwa ia sedang dipantau.
+  //
   // Dioper ke speech.js saat start(), jadi menyunting daftar ini saja sudah cukup.
   FILLER_WORDS: [
-    "eee", "emm", "hmm", "anu", "apa ya", "apa namanya",
+    "anu", "apa ya", "apa namanya",
     "gitu", "kayak", "jadi jadi", "terus terus", "oke oke"
   ],
+
+  // Bunyi ragu non-leksikal. SENGAJA TIDAK dipakai untuk mencocokkan transkrip,
+  // karena terbukti tidak pernah sampai ke sana. Didaftarkan di sini sebagai
+  // catatan hasil uji, dan menjadi tanggung jawab heuristik audio di Tahap 3
+  // (energi suara konstan melewati VOICE_FILL_DURATION_MS tanpa kata baru).
+  FILLER_BUNYI_NONLEKSIKAL: ["eee", "emm", "hmm"],
 
   // Ambang perhitungan skor kata pengisi dan jeda
   FILLER_IDEAL_PER_MENIT: 2,    // <= 2 per menit dianggap sempurna

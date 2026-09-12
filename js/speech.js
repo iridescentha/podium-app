@@ -8,7 +8,10 @@
  * 1. Menangkap suara secara berkelanjutan (continuous: true) dalam bahasa Indonesia (id-ID).
  * 2. Mengambil hasil sementara (interimResults: true) dan hasil final.
  * 3. Menghitung jumlah kata dan estimasi kecepatan berbicara (WPM - Words Per Minute).
- * 4. Mendeteksi kata pengisi (filler words) seperti "eee", "emm", "anu", dll.
+ * 4. Mendeteksi kata pengisi berupa KATA ASLI seperti "kayak", "gitu", "anu".
+ *    Bunyi ragu non-leksikal ("eee", "emm") berada di luar jangkauan modul ini
+ *    karena pengenal suara Chrome membuangnya sebelum teks sampai ke aplikasi;
+ *    bunyi itu ditangani heuristik energi audio di js/audio.js pada Tahap 3.
  * 5. Menangani auto-restart otomatis saat event onend terpicu oleh browser.
  *
  * ============================================================================
@@ -94,10 +97,15 @@ function tutupSegmenWaktu() {
   waktuMulaiSegmen = null;
 }
 
-// Daftar kata pengisi standar bahasa Indonesia (sesuai Bagian 6.1).
-// Dipakai hanya bila app.js tidak mengoper CONFIG.FILLER_WORDS saat start().
+// Daftar kata pengisi bawaan, dipakai hanya bila app.js tidak mengoper
+// CONFIG.FILLER_WORDS saat start(). Isinya harus tetap sama dengan CONFIG.
+//
+// Hanya kata asli yang didaftarkan di sini. Bunyi ragu seperti "eee" dan "emm"
+// terbukti tidak pernah muncul di transkrip id-ID (uji 12 September 2026), jadi
+// mencarinya di sini hanya menghasilkan nol selamanya. Bunyi semacam itu
+// ditangani heuristik energi audio di js/audio.js pada Tahap 3.
 const DAFTAR_FILLER_DEFAULT = [
-  "eee", "emm", "hmm", "anu", "apa ya", "apa namanya",
+  "anu", "apa ya", "apa namanya",
   "gitu", "kayak", "jadi jadi", "terus terus", "oke oke"
 ];
 
