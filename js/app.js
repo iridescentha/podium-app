@@ -50,11 +50,22 @@ export const CONFIG = {
   // non-leksikal sebelum teksnya sampai ke aplikasi. Menyimpan bunyi itu di
   // daftar ini hanya akan menciptakan ilusi bahwa ia sedang dipantau.
   //
+  // Entri satu kata dicocokkan dengan PENCOCOKAN AWALAN, sehingga "kayak" sudah
+  // mencakup "kayaknya" dan "gitu" mencakup "gitulah". Tidak perlu mendaftarkan
+  // tiap bentuk berimbuhan satu per satu. Entri berisi spasi diperlakukan
+  // sebagai frasa utuh dan tetap dicocokkan persis.
+  //
   // Dioper ke speech.js saat start(), jadi menyunting daftar ini saja sudah cukup.
   FILLER_WORDS: [
     "anu", "apa ya", "apa namanya",
     "gitu", "kayak", "jadi jadi", "terus terus", "oke oke"
   ],
+
+  // Panjang minimal sebuah entri agar boleh dicocokkan sebagai awalan.
+  // Entri yang lebih pendek dari ini hanya dicocokkan persis, karena awalan
+  // pendek menyeret kata tak berhubungan: "anu" akan menarik "anugerah".
+  // Konsekuensinya "anu" (3 huruf) TIDAK mencakup "anunya" selama ambang ini 4.
+  FILLER_PREFIX_MIN: 4,
 
   // Bunyi ragu non-leksikal. SENGAJA TIDAK dipakai untuk mencocokkan transkrip,
   // karena terbukti tidak pernah sampai ke sana. Didaftarkan di sini sebagai

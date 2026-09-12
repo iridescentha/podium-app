@@ -112,6 +112,7 @@ const DAFTAR_FILLER_DEFAULT = [
 // Ambang bawaan, dipakai hanya jika CONFIG tidak dioper dari app.js.
 const KONFIG_BAWAAN = {
   FILLER_WORDS: DAFTAR_FILLER_DEFAULT,
+  FILLER_PREFIX_MIN: 4,
   WPM_BUCKET_DETIK: 30,
   WPM_BUCKET_MIN_DETIK: 10
 };
@@ -393,19 +394,8 @@ function prosesPotonganFinal(potonganTeks) {
     kataPerWaktu.push({ detikSesi, kata: k });
   }
 
-  // Deteksi kata pengisi (filler words)
-  let adaPenambahanFiller = false;
-  for (const filler of konfig.FILLER_WORDS) {
-    // Gunakan regex batas kata sederhana untuk mencocokkan frasa filler
-    const regex = new RegExp(`\\b${amankanRegex(filler)}\\b`, 'gi');
-    const cocok = teksBersih.match(regex);
-    if (cocok && cocok.length > 0) {
-      const jumlah = cocok.length;
-      rincianFiller[filler] = (rincianFiller[filler] || 0) + jumlah;
-      totalFiller += jumlah;
-      adaPenambahanFiller = true;
-    }
-  }
+  // Deteksi kata pengisi
+  const adaPenambahanFiller = hitungKataPengisi(teksBersih);
 
   if (adaPenambahanFiller && typeof eventCallbacks.onFillerUpdate === 'function') {
     eventCallbacks.onFillerUpdate(totalFiller, rincianFiller);
@@ -413,6 +403,90 @@ function prosesPotonganFinal(potonganTeks) {
 
   // Hitung WPM rata-rata bergulir 30 detik terakhir
   hitungWpmBergulir();
+}
+
+/**
+ * Menghitung kata pengisi di dalam satu potongan transkrip final.
+ *
+ * CARA KERJA — dua fase, karena daftar kata pengisi berisi dua jenis entri.
+ *
+ * FASE 1, entri berupa frasa seperti "apa ya" dan "jadi jadi".
+ * Dicocokkan sebagai frasa utuh dengan batas kata di kedua ujungnya. Batas
+ * penutup itu penting: tanpa dia, "apa ya" akan ikut mencocoki "apa yang" yang
+ * sangat lazim dalam kalimat biasa. Potongan teks yang sudah cocok dibuang dari
+ * teks kerja supaya kata-katanya tidak dihitung ulang di fase dua.
+ *
+ * FASE 2, entri berupa satu kata seperti "kayak", "gitu", dan "anu".
+ * Dicocokkan dengan PENCOCOKAN AWALAN, bukan kesamaan persis. Alasannya
+ * afiksasi Bahasa Indonesia: "kayaknya", "gitulah", dan "anunya" adalah kata
+ * pengisi yang sama dengan bentuk dasarnya, dan mendaftarkan tiap variasinya
+ * satu per satu akan membuat daftar membengkak tanpa pernah lengkap.
+ *
+ * Dua pengaman melekat pada fase dua:
+ * 1. Entri yang lebih pendek dari CONFIG.FILLER_PREFIX_MIN hanya dicocokkan
+ *    persis. Entri pendek yang dibiarkan mencocok awalan akan menyeret kata
+ *    yang tidak ada hubungannya, misalnya "anu" menarik "anugerah".
+ * 2. Satu kata terucap dihitung PALING BANYAK SEKALI, diatribusikan ke entri
+ *    terpanjang yang cocok. Ini mencegah satu kata menambah dua hitungan saat
+ *    ada dua entri yang sama-sama menjadi awalannya.
+ *
+ * Rincian di rapor selalu dicatat memakai bentuk dasarnya, bukan bentuk yang
+ * terucap, supaya daftarnya tetap pendek dan terbaca.
+ *
+ * @param {string} teksBersih - Potongan transkrip final yang sudah huruf kecil
+ * @returns {boolean} True bila ada kata pengisi baru yang terhitung
+ */
+function hitungKataPengisi(teksBersih) {
+  const minAwalan = konfig.FILLER_PREFIX_MIN;
+  const semua = konfig.FILLER_WORDS.map(f => String(f).trim().toLowerCase()).filter(Boolean);
+  const daftarFrasa = semua.filter(f => /\s/.test(f));
+  const daftarTunggal = semua.filter(f => !/\s/.test(f));
+
+  let adaPenambahan = false;
+  let sisaTeks = teksBersih;
+
+  // --- Fase 1: frasa ---
+  for (const frasa of daftarFrasa) {
+    const pola = frasa.split(/\s+/).map(amankanRegex).join('\\s+');
+    const regex = new RegExp(`\\b${pola}\\b`, 'gi');
+
+    let jumlah = 0;
+    sisaTeks = sisaTeks.replace(regex, () => { jumlah++; return ' '; });
+
+    if (jumlah > 0) {
+      rincianFiller[frasa] = (rincianFiller[frasa] || 0) + jumlah;
+      totalFiller += jumlah;
+      adaPenambahan = true;
+    }
+  }
+
+  // --- Fase 2: kata tunggal dengan pencocokan awalan ---
+  const tokenSisa = sisaTeks
+    .split(/\s+/)
+    .map(t => t.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, ''))
+    .filter(Boolean);
+
+  for (const kata of tokenSisa) {
+    let entriTerpilih = null;
+
+    for (const entri of daftarTunggal) {
+      const cocok = (entri.length >= minAwalan)
+        ? kata.startsWith(entri)
+        : kata === entri;
+
+      if (cocok && (entriTerpilih === null || entri.length > entriTerpilih.length)) {
+        entriTerpilih = entri;
+      }
+    }
+
+    if (entriTerpilih) {
+      rincianFiller[entriTerpilih] = (rincianFiller[entriTerpilih] || 0) + 1;
+      totalFiller += 1;
+      adaPenambahan = true;
+    }
+  }
+
+  return adaPenambahan;
 }
 
 /**
