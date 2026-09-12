@@ -32,12 +32,30 @@ export const CONFIG = {
   WPM_FAST: 150,            // Di atas 150 dianggap terlalu cepat
   WPM_MIN_SCORE: 60,        // Batas bawah linear skor 0
   WPM_MAX_SCORE: 200,       // Batas atas linear skor 0
+  WPM_SARAN_PELAN: 95,      // Ambang saran "bicara terlalu pelan"
+  WPM_SARAN_CEPAT: 155,     // Ambang saran "bicara terlalu cepat"
+  WPM_BUCKET_DETIK: 30,     // Lebar tiap titik pada grafik kecepatan bicara
+  WPM_BUCKET_MIN_DETIK: 10, // Potongan terakhir lebih pendek dari ini dibuang
 
-  // Daftar Kata Pengisi Standar (Transkrip)
+  // Daftar Kata Pengisi Standar (Transkrip).
+  // Dioper ke speech.js saat start(), jadi menyunting daftar ini saja sudah cukup.
   FILLER_WORDS: [
     "eee", "emm", "hmm", "anu", "apa ya", "apa namanya",
     "gitu", "kayak", "jadi jadi", "terus terus", "oke oke"
   ],
+
+  // Ambang perhitungan skor kata pengisi dan jeda
+  FILLER_IDEAL_PER_MENIT: 2,    // <= 2 per menit dianggap sempurna
+  FILLER_BURUK_PER_MENIT: 10,   // >= 10 per menit dianggap skor 0
+  JEDA_PENALTI_PER_JEDA: 0.25,  // Pengurangan sub-skor tiap satu jeda panjang
+
+  // Ambang pemilihan saran & kalimat ringkasan (tidak memengaruhi skor)
+  WPM_RINGKASAN_CEPAT: 160,
+  FILLER_SARAN_TOTAL: 8,
+  FILLER_RINGKASAN_TOTAL: 6,
+  JEDA_SARAN_JUMLAH: 3,
+  PANDANG_SARAN_MIN: 0.6,
+  SUBSKOR_KUAT: 0.8,            // Sub-skor di atas ini layak disebut kekuatan
 
   // Analisis Audio (RMS & Jeda)
   VOICE_RMS_MIN: 0.03,             // Ambang batas suara vokal aktif
@@ -353,7 +371,7 @@ function mulaiUjiBentrokMikrofon() {
     onError: (err) => {
       tambahLogUjiBentrok(`[PERINGATAN] Speech Recognition error: ${err.error || err.message}`);
     }
-  });
+  }, CONFIG);
 
   if (!speechMulai) {
     tambahLogUjiBentrok('[GAGAL] Web Speech API tidak dapat dijalankan di browser ini.');
@@ -463,7 +481,7 @@ function mulaiSesiLatihan() {
       void DOM.liveAngkaFiller.offsetWidth; // Trigger reflow
       DOM.liveAngkaFiller.classList.add('pulse-angka');
     }
-  });
+  }, CONFIG);
 
   // 2. Modul Audio
   audioModule.start();
@@ -604,7 +622,9 @@ function prosesDanTampilkanRapor() {
     durasiDetik: state.durasiBerjalanDetik,
     skor: 0, // Dihitung di bawah
     wpmRata: hasilSpeech.wpmRata,
-    wpmSeri: [hasilSpeech.wpmRata],
+    // Deret kecepatan bicara per 30 detik, disusun oleh speech.js yang memegang
+    // cap waktu tiap kata. Ini sumber data grafik pertama di rapor (Tahap 4).
+    wpmSeri: hasilSpeech.wpmSeri,
     filler: {
       total: hasilSpeech.filler.total,
       rincian: hasilSpeech.filler.rincian,
@@ -630,7 +650,7 @@ function prosesDanTampilkanRapor() {
   };
 
   // Hitung Skor Total (0-100)
-  const skorTotal = reportModule.hitungSkorTotal(dataSesiLengkap, state.analisisPosturAktif);
+  const skorTotal = reportModule.hitungSkorTotal(dataSesiLengkap, state.analisisPosturAktif, CONFIG);
   dataSesiLengkap.skor = skorTotal;
 
   // Simpan ke storage (dengan proteksi jika storage penuh)
@@ -649,7 +669,7 @@ function renderRaporUI(data, statusSimpan) {
   animasiCountUp(DOM.raporSkorAngka, data.skor);
 
   // Kalimat ringkasan
-  DOM.raporRingkasanTeks.textContent = reportModule.buatKalimatRingkasan(data, data.skor);
+  DOM.raporRingkasanTeks.textContent = reportModule.buatKalimatRingkasan(data, data.skor, CONFIG);
 
   // Kartu metrik
   DOM.raporWpmNilai.textContent = data.wpmRata;
@@ -698,7 +718,7 @@ function renderRaporUI(data, statusSimpan) {
 
   // Daftar saran konkret
   DOM.daftarSaranRapor.innerHTML = '';
-  const daftarSaran = reportModule.pilihSaran(data);
+  const daftarSaran = reportModule.pilihSaran(data, CONFIG);
   daftarSaran.forEach(teksSaran => {
     const itemEl = document.createElement('div');
     itemEl.className = 'saran-item';

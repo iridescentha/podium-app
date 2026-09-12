@@ -57,15 +57,59 @@ let status = 'berhenti';
 // Akumulasi data
 let transkripFinalGabungan = '';
 let transkripInterimTerbaru = '';
-let kataPerWaktu = []; // [{ timestamp, kata }] untuk perhitungan WPM per 30 detik
+let kataPerWaktu = []; // [{ detikSesi, kata }] untuk perhitungan WPM
 let rincianFiller = {}; // { 'eee': 4, 'anu': 2, ... }
 let totalFiller = 0;
 
-// Daftar kata pengisi standar bahasa Indonesia (sesuai Bagian 6.1)
+// ----------------------------------------------------------------------------
+// JAM SESI: waktu berjalan yang MENGABAIKAN durasi jeda.
+//
+// Kenapa tidak memakai jam dinding: kalau pengguna menjeda sesi lima menit lalu
+// melanjutkan, jam dinding menganggap lima menit itu waktu bicara dan seluruh
+// hitungan kecepatan bicara jadi kacau. Jam ini hanya berjalan saat status
+// bernilai 'berjalan', sehingga cap waktu tiap kata selalu berarti "detik ke
+// sekian sejak sesi dimulai, tanpa menghitung jeda".
+// ----------------------------------------------------------------------------
+let waktuMulaiSegmen = null;   // Kapan segmen berjalan saat ini dimulai (jam dinding)
+let detikSegmenSelesai = 0;    // Total detik dari segmen-segmen sebelum jeda terakhir
+
+/**
+ * Mengembalikan posisi waktu sekarang dalam detik sejak sesi dimulai,
+ * tidak termasuk waktu yang dihabiskan dalam kondisi terjeda.
+ */
+function detikSesiSekarang() {
+  const segmenBerjalan = (waktuMulaiSegmen !== null)
+    ? (Date.now() - waktuMulaiSegmen) / 1000
+    : 0;
+  return detikSegmenSelesai + segmenBerjalan;
+}
+
+/**
+ * Menutup segmen waktu yang sedang berjalan dan memindahkan durasinya ke
+ * akumulator. Dipanggil saat pause() dan stop() supaya jam berhenti bertambah.
+ */
+function tutupSegmenWaktu() {
+  if (waktuMulaiSegmen === null) return;
+  detikSegmenSelesai += (Date.now() - waktuMulaiSegmen) / 1000;
+  waktuMulaiSegmen = null;
+}
+
+// Daftar kata pengisi standar bahasa Indonesia (sesuai Bagian 6.1).
+// Dipakai hanya bila app.js tidak mengoper CONFIG.FILLER_WORDS saat start().
 const DAFTAR_FILLER_DEFAULT = [
   "eee", "emm", "hmm", "anu", "apa ya", "apa namanya",
   "gitu", "kayak", "jadi jadi", "terus terus", "oke oke"
 ];
+
+// Ambang bawaan, dipakai hanya jika CONFIG tidak dioper dari app.js.
+const KONFIG_BAWAAN = {
+  FILLER_WORDS: DAFTAR_FILLER_DEFAULT,
+  WPM_BUCKET_DETIK: 30,
+  WPM_BUCKET_MIN_DETIK: 10
+};
+
+// Salinan CONFIG yang sedang berlaku untuk sesi ini.
+let konfig = { ...KONFIG_BAWAAN };
 
 // Callbacks
 let eventCallbacks = {
@@ -97,9 +141,10 @@ export function isSupported() {
  * 3. Membuat instans recognition baru dan menyalakannya.
  *
  * @param {Object} callbacks - Kumpulan fungsi callback untuk memproses data suara
+ * @param {Object} config - Objek CONFIG dari app.js (ambang dan daftar kata pengisi)
  * @returns {boolean} True jika pengenalan berhasil dijalankan
  */
-export function start(callbacks = {}) {
+export function start(callbacks = {}, config = {}) {
   if (!isSupported()) {
     console.error('Web Speech API tidak didukung di browser ini.');
     if (typeof callbacks.onError === 'function') {
@@ -110,12 +155,23 @@ export function start(callbacks = {}) {
 
   eventCallbacks = { ...eventCallbacks, ...callbacks };
 
+  // Ambang dan daftar kata pengisi selalu berasal dari CONFIG di app.js bila
+  // dioper, supaya kalibrasi cukup dilakukan di satu tempat (Bagian 9 brief).
+  konfig = { ...KONFIG_BAWAAN, ...config };
+  if (!Array.isArray(konfig.FILLER_WORDS) || konfig.FILLER_WORDS.length === 0) {
+    konfig.FILLER_WORDS = DAFTAR_FILLER_DEFAULT;
+  }
+
   // Reset data sesi (hanya di sini, tidak pernah di resume)
   transkripFinalGabungan = '';
   transkripInterimTerbaru = '';
   kataPerWaktu = [];
   rincianFiller = {};
   totalFiller = 0;
+
+  // Jam sesi dimulai dari nol
+  detikSegmenSelesai = 0;
+  waktuMulaiSegmen = Date.now();
 
   status = 'berjalan';
   return inisialisasiRecognition();
@@ -136,6 +192,7 @@ export function start(callbacks = {}) {
 export function pause() {
   if (status !== 'berjalan') return false;
   status = 'dijeda';
+  tutupSegmenWaktu();
   lepasInstansRecognition();
   if (typeof eventCallbacks.onStatusChange === 'function') {
     eventCallbacks.onStatusChange('paused');
@@ -157,6 +214,7 @@ export function pause() {
 export function resume() {
   if (status !== 'dijeda') return false;
   status = 'berjalan';
+  waktuMulaiSegmen = Date.now(); // jam sesi berjalan lagi dari titik terakhir
   return inisialisasiRecognition();
 }
 
@@ -170,6 +228,7 @@ export function resume() {
  */
 export function stop() {
   status = 'berhenti';
+  tutupSegmenWaktu();
   lepasInstansRecognition();
   if (typeof eventCallbacks.onStatusChange === 'function') {
     eventCallbacks.onStatusChange('stopped');
@@ -315,19 +374,22 @@ function prosesPotonganFinal(potonganTeks) {
   const teksBersih = potonganTeks.toLowerCase().trim();
   if (!teksBersih) return;
 
-  const waktuSekarang = Date.now();
+  // Semua kata dalam satu potongan final diberi cap waktu yang sama, yaitu saat
+  // potongan itu difinalkan. Ini perkiraan, bukan waktu ucap sebenarnya, karena
+  // Chrome memfinalkan kalimat beberapa saat setelah kalimatnya selesai diucapkan.
+  const detikSesi = detikSesiSekarang();
   const daftarKata = teksBersih.split(/\s+/).filter(Boolean);
 
   // Catat kata untuk perhitungan WPM
   for (const k of daftarKata) {
-    kataPerWaktu.push({ timestamp: waktuSekarang, kata: k });
+    kataPerWaktu.push({ detikSesi, kata: k });
   }
 
   // Deteksi kata pengisi (filler words)
   let adaPenambahanFiller = false;
-  for (const filler of DAFTAR_FILLER_DEFAULT) {
+  for (const filler of konfig.FILLER_WORDS) {
     // Gunakan regex batas kata sederhana untuk mencocokkan frasa filler
-    const regex = new RegExp(`\\b${filler}\\b`, 'gi');
+    const regex = new RegExp(`\\b${amankanRegex(filler)}\\b`, 'gi');
     const cocok = teksBersih.match(regex);
     if (cocok && cocok.length > 0) {
       const jumlah = cocok.length;
@@ -346,15 +408,33 @@ function prosesPotonganFinal(potonganTeks) {
 }
 
 /**
- * Menghitung kecepatan berbicara bergulir dalam rentang 30 detik terakhir.
+ * Melindungi karakter khusus regex di dalam kata pengisi.
+ *
+ * CARA KERJA:
+ * Daftar kata pengisi dimaksudkan untuk disunting tangan saat kalibrasi. Bila
+ * seseorang menambahkan tanda kurung atau tanda tanya, string itu akan ditafsirkan
+ * sebagai pola regex dan bisa melempar galat yang mematikan seluruh penghitungan.
+ * Fungsi ini menyisipkan garis miring terbalik di depan setiap karakter berbahaya
+ * sehingga kata tersebut dicocokkan apa adanya.
+ */
+function amankanRegex(teks) {
+  return String(teks).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Menghitung kecepatan berbicara bergulir dalam jendela 30 detik terakhir.
+ *
+ * CARA KERJA:
+ * Jendela diukur memakai jam sesi, bukan jam dinding, sehingga waktu yang
+ * dihabiskan dalam kondisi terjeda tidak pernah ikut mengencerkan hitungan.
+ * Jumlah kata dalam jendela dikonversi ke satuan per menit.
  */
 function hitungWpmBergulir() {
-  const sekarang = Date.now();
-  const jendelaMulai = sekarang - 30000; // 30 detik ke belakang
+  const panjangJendela = konfig.WPM_BUCKET_DETIK;
+  const batasBawah = detikSesiSekarang() - panjangJendela;
 
-  const kataDalamJendela = kataPerWaktu.filter(item => item.timestamp >= jendelaMulai);
-  // (jumlah kata dalam 30 detik) * 2 = perkiraan WPM
-  const perkiraanWpm = kataDalamJendela.length * 2;
+  const kataDalamJendela = kataPerWaktu.filter(item => item.detikSesi >= batasBawah);
+  const perkiraanWpm = Math.round(kataDalamJendela.length * (60 / panjangJendela));
 
   if (typeof eventCallbacks.onWpmUpdate === 'function') {
     eventCallbacks.onWpmUpdate(perkiraanWpm);
@@ -362,19 +442,89 @@ function hitungWpmBergulir() {
 }
 
 /**
+ * Menyusun deret kecepatan bicara per potongan waktu sepanjang sesi.
+ *
+ * CARA KERJA:
+ * 1. Sesi dibagi menjadi potongan-potongan selebar CONFIG.WPM_BUCKET_DETIK,
+ *    dihitung dari jam sesi sehingga jeda tidak pernah menciptakan potongan kosong.
+ * 2. Setiap kata dimasukkan ke potongan sesuai cap waktunya.
+ * 3. Jumlah kata tiap potongan dikonversi ke satuan per menit memakai DURASI
+ *    NYATA potongan itu, bukan selalu 30 detik. Ini penting untuk potongan
+ *    terakhir yang hampir selalu terpotong di tengah: mengalikannya seolah-olah
+ *    berdurasi penuh akan membuat titik terakhir grafik anjlok tanpa sebab.
+ * 4. Potongan terakhir yang lebih pendek dari CONFIG.WPM_BUCKET_MIN_DETIK dibuang,
+ *    karena beberapa detik terakhir terlalu sedikit datanya untuk bermakna.
+ *
+ * @param {number} totalDetik - Durasi sesi yang dipakai sebagai batas akhir
+ * @returns {Array<{detikMulai: number, detikSelesai: number, wpm: number}>}
+ */
+function hitungDeretWpm(totalDetik) {
+  const lebar = konfig.WPM_BUCKET_DETIK;
+  const minimal = konfig.WPM_BUCKET_MIN_DETIK;
+  const durasi = Math.max(totalDetik, 0);
+  if (durasi <= 0) return [];
+
+  const jumlahPotongan = Math.ceil(durasi / lebar);
+  const deret = [];
+
+  for (let i = 0; i < jumlahPotongan; i++) {
+    const mulai = i * lebar;
+    const selesai = Math.min((i + 1) * lebar, durasi);
+    const lebarNyata = selesai - mulai;
+
+    // Buang ekor yang terlalu pendek untuk dibaca sebagai satu titik grafik
+    if (lebarNyata < minimal && i > 0) continue;
+    if (lebarNyata <= 0) continue;
+
+    // Potongan terakhir tidak diberi batas atas, supaya kata yang cap waktunya
+    // sedikit melewati durasi sesi (selisih pembulatan timer) tetap terhitung.
+    const batasAtas = (selesai >= durasi) ? Infinity : selesai;
+    const jumlahKata = kataPerWaktu.filter(
+      item => item.detikSesi >= mulai && item.detikSesi < batasAtas
+    ).length;
+
+    deret.push({
+      detikMulai: Math.round(mulai),
+      detikSelesai: Math.round(selesai),
+      wpm: Math.round(jumlahKata * (60 / lebarNyata))
+    });
+  }
+
+  return deret;
+}
+
+/**
  * Mengambil ringkasan hasil analisis ucapan untuk rapor.
  *
- * @param {number} durasiDetik - Durasi latihan dalam detik
+ * CARA KERJA:
+ * 1. Kecepatan rata-rata dihitung dari seluruh kata dibagi durasi sesi.
+ * 2. Deret kecepatan per potongan waktu disusun DI SINI, di dalam modul yang
+ *    memegang cap waktu tiap kata. report.js tidak boleh menyusunnya sendiri
+ *    dari satu angka rata-rata, karena hasilnya cuma garis datar palsu.
+ * 3. Durasi yang dipakai diambil dari timer sesi bila dioper app.js; bila tidak,
+ *    modul memakai jam sesinya sendiri yang juga sudah mengabaikan jeda.
+ *
+ * @param {number} durasiDetik - Durasi latihan dalam detik dari timer sesi
  * @returns {Object} Data metrik suara lengkap
  */
-export function getResults(durasiDetik = 1) {
+export function getResults(durasiDetik = null) {
+  const durasi = (typeof durasiDetik === 'number' && durasiDetik > 0)
+    ? durasiDetik
+    : detikSesiSekarang();
+
   const totalSemuaKata = kataPerWaktu.length;
-  const durasiMenit = Math.max(durasiDetik / 60, 0.1);
+  const durasiMenit = Math.max(durasi / 60, 0.1);
   const wpmRataRata = Math.round(totalSemuaKata / durasiMenit);
+  const deret = hitungDeretWpm(durasi);
 
   return {
     totalKata: totalSemuaKata,
     wpmRata: wpmRataRata,
+    durasiBicaraDetik: Math.round(durasi),
+    // Deret lengkap untuk grafik Tahap 4, plus bentuk ringkas berupa angka saja
+    // supaya skema penyimpanan Bagian 6.3 tetap berisi wpmSeri: [120, 131, 140]
+    deretWpm: deret,
+    wpmSeri: deret.map(d => d.wpm),
     filler: {
       total: totalFiller,
       rincian: { ...rincianFiller }
