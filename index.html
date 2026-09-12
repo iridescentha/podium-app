@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Podium — Pelatih Presentasi Pribadi</title>
+
+  <!-- Tipografi: Sora (judul & angka) dan Inter (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@400;600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- Chart.js dari CDN (untuk visualisasi grafik di Rapor & Riwayat) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Stylesheet Desain Token Sistem Panggung -->
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- ========================================================================
+       BANNER PERINGATAN BROWSER (Bagian 8)
+       Muncul jika browser tidak mendukung webkitSpeechRecognition
+       ======================================================================== -->
+  <div id="banner-browser" class="banner-peringatan tersembunyi">
+    Gunakan Google Chrome — analisis suara belum didukung browser ini.
+  </div>
+
+  <!-- ========================================================================
+       LAYAR 1: BERANDA (Bagian 5.1) - Tema Panggung (Gelap)
+       Memiliki efek satu momen lampu sorot halus di bagian atas
+       ======================================================================== -->
+  <section id="layar-beranda" class="layar layar--panggung aktif">
+    <div class="beranda-wrapper">
+      <div class="kontainer kontainer--beranda">
+
+        <!-- Kelompok 1: Judul & Tagline (jarak dalam kelompok 24px) -->
+        <div class="beranda-kelompok beranda-kelompok--judul">
+          <h1 class="beranda-judul">Podium</h1>
+          <p class="beranda-tagline">Latih presentasimu sendirian — dapatkan rapor yang jujur.</p>
+        </div>
+
+        <!-- Kelompok 2: Cara Kerja (jarak dalam kelompok 24px, antar kelompok 64px) -->
+        <div class="beranda-kelompok">
+          <div class="beranda-poin">
+            <div class="beranda-poin__item">
+              <span class="beranda-poin__angka">1</span>
+              <div class="beranda-poin__konten">
+                <div class="beranda-poin__judul">Rekam</div>
+                <div class="beranda-poin__deskripsi">Berlatih berbicara secara alami di hadapan layar laptopmu.</div>
+              </div>
+            </div>
+            <div class="beranda-poin__item">
+              <span class="beranda-poin__angka">2</span>
+              <div class="beranda-poin__konten">
+                <div class="beranda-poin__judul">Dianalisis langsung di perangkat</div>
+                <div class="beranda-poin__deskripsi">Suara, arah pandang, dan postur dinilai secara real-time tanpa
+                  server.</div>
+              </div>
+            </div>
+            <div class="beranda-poin__item">
+              <span class="beranda-poin__angka">3</span>
+              <div class="beranda-poin__konten">
+                <div class="beranda-poin__judul">Rapor terukur</div>
+                <div class="beranda-poin__deskripsi">Dapatkan evaluasi terukur, grafik kecepatan, dan saran konkret
+                  untuk perbaikan.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kelompok 3: Kartu Riwayat & Kartu Privasi (jarak dalam kelompok 24px, antar kelompok 64px) -->
+        <div class="beranda-kelompok beranda-kelompok--kartu">
+
+          <!-- Ringkasan Mini Riwayat (tampil jika sudah pernah ada sesi) -->
+          <div id="ringkasan-mini-wrap" class="kartu-ringkasan-mini" style="display: none;">
+            <div class="kartu-ringkasan-mini__judul">Riwayat Latihanmu</div>
+            <div class="ringkasan-mini-grid">
+              <div class="ringkasan-mini-kolom">
+                <div class="ringkasan-mini__angka" id="ringkasan-total-sesi">0</div>
+                <div class="ringkasan-mini__label">total sesi selesai</div>
+              </div>
+              <div class="ringkasan-mini-pemisah"></div>
+              <div class="ringkasan-mini-kolom">
+                <div class="ringkasan-mini__angka" id="ringkasan-skor-terakhir">0</div>
+                <div class="ringkasan-mini__label">skor sesi terakhir</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kotak Privasi Wajib (Bagian 5.1 teks verbatim, Perubahan 8) -->
+          <div class="kotak-privasi">
+            <div class="kotak-privasi__judul">Privasi & Keamanan Data</div>
+            <div class="kotak-privasi__isi">
+              Video diproses langsung di browsermu dan tidak pernah direkam atau dikirim. Transkripsi suara menggunakan
+              layanan speech bawaan Chrome.
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Kelompok 4: Tombol Aksi (jarak antar kelompok 64px, jarak antar tombol 12px) -->
+        <div class="beranda-kelompok beranda-kelompok--tombol">
+          <div class="tombol-grup">
+            <button id="btn-mulai-latihan" class="tombol tombol--utama">Mulai latihan</button>
+            <button id="btn-ke-riwayat" class="tombol tombol--sekunder">Riwayat</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================
+       LAYAR 2: PERSIAPAN (Bagian 5.2) - Tema Panggung (Gelap)
+       ======================================================================== -->
+  <section id="layar-persiapan" class="layar layar--panggung">
+    <div class="kontainer">
+      <h2>Persiapan Latihan</h2>
+      <p class="teks-deskripsi" style="margin-top: 8px;">Atur materi presentasi dan pastikan perangkatmu siap digunakan.
+      </p>
+
+      <div id="form-persiapan" style="margin-top: 24px;">
+        <!-- Input Judul -->
+        <div class="form-grup">
+          <label for="input-judul" class="form-label">Judul presentasi (wajib)</label>
+          <input type="text" id="input-judul" class="form-input" placeholder="Contoh: Pitching AI Inovasi Sosial"
+            required>
+        </div>
+
+        <!-- Pilihan Durasi Target -->
+        <div class="form-grup">
+          <label for="select-durasi" class="form-label">Target durasi bicara</label>
+          <select id="select-durasi" class="form-select">
+            <option value="180">3 Menit</option>
+            <option value="300" selected>5 Menit</option>
+            <option value="600">10 Menit</option>
+            <option value="0">Bebas (tanpa batas waktu)</option>
+          </select>
+        </div>
+
+        <!-- Checkbox Analisis Postur (Default MATI sampai model tersedia di Tahap 5) -->
+        <label class="form-checkbox-grup">
+          <input type="checkbox" id="checkbox-postur" class="form-checkbox">
+          <span>Analisis postur tubuh (eksperimental)</span>
+        </label>
+      </div>
+
+      <!-- Penjelasan Izin Sebelum Browser Popup Memicu (Bagian 5.2) -->
+      <div id="kotak-izin-edukasi" class="kartu">
+        <h3>Izin Perangkat</h3>
+        <p class="teks-deskripsi" style="margin-top: 8px;">
+          Podium butuh kamera untuk membaca arah pandang & postur, dan mikrofon untuk menganalisis caramu berbicara.
+        </p>
+        <div class="tombol-grup" style="margin-top: 24px;">
+          <button id="btn-minta-izin" class="tombol tombol--utama">Izinkan & lanjut</button>
+          <button id="btn-batal-persiapan" class="tombol tombol--sekunder">Batal</button>
+        </div>
+      </div>
+
+      <!-- Area Media & Status (Tampil setelah izin diberikan) -->
+      <div id="area-media-persiapan" class="area-media-persiapan" style="display: none;">
+        <!-- Preview Kamera -->
+        <div class="preview-kamera-kotak">
+          <video id="video-preview-persiapan" autoplay playsinline muted></video>
+        </div>
+
+        <!-- Bukti Mic Hidup: Meter Volume -->
+        <div class="meter-volume-kotak">
+          <div>
+            <h3>Indikator Mikrofon</h3>
+            <p class="teks-deskripsi" style="margin-top: 6px; font-size: 14px;">Ucapkan beberapa kata untuk memastikan
+              mikrofon menangkap suaramu.</p>
+          </div>
+          <div>
+            <div class="meter-volume-bar-wrap">
+              <div id="meter-volume-bar" class="meter-volume-bar"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between;" class="teks-kecil">
+              <span>Sensitivitas suara</span>
+              <span id="meter-volume-angka">0%</span>
+            </div>
+          </div>
+          <div class="teks-kecil">Mikrofon aktif & terhubung via Web Audio API.</div>
+        </div>
+      </div>
+
+      <!-- Status Pemuatan Model -->
+      <div class="daftar-status-model">
+        <div class="status-model-item">
+          <span>Model Pengenalan Suara (Web Speech API)</span>
+          <span class="status-model-badge badge-sukses">Selesai</span>
+        </div>
+        <div class="status-model-item">
+          <span>Model Arah Pandang (MediaPipe Face)</span>
+          <span id="status-model-wajah" class="status-model-badge badge-menunggu">Menunggu izin</span>
+        </div>
+        <div class="status-model-item">
+          <span>Model Postur Tubuh (Teachable Machine)</span>
+          <span id="status-model-postur" class="status-model-badge badge-menunggu">Nonaktif (Stub)</span>
+        </div>
+      </div>
+
+      <!-- ====================================================================
+           ALAT UJI BENTROK MIKROFON (TAHAP 0)
+           ==================================================================== -->
+      <div class="kotak-uji-bentrok">
+        <h4>Pengujian Bentrok Mikrofon (Tahap 0)</h4>
+        <p class="teks-deskripsi" style="font-size: 14px; margin-top: 4px;">
+          Uji apakah Web Speech API dan AnalyserNode Web Audio dapat bekerja berdampingan di Chrome desktop tanpa error
+          driver audio.
+        </p>
+        <button id="btn-uji-bentrok" class="tombol tombol--sekunder"
+          style="margin-top: 16px; font-size: 14px; padding: 10px 24px;" disabled>
+          Uji Bentrok Mikrofon (60 detik)
+        </button>
+        <pre id="log-uji-bentrok"
+          class="log-uji-bentrok">Klik 'Izinkan & lanjut' di atas, lalu jalankan pengujian ini.</pre>
+      </div>
+
+      <!-- Tombol Aksi Mulai Sesi -->
+      <div class="tombol-grup" style="margin-top: 32px;">
+        <button id="btn-mulai-sesi" class="tombol tombol--utama" disabled>Mulai sesi</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================
+       LAYAR 3: SESI (Bagian 5.3) - Tema Panggung (Paling Tenang)
+       ======================================================================== -->
+  <section id="layar-sesi" class="layar layar--panggung">
+    <div class="layar-sesi-wrap">
+
+      <!-- Timer Besar di Tengah (72px tabular) -->
+      <div class="timer-sesi-wrap">
+        <div id="timer-angka" class="timer-angka">00:00</div>
+        <div id="timer-progres-wrap" style="display: none;">
+          <div class="timer-progres-bar-wrap">
+            <div id="timer-progress-bar" class="timer-progres-bar"></div>
+          </div>
+          <div id="timer-progres-teks" class="timer-progres-teks">Target: 5 menit</div>
+        </div>
+      </div>
+
+      <!-- 3 Indikator Live Tenang (WPM, Kata Pengisi, Arah Pandang) -->
+      <div class="indikator-sesi-grid">
+        <div class="indikator-item">
+          <div id="live-angka-wpm" class="indikator-angka">0</div>
+          <div class="indikator-label">WPM saat ini</div>
+        </div>
+        <div class="indikator-item">
+          <div id="live-angka-filler" class="indikator-angka">0</div>
+          <div class="indikator-label">kata pengisi</div>
+        </div>
+        <div class="indikator-item">
+          <div id="live-status-pandang" class="indikator-angka" style="font-size: 20px;">depan</div>
+          <div class="indikator-label">arah pandang</div>
+        </div>
+      </div>
+
+      <!-- Tombol Kontrol Sesi -->
+      <div class="tombol-grup" style="margin-top: 16px;">
+        <button id="btn-jeda-sesi" class="tombol tombol--sekunder">Jeda</button>
+        <button id="btn-selesai-sesi" class="tombol tombol--utama">Selesai</button>
+      </div>
+
+      <!-- Preview Kamera Kecil di Pojok (±180px) Selalu Terlihat -->
+      <div class="preview-kamera-pojok">
+        <video id="video-preview-sesi" autoplay playsinline muted></video>
+        <div class="status-live-strip">
+          <span class="titik-live"></span>
+          <span>live, tidak direkam</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ========================================================================
+       LAYAR 4: RAPOR (Bagian 5.4) - Ruang Evaluasi (Terang)
+       ======================================================================== -->
+  <section id="layar-rapor" class="layar layar--terang">
+    <div class="kontainer">
+      <div class="teks-kecil" style="margin-bottom: 8px;">Rapor Latihan Presentasi</div>
+
+      <!-- Skor Total 0-100 & Kalimat Ringkasan Otomatis -->
+      <div class="rapor-skor-wrap">
+        <div id="rapor-skor-angka" class="rapor-skor-angka">0</div>
+        <p id="rapor-ringkasan-teks" class="rapor-ringkasan">Memuat ringkasan sesi latihan...</p>
+      </div>
+
+      <!-- Grid Kartu Metrik Terukur -->
+      <div class="grid-kartu-metrik">
+        <!-- WPM -->
+        <div class="kartu-metrik">
+          <div id="rapor-wpm-nilai" class="kartu-metrik__nilai">0</div>
+          <div class="kartu-metrik__label">WPM rata-rata</div>
+          <div id="rapor-wpm-label" class="teks-kecil" style="margin-top: 2px;">kecepatan ideal</div>
+        </div>
+
+        <!-- Kata Pengisi -->
+        <div class="kartu-metrik">
+          <div id="rapor-filler-nilai" class="kartu-metrik__nilai">0×</div>
+          <div class="kartu-metrik__label">kata pengisi (filler)</div>
+          <div id="rapor-filler-rincian" class="teks-kecil" style="margin-top: 2px;">tidak ada</div>
+        </div>
+
+        <!-- Kontak Pandang -->
+        <div class="kartu-metrik">
+          <div id="rapor-pandang-nilai" class="kartu-metrik__nilai">0%</div>
+          <div class="kartu-metrik__label">waktu menatap ke depan</div>
+          <div class="teks-kecil" style="margin-top: 2px;">wajah tak terlihat: <span
+              id="rapor-wajah-hilang-nilai">0%</span></div>
+        </div>
+
+        <!-- Jeda Panjang -->
+        <div class="kartu-metrik">
+          <div id="rapor-jeda-nilai" class="kartu-metrik__nilai">0×</div>
+          <div class="kartu-metrik__label">jeda hening (>3 detik)</div>
+        </div>
+
+        <!-- Volume Suara -->
+        <div class="kartu-metrik">
+          <div id="rapor-volume-nilai" class="kartu-metrik__nilai" style="text-transform: capitalize;">ideal</div>
+          <div class="kartu-metrik__label">tingkat volume suara</div>
+        </div>
+
+        <!-- Postur (kondisional) -->
+        <div id="rapor-postur-kartu" class="kartu-metrik" style="display: none;">
+          <div id="rapor-postur-nilai" class="kartu-metrik__nilai">-</div>
+          <div class="kartu-metrik__label">distribusi postur tubuh</div>
+        </div>
+      </div>
+
+      <!-- Grafik Garis WPM per 30 Detik -->
+      <div class="grafik-kartu">
+        <h3>Kecepatan Berbicara (WPM per 30 Detik)</h3>
+        <canvas id="chart-wpm-sesi" height="120"></canvas>
+      </div>
+
+      <!-- Saran Konkret Berdasarkan ATURAN_SARAN -->
+      <h3 style="margin-top: 32px;">Saran Latihan Konkret</h3>
+      <div id="daftar-saran-rapor" class="daftar-saran">
+        <!-- Disuntikkan via JS -->
+      </div>
+
+      <!-- Catatan Storage jika Gagal Simpan -->
+      <div id="rapor-catatan-storage" class="teks-kecil" style="color: var(--bahaya); display: none; margin-top: 16px;">
+      </div>
+
+      <!-- Tombol Aksi Rapor -->
+      <div class="tombol-grup" style="margin-top: 40px;">
+        <button id="btn-rapor-latihan-lagi" class="tombol tombol--utama">Latihan lagi</button>
+        <button id="btn-rapor-ke-beranda" class="tombol tombol--sekunder">Ke beranda</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================
+       LAYAR 5: RIWAYAT (Bagian 5.5) - Ruang Evaluasi (Terang)
+       ======================================================================== -->
+  <section id="layar-riwayat" class="layar layar--terang">
+    <div class="kontainer">
+      <div class="riwayat-header">
+        <div>
+          <h2>Riwayat Latihan</h2>
+          <p class="teks-kecil">Daftar rekapan seluruh sesi latihan presentasi yang tersimpan di browsermu.</p>
+        </div>
+        <button id="btn-hapus-semua-sesi" class="tombol tombol--bahaya"
+          style="font-size: 14px; padding: 10px 20px; display: none;">
+          Hapus semua
+        </button>
+      </div>
+
+      <!-- Daftar Kartu Sesi Riwayat -->
+      <div id="daftar-sesi-riwayat" class="daftar-sesi">
+        <!-- Disuntikkan via JS -->
+      </div>
+
+      <!-- Tombol Navigasi Kembali -->
+      <div class="tombol-grup" style="margin-top: 32px;">
+        <button id="btn-riwayat-ke-beranda" class="tombol tombol--sekunder">Kembali ke beranda</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modul Aplikasi ES6 -->
+  <script type="module" src="js/app.js"></script>
+</body>
+
+</html>

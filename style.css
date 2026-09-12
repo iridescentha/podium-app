@@ -1,0 +1,971 @@
+/* ==========================================================================
+   PODIUM - STYLESHEET
+   Sesuai Revisi Desain Token Sistem Panggung & Ruang Evaluasi:
+   - Lapisan Permukaan: --panggung, --panggung-naik, --garis
+   - Satu Momen Lampu Sorot (Radial Gradient halus di Layar Beranda)
+   - Kontras Teks Tinggi (WCAG AA) dengan --kapur opacity 0.75
+   - Ritme Ruang: 64px antar kelompok, 24px di dalam kelompok
+   - Angka Urut 1, 2, 3 pada Cara Kerja
+   - Kartu Riwayat Mini 480px dengan Pemisah Garis
+   - Tombol Utama (filter: brightness 1.08) & Tombol Sekunder (border --garis -> --redup)
+   - Kotak Privasi: Judul --kapur 14px dengan garis aksen kiri 2px --sorot
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. TOKEN DESAIN (CSS Custom Properties)
+   -------------------------------------------------------------------------- */
+:root {
+  /* Lapisan Permukaan Panggung (Perubahan 1) */
+  --panggung:       #14181D;   /* Latar utama halaman panggung */
+  --panggung-naik:  #1B2128;   /* Permukaan kartu — SATU tingkat lebih terang */
+  --garis:          #2A313A;   /* Garis pemisah & border kartu */
+
+  /* Kompatibilitas & Warna Dasar */
+  --bg-panggung:    var(--panggung);
+  --bg-terang:      #F7F5F0;   /* Latar ruang evaluasi (rapor, riwayat) */
+  --tinta:          #1E242B;   /* Teks utama di latar terang */
+  --kapur:          #EDEFF2;   /* Teks utama di latar gelap */
+  --sorot:          #E8B44A;   /* SATU-SATUNYA aksen: kuning lampu sorot */
+  --redup:          #8A9099;   /* Khusus label kecil, satuan, keterangan sekunder */
+  --bahaya:         #C4543D;   /* Hanya untuk hapus & error */
+
+  /* Kartu & Border di Latar Terang */
+  --border-terang:  rgba(30, 36, 43, 0.12);
+  --kartu-terang:   #FFFFFF;
+
+  /* Tipografi */
+  --font-judul:     'Sora', sans-serif;
+  --font-isi:       'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Transisi Layar */
+  --transisi-fade:  150ms ease-in-out;
+}
+
+/* --------------------------------------------------------------------------
+   2. RESET & DASAR
+   -------------------------------------------------------------------------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  min-height: 100vh;
+  font-family: var(--font-isi);
+  font-size: 16px;
+  line-height: 1.6;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: var(--panggung);
+  color: var(--kapur);
+  transition: background-color var(--transisi-fade), color var(--transisi-fade);
+}
+
+/* --------------------------------------------------------------------------
+   3. TIPOGRAFI & KONTRAS TEKS (Perubahan 3)
+   -------------------------------------------------------------------------- */
+h1, h2, h3, .angka-jumbo {
+  font-family: var(--font-judul);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 44px;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 28px;
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  font-size: 20px;
+}
+
+p, label, input, select, button {
+  font-size: 16px;
+}
+
+/* Teks body & deskripsi di latar gelap memakai --kapur dengan opacity 0.75 */
+.teks-deskripsi {
+  color: var(--kapur);
+  opacity: 0.75;
+  line-height: 1.6;
+}
+
+/* --redup HANYA untuk label kecil, satuan, dan keterangan sekunder */
+.teks-kecil {
+  font-size: 14px;
+  color: var(--redup);
+  line-height: 1.5;
+}
+
+.angka-jumbo {
+  font-size: 72px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* --------------------------------------------------------------------------
+   4. TATA LETAK & KONTAINER UMUM
+   -------------------------------------------------------------------------- */
+.kontainer {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+/* Layar SPA */
+.layar {
+  display: none;
+  opacity: 0;
+  transition: opacity var(--transisi-fade);
+  min-height: 100vh;
+}
+
+.layar.aktif {
+  display: block;
+  opacity: 1;
+}
+
+.layar--panggung {
+  background-color: var(--panggung);
+  color: var(--kapur);
+}
+
+.layar--terang {
+  background-color: var(--bg-terang);
+  color: var(--tinta);
+}
+
+/* Banner Peringatan Browser */
+.banner-peringatan {
+  background-color: #2D1B1B;
+  color: #FFCFCF;
+  border-bottom: 1px solid var(--bahaya);
+  padding: 12px 24px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.banner-peringatan.tersembunyi {
+  display: none;
+}
+
+/* --------------------------------------------------------------------------
+   5. KOMPONEN UMUM: TOMBOL (Perubahan 7) & KARTU (Perubahan 1)
+   -------------------------------------------------------------------------- */
+.tombol-grup {
+  display: flex;
+  gap: 12px; /* Keduanya sejajar horizontal dengan jarak 12px */
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+button, .tombol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-isi);
+  font-size: 16px;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  text-decoration: none;
+}
+
+button:focus-visible, .tombol:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--sorot);
+  outline-offset: 2px;
+}
+
+button:disabled, .tombol:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  filter: none !important;
+}
+
+/* Tombol Utama (Perubahan 7) */
+.tombol--utama {
+  background-color: var(--sorot);
+  color: var(--panggung);
+  padding: 14px 32px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: none;
+  box-shadow: none;
+  transform: none;
+  transition: filter 120ms ease;
+}
+
+.tombol--utama:hover:not(:disabled) {
+  filter: brightness(1.08); /* Cerahkan sedikit saat hover */
+  box-shadow: none;
+  transform: none;
+}
+
+.tombol--utama:active:not(:disabled) {
+  filter: brightness(0.96);
+  transform: none;
+}
+
+/* Tombol Sekunder (Perubahan 7) */
+.tombol--sekunder {
+  background: transparent;
+  border: 1px solid var(--garis);
+  color: var(--kapur);
+  padding: 14px 32px;
+  font-weight: 500;
+  border-radius: 999px;
+  box-shadow: none;
+  transform: none;
+  transition: border-color 120ms ease;
+}
+
+.tombol--sekunder:hover:not(:disabled) {
+  border-color: var(--redup); /* Saat hover: border jadi --redup */
+  color: var(--kapur);
+  box-shadow: none;
+  transform: none;
+}
+
+.layar--terang .tombol--sekunder {
+  color: var(--tinta);
+  border-color: var(--border-terang);
+}
+
+.layar--terang .tombol--sekunder:hover:not(:disabled) {
+  border-color: var(--tinta);
+}
+
+/* Tombol Bahaya */
+.tombol--bahaya {
+  background: transparent;
+  color: var(--bahaya);
+  border: 1px solid var(--bahaya);
+  border-radius: 999px;
+  box-shadow: none;
+  transform: none;
+  transition: background-color 120ms ease;
+}
+
+.tombol--bahaya:hover:not(:disabled) {
+  background-color: rgba(196, 84, 61, 0.12);
+}
+
+/* Kartu Umum (Perubahan 1) */
+.kartu {
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: none; /* Tanpa bayangan */
+}
+
+.layar--panggung .kartu {
+  background-color: var(--panggung-naik); /* Permukaan SATU tingkat lebih terang */
+  border: 1px solid var(--garis);         /* Border konsisten --garis */
+}
+
+.layar--terang .kartu {
+  background-color: var(--kartu-terang);
+  border: 1px solid var(--border-terang);
+}
+
+/* Kotak Privasi (Perubahan 8) */
+.kotak-privasi {
+  background-color: var(--panggung-naik);
+  border: 1px solid var(--garis);
+  border-left: 2px solid var(--sorot); /* Garis kiri 2px --sorot sebagai penanda */
+  border-radius: 10px;
+  padding: 20px 24px;
+  box-shadow: none;
+  width: 100%;
+}
+
+.kotak-privasi__judul {
+  font-size: 14px;
+  color: var(--kapur); /* --kapur biasa 14px (bukan kuning) */
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.kotak-privasi__isi {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--kapur);
+  opacity: 0.75;
+}
+
+/* Form Input & Select Konsisten */
+.form-grup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.form-label {
+  font-size: 14px;
+  color: var(--redup);
+}
+
+.form-input, .form-select {
+  padding: 14px 16px;
+  border-radius: 8px;
+  font-family: var(--font-isi);
+  font-size: 16px;
+  background-color: var(--panggung);
+  color: var(--kapur);
+  border: 1px solid var(--garis);
+  transition: border-color 120ms ease;
+}
+
+.form-input:focus, .form-select:focus {
+  border-color: var(--sorot);
+  outline: none;
+}
+
+.form-checkbox-grup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--kapur);
+  opacity: 0.75;
+  font-size: 15px;
+}
+
+.form-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--sorot);
+  cursor: pointer;
+}
+
+/* --------------------------------------------------------------------------
+   6. LAYAR 1: BERANDA
+   (Perubahan 2: Lampu Sorot, Perubahan 4: Wrapper & Ritme,
+    Perubahan 5: Cara Kerja, Perubahan 6: Kartu Riwayat Mini)
+   -------------------------------------------------------------------------- */
+
+/* Perubahan 2: Satu Momen Lampu Sorot Halus */
+#layar-beranda {
+  background-color: var(--panggung);
+  background-image: radial-gradient(
+    ellipse 900px 500px at 50% -10%,
+    rgba(232, 180, 74, 0.10) 0%,
+    rgba(232, 180, 74, 0.03) 40%,
+    transparent 70%
+  );
+  background-repeat: no-repeat;
+}
+
+/* Perubahan 4: Wrapper Terpusat Vertikal */
+.beranda-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 64px 24px;
+}
+
+.kontainer--beranda {
+  padding: 0;
+}
+
+/* Ritme Jarak (Perubahan 4): 64px antar kelompok, 24px di dalam kelompok */
+.beranda-kelompok {
+  margin-top: 64px;
+}
+
+.beranda-kelompok:first-child {
+  margin-top: 0;
+}
+
+/* Kelompok 1: Judul & Tagline */
+.beranda-kelompok--judul {
+  display: flex;
+  flex-direction: column;
+  gap: 24px; /* 24px di dalam kelompok */
+}
+
+.beranda-judul {
+  font-family: var(--font-judul);
+  font-size: 88px; /* 88px di desktop >=1024px */
+  font-weight: 700;
+  line-height: 0.95; /* Rapat ke 0.95 */
+  letter-spacing: -0.03em;
+  color: var(--kapur);
+  margin: 0;
+}
+
+@media (max-width: 1023px) {
+  .beranda-judul {
+    font-size: 64px;
+  }
+}
+
+@media (max-width: 600px) {
+  .beranda-judul {
+    font-size: 44px; /* Turun ke 44px di mobile */
+  }
+}
+
+.beranda-tagline {
+  font-size: 20px;
+  color: var(--kapur);
+  opacity: 0.75;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Kelompok 2: Tiga Poin Cara Kerja (Perubahan 5) */
+.beranda-poin {
+  display: flex;
+  flex-direction: column;
+  gap: 24px; /* 24px di dalam kelompok */
+}
+
+.beranda-poin__item {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 16px;
+  align-items: baseline;
+}
+
+.beranda-poin__angka {
+  font-family: var(--font-judul);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sorot); /* Angka urut kecil (1, 2, 3) berwarna --sorot */
+  line-height: 1.4;
+}
+
+.beranda-poin__konten {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.beranda-poin__judul {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--kapur);
+  line-height: 1.3;
+}
+
+.beranda-poin__deskripsi {
+  font-size: 15px;
+  color: var(--kapur);
+  opacity: 0.75;
+  line-height: 1.5;
+}
+
+/* Kelompok 3: Kartu-Kartu (Jarak di dalam kelompok 24px) */
+.beranda-kelompok--kartu {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Kartu Riwayat Mini di Beranda (Perubahan 6) */
+.kartu-ringkasan-mini {
+  background: var(--panggung-naik);
+  border: 1px solid var(--garis);
+  border-radius: 10px;
+  padding: 32px;
+  width: 100%;
+  max-width: 480px; /* Lebar mengikuti konten, maksimal 480px */
+  box-shadow: none;
+}
+
+.kartu-ringkasan-mini__judul {
+  font-size: 14px;
+  color: var(--kapur);
+  opacity: 0.75;
+  margin-bottom: 16px; /* Jarak 16px ke angka */
+  font-weight: 500;
+}
+
+.ringkasan-mini-grid {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.ringkasan-mini-kolom {
+  flex: 1;
+}
+
+.ringkasan-mini-pemisah {
+  width: 1px;
+  height: 48px;
+  background-color: var(--garis); /* Pemisah garis vertikal 1px --garis */
+}
+
+.ringkasan-mini__angka {
+  font-family: var(--font-judul);
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--sorot);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.ringkasan-mini__label {
+  font-size: 14px;
+  color: var(--redup);
+}
+
+/* --------------------------------------------------------------------------
+   7. LAYAR 2: PERSIAPAN
+   -------------------------------------------------------------------------- */
+.area-media-persiapan {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+@media (max-width: 600px) {
+  .area-media-persiapan {
+    grid-template-columns: 1fr;
+  }
+}
+
+.preview-kamera-kotak {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background-color: var(--panggung);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--garis);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-kamera-kotak video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.meter-volume-kotak {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background-color: var(--panggung-naik);
+  border-radius: 10px;
+  padding: 24px;
+  border: 1px solid var(--garis);
+}
+
+.meter-volume-bar-wrap {
+  width: 100%;
+  height: 14px;
+  background-color: var(--panggung);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 16px 0 8px 0;
+  border: 1px solid var(--garis);
+}
+
+.meter-volume-bar {
+  height: 100%;
+  width: 0%;
+  background-color: var(--sorot);
+  transition: width 80ms ease-out;
+}
+
+/* Status Pemuatan Model */
+.daftar-status-model {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.status-model-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background-color: var(--panggung-naik);
+  border: 1px solid var(--garis);
+  color: var(--kapur);
+}
+
+.status-model-badge {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.badge-menunggu {
+  background-color: rgba(138, 144, 153, 0.2);
+  color: var(--redup);
+}
+
+.badge-sukses {
+  background-color: rgba(232, 180, 74, 0.15);
+  color: var(--sorot);
+}
+
+.badge-gagal {
+  background-color: rgba(196, 84, 61, 0.2);
+  color: var(--bahaya);
+}
+
+/* Kotak Uji Bentrok Mikrofon */
+.kotak-uji-bentrok {
+  margin-top: 32px;
+  padding: 24px;
+  border-radius: 10px;
+  background-color: var(--panggung-naik);
+  border: 1px dashed var(--garis);
+}
+
+.kotak-uji-bentrok h4 {
+  font-size: 16px;
+  color: var(--sorot);
+  margin-bottom: 4px;
+}
+
+.log-uji-bentrok {
+  font-family: monospace;
+  font-size: 13px;
+  background-color: var(--panggung);
+  border: 1px solid var(--garis);
+  border-radius: 6px;
+  padding: 14px;
+  margin-top: 14px;
+  max-height: 120px;
+  overflow-y: auto;
+  color: var(--kapur);
+  line-height: 1.4;
+}
+
+/* --------------------------------------------------------------------------
+   8. LAYAR 3: SESI (Paling Tenang)
+   -------------------------------------------------------------------------- */
+.layar-sesi-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 40px 24px;
+  position: relative;
+  text-align: center;
+}
+
+.timer-sesi-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 48px;
+}
+
+.timer-angka {
+  font-size: 72px;
+  font-weight: 700;
+  font-family: var(--font-judul);
+  font-variant-numeric: tabular-nums;
+  color: var(--kapur);
+  letter-spacing: -0.02em;
+}
+
+.timer-progres-teks {
+  font-size: 14px;
+  color: var(--redup);
+}
+
+.timer-progres-bar-wrap {
+  width: 240px;
+  height: 4px;
+  background-color: var(--garis);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.timer-progres-bar {
+  height: 100%;
+  width: 0%;
+  background-color: var(--sorot);
+  transition: width 1s linear;
+}
+
+/* 3 Indikator Live Tenang */
+.indikator-sesi-grid {
+  display: flex;
+  gap: 48px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 48px;
+}
+
+.indikator-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.indikator-angka {
+  font-family: var(--font-judul);
+  font-size: 28px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--kapur);
+}
+
+.indikator-label {
+  font-size: 14px;
+  color: var(--redup);
+}
+
+.pulse-angka {
+  animation: denyutAngka 0.3s ease-out;
+}
+
+@keyframes denyutAngka {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.25); color: var(--sorot); }
+  100% { transform: scale(1); }
+}
+
+/* Preview Kamera Kecil di Pojok (±180px) */
+.preview-kamera-pojok {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 180px;
+  border-radius: 10px;
+  overflow: hidden;
+  background-color: var(--panggung);
+  border: 1px solid var(--garis);
+  box-shadow: none;
+  z-index: 100;
+}
+
+.preview-kamera-pojok video {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  transform: scaleX(-1);
+}
+
+.status-live-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background-color: var(--panggung-naik);
+  font-size: 11px;
+  color: var(--redup);
+  border-top: 1px solid var(--garis);
+}
+
+.titik-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--sorot);
+  animation: denyutPelan 2s infinite ease-in-out;
+}
+
+@keyframes denyutPelan {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.85); }
+}
+
+/* --------------------------------------------------------------------------
+   9. LAYAR 4: RAPOR (Ruang Evaluasi - Terang)
+   -------------------------------------------------------------------------- */
+.rapor-skor-wrap {
+  text-align: left;
+  margin-bottom: 28px;
+}
+
+.rapor-skor-angka {
+  font-size: 72px;
+  font-weight: 700;
+  font-family: var(--font-judul);
+  font-variant-numeric: tabular-nums;
+  color: var(--sorot);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.rapor-ringkasan {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--tinta);
+  line-height: 1.5;
+}
+
+/* Grid Kartu Metrik */
+.grid-kartu-metrik {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 32px 0;
+}
+
+.kartu-metrik {
+  padding: 20px;
+  border-radius: 10px;
+  background-color: var(--kartu-terang);
+  border: 1px solid var(--border-terang);
+  box-shadow: none;
+}
+
+.kartu-metrik__nilai {
+  font-family: var(--font-judul);
+  font-size: 28px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta);
+}
+
+.kartu-metrik__label {
+  font-size: 14px;
+  color: var(--redup);
+  margin-top: 4px;
+}
+
+/* Grafik Chart.js */
+.grafik-kartu {
+  margin: 24px 0;
+  padding: 24px;
+  border-radius: 10px;
+  background-color: var(--kartu-terang);
+  border: 1px solid var(--border-terang);
+  box-shadow: none;
+}
+
+.grafik-kartu h3 {
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+/* Daftar Saran Konkret */
+.daftar-saran {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.saran-item {
+  display: flex;
+  gap: 12px;
+  padding: 18px 20px;
+  border-radius: 10px;
+  background-color: var(--kartu-terang);
+  border: 1px solid var(--border-terang);
+  font-size: 15px;
+  line-height: 1.5;
+  box-shadow: none;
+}
+
+.saran-item__aksen {
+  width: 4px;
+  border-radius: 999px;
+  background-color: var(--sorot);
+  flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   10. LAYAR 5: RIWAYAT (Ruang Evaluasi - Terang)
+   -------------------------------------------------------------------------- */
+.riwayat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.daftar-sesi {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.item-sesi {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-radius: 10px;
+  background-color: var(--kartu-terang);
+  border: 1px solid var(--border-terang);
+  box-shadow: none;
+}
+
+.item-sesi__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.item-sesi__judul {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.item-sesi__meta {
+  font-size: 14px;
+  color: var(--redup);
+}
+
+.item-sesi__skor {
+  font-family: var(--font-judul);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--sorot);
+  font-variant-numeric: tabular-nums;
+  margin-right: 16px;
+}
+
+.item-sesi__aksi {
+  display: flex;
+  align-items: center;
+}
+
+.pesan-kosong {
+  padding: 48px 0;
+  text-align: center;
+  color: var(--redup);
+}
+
+/* --------------------------------------------------------------------------
+   11. AKSESIBILITAS & PREFERS-REDUCED-MOTION
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
