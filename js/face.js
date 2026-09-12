@@ -3,84 +3,126 @@
  * MODUL ANALISIS WAJAH & ARAH PANDANG (FACE) - PODIUM
  * ============================================================================
  * File: js/face.js
- * Deskripsi:
- * Menggunakan MediaPipe Tasks Vision (Face Landmarker dengan Blendshapes)
- * untuk mendeteksi arah pandang (eyeLookDownLeft, eyeLookDownRight) dan
- * memantau apakah wajah pengguna terlihat di depan kamera.
- * 
- * Modul ini mengekspor antarmuka standar:
- * - loadModel(): Memuat modul wasm & face landmarker secara lazy.
- * - isReady(): Memeriksa kesiapan model.
- * - start(callbacks, videoElement): Memulai loop inferensi arah pandang (tiap ±150ms).
- * - stop(): Menghentikan loop inferensi.
- * - getResults(): Mengembalikan metrik kontak pandang & persentase wajah tak terlihat.
+ *
+ * STATUS SAAT INI: MODUL SENGAJA DILUMPUHKAN, menunggu implementasi Tahap 2.
+ *
+ * KENAPA DILUMPUHKAN, BUKAN DIBIARKAN JALAN:
+ * Versi sebelumnya menjalankan setInterval yang mencatat SETIAP frame sebagai
+ * "menatap depan" tanpa pernah benar-benar menyentuh kamera. Akibatnya kontak
+ * pandang selalu terbaca 100% dan skor total ikut terdongkrak oleh angka yang
+ * tidak pernah diukur. Rapor jujur yang kehilangan satu metrik jauh lebih
+ * berguna daripada rapor lengkap yang isinya karangan.
+ *
+ * SELAMA `tersedia === false`:
+ * - start() tidak menghitung frame apa pun dan tidak memakai CPU sama sekali.
+ * - getResults() mengembalikan { tersedia: false }, yang dibaca report.js untuk
+ *   mengeluarkan bobot arah pandang dari rumus skor (bobotnya dibagi ulang ke
+ *   metrik lain) dan menandai kartunya "belum aktif" di Layar Rapor.
+ *
+ * TAHAP 2 mengisi blok bertanda TODO di bawah dengan MediaPipe Tasks Vision
+ * (FaceLandmarker + blendshapes), lalu mengubah `tersedia` menjadi true.
+ * Seluruh struktur modul, nama variabel metrik, dan kontrak fungsinya sengaja
+ * dipertahankan supaya Tahap 2 hanya perlu mengisi, bukan menulis ulang.
+ *
+ * Antarmuka standar modul analisis:
+ * - loadModel(): memuat wasm & model secara lazy (Tahap 2).
+ * - isReady(): apakah model siap dipakai.
+ * - start(callbacks, videoElement): memulai loop inferensi arah pandang.
+ * - stop(): menghentikan loop inferensi.
+ * - getResults(): agregat kontak pandang & persentase wajah tak terlihat.
  * ============================================================================
  */
+
+// Saklar kejujuran modul. Selama false, modul tidak boleh menghasilkan angka
+// apa pun. Tahap 2 mengubahnya menjadi true setelah model benar-benar memuat.
+let tersedia = false;
 
 let landmarker = null;
 let sedangBerjalan = false;
 let intervalId = null;
 
-// Metrik sesi
+// Metrik sesi (dihitung ulang setiap start)
 let totalFrameDianalisis = 0;
 let frameMenatapDepan = 0;
 let frameMenunduk = 0;
 let frameWajahTakTerlihat = 0;
 
 let callbacksEksternal = {
-  onGazeUpdate: null // Callback arah pandang terkini: 'depan' | 'bawah' | 'tidak_terlihat'
+  onGazeUpdate: null // Arah pandang terkini: 'depan' | 'bawah' | 'tidak terlihat' | 'belum aktif'
 };
 
 /**
- * Memeriksa apakah model Face Landmarker sudah siap.
+ * Memeriksa apakah model Face Landmarker sudah siap dipakai.
+ *
+ * CARA KERJA:
+ * Mengembalikan true hanya jika saklar `tersedia` sudah dinyalakan Tahap 2 DAN
+ * objek landmarker benar-benar terbentuk. Dua syarat ini sengaja digabung agar
+ * mustahil ada jalur kode yang menganggap modul siap padahal modelnya kosong.
  */
 export function isReady() {
-  return Boolean(landmarker);
+  return Boolean(tersedia && landmarker);
 }
 
 /**
- * Memuat modul MediaPipe Tasks Vision Face Landmarker.
- * (Akan dikalibrasi penuh pada Tahap 2).
+ * Memuat model MediaPipe Tasks Vision Face Landmarker.
+ *
+ * CARA KERJA (rencana Tahap 2):
+ * 1. Impor dinamis @mediapipe/tasks-vision dari CDN saat sesi akan dimulai.
+ * 2. Memuat berkas wasm, lalu membuat FaceLandmarker dengan
+ *    outputFaceBlendshapes: true agar nilai eyeLookDown tersedia.
+ * 3. Menyalakan saklar `tersedia` hanya bila kedua langkah di atas berhasil.
+ *
+ * Saat ini fungsi ini jujur mengembalikan false tanpa memuat apa pun, sehingga
+ * tidak ada permintaan jaringan yang sia-sia sebelum Tahap 2 dikerjakan.
  */
 export async function loadModel() {
-  try {
-    // Pada Tahap 0, verifikasi konektivitas / simulasikan kesiapan modul
-    console.log('Face Landmarker: Memeriksa dependensi Tasks Vision...');
-    return true;
-  } catch (err) {
-    console.error('Gagal memuat Face Landmarker model:', err);
-    return false;
-  }
+  // TODO Tahap 2: impor dinamis FaceLandmarker + FilesetResolver, lalu set tersedia = true.
+  console.info('Modul arah pandang belum aktif (implementasi MediaPipe masuk di Tahap 2).');
+  return false;
 }
 
 /**
  * Memulai analisis arah pandang real-time.
+ *
+ * CARA KERJA:
+ * 1. Menyimpan callback dan mengosongkan seluruh penghitung frame sesi.
+ * 2. Jika modul belum tersedia, fungsi berhenti di sini: tidak ada interval yang
+ *    dijalankan dan tidak ada frame yang dicatat. Indikator di Layar Sesi diberi
+ *    tahu sekali bahwa modul ini "belum aktif" supaya pengguna tidak mengira
+ *    aplikasinya rusak.
+ * 3. Jika sudah tersedia (Tahap 2), barulah loop inferensi tiap
+ *    CONFIG.FACE_POLL_INTERVAL_MS dijalankan terhadap elemen video sesi.
+ *
+ * @param {Object} callbacks - { onGazeUpdate }
+ * @param {HTMLVideoElement} videoElement - Sumber frame kamera sesi
+ * @returns {boolean} True jika loop inferensi benar-benar berjalan
  */
 export function start(callbacks = {}, videoElement = null) {
   callbacksEksternal = { ...callbacksEksternal, ...callbacks };
-  sedangBerjalan = true;
 
-  // Reset metrik
   totalFrameDianalisis = 0;
   frameMenatapDepan = 0;
   frameMenunduk = 0;
   frameWajahTakTerlihat = 0;
 
-  // Polling loop pengujian awal (akan digantikan pemanggilan detectForVideo di Tahap 2)
-  intervalId = setInterval(() => {
-    if (!sedangBerjalan) return;
-
-    totalFrameDianalisis++;
-    frameMenatapDepan++;
-
+  if (!isReady()) {
+    sedangBerjalan = false;
     if (typeof callbacksEksternal.onGazeUpdate === 'function') {
-      callbacksEksternal.onGazeUpdate('depan');
+      callbacksEksternal.onGazeUpdate('belum aktif');
     }
-  }, 150);
+    return false;
+  }
+
+  sedangBerjalan = true;
+
+  // TODO Tahap 2: ganti isi interval ini dengan landmarker.detectForVideo(videoElement, now)
+  // lalu klasifikasikan blendshapes eyeLookDownLeft + eyeLookDownRight terhadap
+  // CONFIG.LOOK_DOWN_THRESHOLD, dan catat frame tanpa wajah ke frameWajahTakTerlihat.
+  return true;
 }
 
 /**
- * Menghentikan analisis arah pandang.
+ * Menghentikan analisis arah pandang dan melepas loop inferensi.
  */
 export function stop() {
   sedangBerjalan = false;
@@ -91,17 +133,31 @@ export function stop() {
 }
 
 /**
- * Mengambil ringkasan kontak pandang untuk Rapor.
- * Sesuai Bagian 6.1:
- * - Frame tanpa wajah dikeluarkan dari pembagi persentase pandang depan.
- * - pandangPersen = frameMenatapDepan / (totalFrame - frameWajahTakTerlihat)
+ * Mengambil agregat kontak pandang untuk Rapor.
+ *
+ * CARA KERJA:
+ * 1. Bila modul belum tersedia, mengembalikan { tersedia: false } dan TIDAK
+ *    mengarang angka apa pun. report.js membaca penanda ini untuk mengeluarkan
+ *    bobot arah pandang dari rumus skor.
+ * 2. Bila tersedia, frame tanpa wajah dikeluarkan dari pembagi supaya menutup
+ *    kamera tidak dihitung sebagai "tidak menatap depan"; kejadian itu dilaporkan
+ *    terpisah lewat wajahTakTerlihatPersen.
+ *
+ * @returns {Object} { tersedia: false } atau agregat lengkap arah pandang
  */
 export function getResults() {
+  if (!tersedia) {
+    return { tersedia: false };
+  }
+
   const frameValid = totalFrameDianalisis - frameWajahTakTerlihat;
-  const pandangPersen = frameValid > 0 ? (frameMenatapDepan / frameValid) : 1.0;
-  const wajahTakTerlihatPersen = totalFrameDianalisis > 0 ? (frameWajahTakTerlihat / totalFrameDianalisis) : 0.0;
+  const pandangPersen = frameValid > 0 ? (frameMenatapDepan / frameValid) : 0;
+  const wajahTakTerlihatPersen = totalFrameDianalisis > 0
+    ? (frameWajahTakTerlihat / totalFrameDianalisis)
+    : 0;
 
   return {
+    tersedia: true,
     pandangPersen: Math.min(Math.max(pandangPersen, 0), 1),
     wajahTakTerlihatPersen: Math.min(Math.max(wajahTakTerlihatPersen, 0), 1),
     totalFrame: totalFrameDianalisis,

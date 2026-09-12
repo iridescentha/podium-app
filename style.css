@@ -847,6 +847,14 @@ button:disabled, .tombol:disabled {
   color: var(--tinta);
 }
 
+/* Nilai kartu metrik untuk modul yang belum berjalan.
+   Dibedakan ukuran dan warnanya supaya "belum aktif" tidak terbaca sebagai
+   angka hasil pengukuran, tetap memakai token --redup tanpa warna aksen baru. */
+.kartu-metrik__nilai--nonaktif {
+  font-size: 20px;
+  color: var(--redup);
+}
+
 .kartu-metrik__label {
   font-size: 14px;
   color: var(--redup);

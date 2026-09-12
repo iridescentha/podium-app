@@ -19,7 +19,10 @@ export const ATURAN_SARAN = [
     saran: "Gunakan teknik jeda sadar: daripada mengisi keheningan dengan 'eee' atau 'jadi', tarik napas lembut dan biarkan hening sejenak sebelum kalimat berikutnya."
   },
   {
-    kondisi: (data) => data.pandangPersen < 0.6,
+    // Penjaga `pandangTersedia` wajib ada: saat modul arah pandang mati,
+    // pandangPersen bernilai null dan `null < 0.6` bernilai true di JavaScript,
+    // sehingga saran ini akan muncul untuk metrik yang tidak pernah diukur.
+    kondisi: (data) => data.pandangTersedia === true && data.pandangPersen < 0.6,
     saran: "Gunakan teknik segitiga pandang: jaga tatapan ke arah kamera/audiens secara bergantian agar pendengar merasa diajak berinteraksi langsung."
   },
   {
@@ -80,27 +83,77 @@ export function hitungSkorJeda(jumlahJeda) {
 }
 
 /**
- * Menghitung skor total akhir (0–100) berdasarkan bobot modul yang aktif.
- * 
- * Sesuai Bagian 6.2:
- * Dengan postur nonaktif (kondisi default):
- *   skor = 35 * skorWPM + 27 * skorFiller + 27 * skorPandang + 11 * skorJeda
- * Dengan postur aktif:
- *   skor = 30 * skorWPM + 25 * skorFiller + 25 * skorPandang + 10 * skorJeda + 10 * skorPostur
+ * Tabel bobot skor sesuai Bagian 6.2 GEMINI.md. Keduanya berjumlah tepat 100
+ * saat seluruh metrik di dalamnya benar-benar terukur.
+ */
+export const BOBOT_SKOR = {
+  tanpaPostur: { wpm: 35, filler: 27, pandang: 27, jeda: 11 },
+  denganPostur: { wpm: 30, filler: 25, pandang: 25, jeda: 10, postur: 10 }
+};
+
+/**
+ * Membatasi sebuah nilai ke rentang 0.0–1.0 agar tidak ada sub-skor liar.
+ */
+function klem01(nilai) {
+  const angka = Number(nilai);
+  if (!Number.isFinite(angka)) return 0;
+  return Math.min(Math.max(angka, 0), 1);
+}
+
+/**
+ * Menghitung skor total akhir (0–100) berdasarkan modul yang benar-benar terukur.
+ *
+ * CARA KERJA:
+ * 1. Memilih tabel bobot dasar: dengan postur atau tanpa postur (Bagian 6.2).
+ * 2. MEMBUANG komponen yang modulnya tidak menghasilkan data. Contoh saat ini:
+ *    modul arah pandang dilumpuhkan sampai Tahap 2, sehingga kunci `pandang`
+ *    dikeluarkan dari tabel bobot alih-alih diisi angka karangan.
+ * 3. MENORMALKAN ULANG sisa bobot supaya totalnya kembali 100. Bobot metrik yang
+ *    hilang otomatis terbagi ke metrik lain secara proporsional, persis prinsip
+ *    yang sudah dipakai untuk kondisi postur nonaktif. Karena kedua tabel dasar
+ *    sudah berjumlah 100, normalisasi ini tidak mengubah apa pun ketika seluruh
+ *    modul aktif: hasilnya identik dengan rumus lama.
+ * 4. Menjumlahkan bobot ternormalisasi dikali sub-skor masing-masing komponen.
+ *
+ * Alasan desainnya: skor harus selalu berarti "persentase dari yang benar-benar
+ * diukur". Metrik yang tidak terukur tidak boleh menambah maupun mengurangi nilai.
+ *
+ * @param {Object} metrik - Objek sesi lengkap (lihat skema Bagian 6.3)
+ * @param {boolean} posturAktif - Preferensi pengguna untuk mengaktifkan modul postur
+ * @returns {number} Skor bulat 0–100
  */
 export function hitungSkorTotal(metrik, posturAktif = false) {
-  const sWpm = hitungSkorWpm(metrik.wpmRata);
-  const sFiller = hitungSkorFiller(metrik.filler.total, metrik.durasiDetik);
-  const sPandang = Math.min(Math.max(metrik.pandangPersen || 0, 0), 1);
-  const sJeda = hitungSkorJeda(metrik.jeda ? metrik.jeda.jumlah : 0);
+  // Postur hanya ikut dihitung bila pengguna memintanya DAN modulnya benar-benar
+  // melaporkan diri aktif. Checkbox yang dicentang di atas modul stub tidak cukup.
+  const posturTerukur = Boolean(posturAktif && metrik.postur && metrik.postur.aktif);
+  const bobot = { ...(posturTerukur ? BOBOT_SKOR.denganPostur : BOBOT_SKOR.tanpaPostur) };
+
+  const subSkor = {
+    wpm: hitungSkorWpm(metrik.wpmRata),
+    filler: hitungSkorFiller(metrik.filler.total, metrik.durasiDetik),
+    jeda: hitungSkorJeda(metrik.jeda ? metrik.jeda.jumlah : 0)
+  };
+
+  // Arah pandang: hanya masuk hitungan bila modulnya melaporkan data terukur.
+  if (metrik.pandangTersedia === true) {
+    subSkor.pandang = klem01(metrik.pandangPersen);
+  } else {
+    delete bobot.pandang;
+  }
+
+  if (posturTerukur) {
+    subSkor.postur = klem01(metrik.postur.skorAudiens);
+  } else {
+    delete bobot.postur;
+  }
+
+  const totalBobot = Object.values(bobot).reduce((a, b) => a + b, 0);
+  if (totalBobot <= 0) return 0;
 
   let skorAkhir = 0;
-
-  if (posturAktif && metrik.postur && metrik.postur.aktif) {
-    const sPostur = metrik.postur.skorAudiens || 1.0;
-    skorAkhir = (30 * sWpm) + (25 * sFiller) + (25 * sPandang) + (10 * sJeda) + (10 * sPostur);
-  } else {
-    skorAkhir = (35 * sWpm) + (27 * sFiller) + (27 * sPandang) + (11 * sJeda);
+  for (const [nama, nilaiBobot] of Object.entries(bobot)) {
+    const bobotTernormalisasi = (nilaiBobot / totalBobot) * 100;
+    skorAkhir += bobotTernormalisasi * (subSkor[nama] || 0);
   }
 
   return Math.round(Math.min(Math.max(skorAkhir, 0), 100));
@@ -113,10 +166,12 @@ export function hitungSkorTotal(metrik, posturAktif = false) {
 export function buatKalimatRingkasan(metrik, skorTotal) {
   const sWpm = hitungSkorWpm(metrik.wpmRata);
   const sFiller = hitungSkorFiller(metrik.filler.total, metrik.durasiDetik);
-  const sPandang = metrik.pandangPersen || 0;
+  // Arah pandang hanya boleh disebut dalam kalimat evaluasi bila benar-benar diukur.
+  const pandangTersedia = metrik.pandangTersedia === true;
+  const sPandang = pandangTersedia ? klem01(metrik.pandangPersen) : 0;
 
   let kekuatan = "Kecepatan bicaramu sangat teratur";
-  if (sPandang > 0.8) {
+  if (pandangTersedia && sPandang > 0.8) {
     kekuatan = "Kontak pandangmu ke depan sangat konsisten";
   } else if (sFiller > 0.8) {
     kekuatan = "Pilihan katamu sangat bersih dari kata pengisi";
@@ -127,7 +182,7 @@ export function buatKalimatRingkasan(metrik, skorTotal) {
   let perbaikan = "pertahankan ketenangan ini untuk sesi berikutnya.";
   if (metrik.filler.total > 6) {
     perbaikan = `fokus berikutnya: kurangi kata pengisi (${metrik.filler.total}× terdeteksi).`;
-  } else if (sPandang < 0.6) {
+  } else if (pandangTersedia && sPandang < 0.6) {
     perbaikan = "fokus berikutnya: lebih sering menatap lurus ke arah audiens.";
   } else if (metrik.wpmRata > 160) {
     perbaikan = "fokus berikutnya: beri jeda sejenak di tiap jeda kalimat.";

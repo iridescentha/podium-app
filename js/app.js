@@ -142,7 +142,7 @@ const DOM = {
   raporFillerNilai: document.getElementById('rapor-filler-nilai'),
   raporFillerRincian: document.getElementById('rapor-filler-rincian'),
   raporPandangNilai: document.getElementById('rapor-pandang-nilai'),
-  raporWajahHilangNilai: document.getElementById('rapor-wajah-hilang-nilai'),
+  raporPandangKet: document.getElementById('rapor-pandang-ket'),
   raporJedaNilai: document.getElementById('rapor-jeda-nilai'),
   raporVolumeNilai: document.getElementById('rapor-volume-nilai'),
   raporPosturKartu: document.getElementById('rapor-postur-kartu'),
@@ -430,10 +430,12 @@ function mulaiSesiLatihan() {
   state.durasiBerjalanDetik = 0;
   state.sesiBerjalan = true;
   state.sesiDijeda = false;
-  state.metrikLive = { wpm: 0, fillerTotal: 0, arahPandang: 'depan' };
+  // Indikator arah pandang dimulai dari "belum aktif", bukan "depan". Modul face
+  // yang akan mengoreksinya sendiri lewat onGazeUpdate begitu benar-benar mengukur.
+  state.metrikLive = { wpm: 0, fillerTotal: 0, arahPandang: 'belum aktif' };
   DOM.liveAngkaWpm.textContent = '0';
   DOM.liveAngkaFiller.textContent = '0';
-  DOM.liveStatusPandang.textContent = 'depan';
+  DOM.liveStatusPandang.textContent = 'belum aktif';
   DOM.tombolJedaSesi.textContent = 'Jeda';
 
   // Siapkan tampilan indikator target durasi
@@ -561,7 +563,9 @@ function selesaiSesiLatihan() {
 
   // Evaluasi batas durasi minimal
   if (state.durasiBerjalanDetik < CONFIG.MIN_SESSION_DURATION_S) {
-    alert('Sesi terlalu pendek untuk dianalisis — coba minimal 1 menit.');
+    // Ambang 30 detik di CONFIG adalah batas keras penolakan; 1 menit disebut
+    // sebagai saran ideal agar metriknya cukup padat untuk bermakna.
+    alert('Sesi di bawah 30 detik tidak bisa dianalisis. Untuk hasil yang bermakna, coba minimal 1 menit.');
     tampilkanLayar('layar-beranda');
     return;
   }
@@ -592,15 +596,21 @@ function prosesDanTampilkanRapor() {
       rincian: hasilSpeech.filler.rincian,
       dariAudio: hasilAudio.fillerDariAudio.total
     },
-    pandangPersen: hasilFace.pandangPersen,
-    wajahTakTerlihatPersen: hasilFace.wajahTakTerlihatPersen,
+    // Modul arah pandang melaporkan sendiri apakah datanya benar-benar terukur.
+    // Selama dilumpuhkan (sampai Tahap 2) nilainya null, bukan 0, supaya
+    // "belum diukur" tidak pernah tertukar dengan "0% menatap ke depan".
+    pandangTersedia: hasilFace.tersedia === true,
+    pandangPersen: hasilFace.tersedia === true ? hasilFace.pandangPersen : null,
+    wajahTakTerlihatPersen: hasilFace.tersedia === true ? hasilFace.wajahTakTerlihatPersen : null,
     jeda: {
       jumlah: hasilAudio.jeda.jumlah,
       terlamaDetik: hasilAudio.jeda.terlamaDetik
     },
     volumeLabel: hasilAudio.volumeLabel,
     postur: {
-      aktif: state.analisisPosturAktif,
+      // Diambil dari laporan modulnya, bukan dari centang checkbox. Dengan begitu
+      // modul stub tidak bisa menyumbang bobot skor untuk sesuatu yang tidak diukur.
+      aktif: hasilPose.aktif === true,
       distribusi: hasilPose.distribusi
     }
   };
@@ -640,8 +650,18 @@ function renderRaporUI(data, statusSimpan) {
     .join(', ') || 'tidak ada kata pengisi dominan';
   DOM.raporFillerRincian.textContent = rincianStr;
 
-  DOM.raporPandangNilai.textContent = `${Math.round(data.pandangPersen * 100)}%`;
-  DOM.raporWajahHilangNilai.textContent = `${Math.round(data.wajahTakTerlihatPersen * 100)}%`;
+  // Kartu arah pandang punya dua wajah: angka terukur, atau penanda jujur
+  // "belum aktif" lengkap dengan keterangan bahwa metrik ini tidak ikut dihitung.
+  if (data.pandangTersedia) {
+    DOM.raporPandangNilai.classList.remove('kartu-metrik__nilai--nonaktif');
+    DOM.raporPandangNilai.textContent = `${Math.round(data.pandangPersen * 100)}%`;
+    DOM.raporPandangKet.innerHTML =
+      `wajah tak terlihat: <span id="rapor-wajah-hilang-nilai">${Math.round(data.wajahTakTerlihatPersen * 100)}%</span>`;
+  } else {
+    DOM.raporPandangNilai.classList.add('kartu-metrik__nilai--nonaktif');
+    DOM.raporPandangNilai.textContent = 'belum aktif';
+    DOM.raporPandangKet.textContent = 'modul arah pandang belum berjalan, jadi tidak ikut dihitung dalam skor';
+  }
 
   DOM.raporJedaNilai.textContent = `${data.jeda.jumlah}× (terlama ${data.jeda.terlamaDetik.toFixed(1)}s)`;
   DOM.raporVolumeNilai.textContent = data.volumeLabel;
