@@ -95,8 +95,10 @@ export const CONFIG = {
   VOLUME_IDEAL_RMS: 0.05,          // Batas volume ideal
 
   // Arah Pandang (MediaPipe Face Blendshapes)
-  LOOK_DOWN_THRESHOLD: 0.5,        // Blendshape eyeLookDown rata-rata > 0.5 dihitung menunduk
+  LOOK_DOWN_THRESHOLD: 0.5,        // Rata-rata eyeLookDownLeft & eyeLookDownRight di atas ini dihitung menunduk
   FACE_POLL_INTERVAL_MS: 150,      // Frekuensi inferensi wajah tiap 150 ms
+  MENUNDUK_EVENT_MIN_DETIK: 3,     // Menunduk selama ini atau lebih dicatat sebagai satu event timeline
+  FACE_DEBUG: false,               // true: cetak nama & nilai blendshape ke console untuk kalibrasi ambang
 
   // Postur (Teachable Machine)
   POSE_CONFIDENCE_MIN: 0.7,        // Minimal confidence 0.7
@@ -247,6 +249,8 @@ export function tampilkanLayar(idLayar) {
   // Aksi kontekstual saat membuka layar tertentu
   if (idLayar === 'layar-beranda') {
     muatRingkasanBeranda();
+  } else if (idLayar === 'layar-persiapan') {
+    siapkanLayarPersiapan();
   } else if (idLayar === 'layar-riwayat') {
     muatTampilanRiwayat();
   }
@@ -310,13 +314,14 @@ async function mintaIzinMedia() {
     DOM.kotakIzinEdukasi.style.display = 'none';
     DOM.areaMediaPersiapan.style.display = 'grid';
 
-    // Perbarui status model
-    DOM.statusModelWajah.textContent = 'Selesai';
-    DOM.statusModelWajah.className = 'status-model-badge badge-sukses';
-
-    // Aktifkan tombol mulai sesi
+    // Aktifkan tombol mulai sesi. Sengaja dilakukan SEBELUM model wajah selesai
+    // dimuat: sesi tetap boleh berjalan tanpa metrik arah pandang, dan menunggu
+    // unduhan model hanya akan menahan pengguna tanpa alasan.
     DOM.tombolMulaiSesi.disabled = false;
     DOM.btnMulaiUjiBentrok.disabled = false;
+
+    // Muat model wajah secara lazy, lalu laporkan hasilnya apa adanya
+    muatModelWajah();
 
   } catch (error) {
     console.error('Izin kamera/mikrofon ditolak:', error);
@@ -326,6 +331,72 @@ async function mintaIzinMedia() {
     );
     DOM.tombolMintaIzin.disabled = false;
     DOM.tombolMintaIzin.textContent = 'Izinkan & lanjut';
+  }
+}
+
+/**
+ * Menyiapkan Layar Persiapan sesuai kondisi perangkat yang sebenarnya.
+ *
+ * CARA KERJA:
+ * Kamera dan mikrofon dimatikan total setiap kali sesi berakhir, sesuai batasan
+ * privasi. Akibatnya, saat pengguna kembali ke layar ini lewat "Latihan lagi",
+ * tampilan yang tertinggal dari sesi sebelumnya akan berbohong: preview kamera
+ * membeku di gambar terakhir dan tombol "Mulai sesi" tampak siap, padahal tidak
+ * ada satu pun perangkat yang menyala. Sesi berikutnya akan berjalan tanpa
+ * kamera tanpa pengguna tahu.
+ *
+ * Fungsi ini mengembalikan layar ke keadaan awal bila aliran perangkat memang
+ * sudah mati, sehingga pengguna diminta memberi izin lagi secara sadar.
+ */
+function siapkanLayarPersiapan() {
+  const adaStreamAktif = Boolean(
+    state.streamKameraMic &&
+    state.streamKameraMic.getTracks().some(t => t.readyState === 'live')
+  );
+
+  if (adaStreamAktif) return;
+
+  state.streamKameraMic = null;
+  DOM.videoPreviewPersiapan.srcObject = null;
+
+  DOM.kotakIzinEdukasi.style.display = '';
+  DOM.areaMediaPersiapan.style.display = 'none';
+
+  DOM.tombolMintaIzin.disabled = false;
+  DOM.tombolMintaIzin.textContent = 'Izinkan & lanjut';
+  DOM.tombolMulaiSesi.disabled = true;
+  DOM.btnMulaiUjiBentrok.disabled = true;
+
+  DOM.meterVolumeBar.style.width = '0%';
+  DOM.meterVolumeAngka.textContent = '0%';
+}
+
+/**
+ * Memuat model Face Landmarker dan melaporkan statusnya di Layar Persiapan.
+ *
+ * CARA KERJA:
+ * Model diunduh dari CDN, jadi butuh waktu dan bisa gagal saat luring. Badge
+ * status diubah menjadi "Memuat model" lebih dulu supaya pengguna tahu ada yang
+ * sedang berjalan, lalu menjadi "Selesai" atau "Gagal dimuat" sesuai kenyataan.
+ *
+ * Kegagalan di sini sengaja TIDAK menghentikan apa pun. Sesi tetap bisa berjalan,
+ * modul wajah melaporkan dirinya tidak tersedia, dan rumus skor membagi ulang
+ * bobot arah pandang ke metrik lain. Rapor kehilangan satu metrik, tetapi tidak
+ * ada satu angka pun yang dikarang.
+ */
+async function muatModelWajah() {
+  DOM.statusModelWajah.textContent = 'Memuat model';
+  DOM.statusModelWajah.className = 'status-model-badge badge-menunggu';
+
+  const berhasil = await faceModule.loadModel();
+
+  if (berhasil) {
+    DOM.statusModelWajah.textContent = 'Selesai';
+    DOM.statusModelWajah.className = 'status-model-badge badge-sukses';
+  } else {
+    DOM.statusModelWajah.textContent = 'Gagal dimuat';
+    DOM.statusModelWajah.className = 'status-model-badge badge-gagal';
+    DOM.statusModelWajah.title = 'Sesi tetap bisa berjalan, tetapi arah pandang tidak akan dinilai.';
   }
 }
 
@@ -521,7 +592,7 @@ function mulaiSesiLatihan() {
       state.metrikLive.arahPandang = arah;
       DOM.liveStatusPandang.textContent = arah;
     }
-  }, DOM.videoPreviewSesi);
+  }, DOM.videoPreviewSesi, CONFIG);
 
   // 4. Modul Postur (jika diaktifkan)
   if (state.analisisPosturAktif) {
@@ -665,6 +736,9 @@ function prosesDanTampilkanRapor() {
     pandangTersedia: hasilFace.tersedia === true,
     pandangPersen: hasilFace.tersedia === true ? hasilFace.pandangPersen : null,
     wajahTakTerlihatPersen: hasilFace.tersedia === true ? hasilFace.wajahTakTerlihatPersen : null,
+    // Event bertimestamp untuk baris kedua timeline di Tahap 4B. Ini daftar
+    // jarang (puluhan per sesi), bukan data per frame, jadi aman disimpan.
+    menundukSegmen: hasilFace.tersedia === true ? hasilFace.menundukSegmen : [],
     jeda: {
       jumlah: hasilAudio.jeda.jumlah,
       terlamaDetik: hasilAudio.jeda.terlamaDetik
