@@ -55,7 +55,7 @@ function ambang(config) {
 export const ATURAN_SARAN = [
   {
     kondisi: (data, a) => data.filler.total > a.FILLER_SARAN_TOTAL,
-    saran: "Gunakan teknik jeda sadar: daripada mengisi keheningan dengan 'eee' atau 'jadi', tarik napas lembut dan biarkan hening sejenak sebelum kalimat berikutnya."
+    saran: "Gunakan teknik jeda sadar: daripada mengisi keheningan dengan 'kayak' atau 'gitu', tarik napas lembut dan biarkan hening sejenak sebelum kalimat berikutnya."
   },
   {
     // Penjaga `pandangTersedia` wajib ada: saat modul arah pandang mati,
@@ -73,7 +73,8 @@ export const ATURAN_SARAN = [
     saran: "Tempo bicaramu tergolong pelan. Coba naikkan sedikit ketukan dan tekankan kata kuncinya agar pesan presentasi terasa lebih bertenaga."
   },
   {
-    kondisi: (data, a) => (data.jeda ? data.jeda.jumlah : 0) > a.JEDA_SARAN_JUMLAH,
+    // Sama seperti arah pandang: saran jeda hanya boleh muncul bila jeda diukur.
+    kondisi: (data, a) => data.jedaTersedia === true && data.jeda.jumlah > a.JEDA_SARAN_JUMLAH,
     saran: "Ada beberapa jeda panjang tanpa suara. Susun poin-poin presentasimu dalam kartu pengingat mental agar alur materi mengalir lancar."
   }
 ];
@@ -157,9 +158,9 @@ export function hitungSkorJeda(jumlahJeda, config) {
  *
  * CARA KERJA:
  * 1. Memilih tabel bobot dasar: dengan postur atau tanpa postur (Bagian 6.2).
- * 2. MEMBUANG komponen yang modulnya tidak menghasilkan data. Contoh saat ini:
- *    modul arah pandang dilumpuhkan sampai Tahap 2, sehingga kunci `pandang`
- *    dikeluarkan dari tabel bobot alih-alih diisi angka karangan.
+ * 2. MEMBUANG komponen yang modulnya tidak menghasilkan data. Contohnya: model
+ *    wajah gagal dimuat (kunci `pandang` dibuang) atau suara ruangan gagal
+ *    diukur (kunci `jeda` dibuang), alih-alih diisi angka karangan.
  * 3. MENORMALKAN ULANG sisa bobot supaya totalnya kembali 100. Bobot metrik yang
  *    hilang otomatis terbagi ke metrik lain secara proporsional, persis prinsip
  *    yang sudah dipakai untuk kondisi postur nonaktif. Karena kedua tabel dasar
@@ -185,9 +186,17 @@ export function hitungSkorTotal(metrik, posturAktif = false, config) {
 
   const subSkor = {
     wpm: hitungSkorWpm(metrik.wpmRata, a),
-    filler: hitungSkorFiller(metrik.filler.total, metrik.durasiDetik, a),
-    jeda: hitungSkorJeda(metrik.jeda ? metrik.jeda.jumlah : 0, a)
+    filler: hitungSkorFiller(metrik.filler.total, metrik.durasiDetik, a)
   };
+
+  // Jeda panjang: hanya masuk hitungan bila suara ruangan sempat diukur. Tanpa
+  // ambang bicara, "0 jeda" berarti tidak diukur, bukan lancar, dan dulu justru
+  // memberi sub-skor penuh gratis.
+  if (metrik.jedaTersedia === true) {
+    subSkor.jeda = hitungSkorJeda(metrik.jeda.jumlah, a);
+  } else {
+    delete bobot.jeda;
+  }
 
   // Arah pandang: hanya masuk hitungan bila modulnya melaporkan data terukur.
   if (metrik.pandangTersedia === true) {

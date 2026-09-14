@@ -68,9 +68,10 @@ export const CONFIG = {
   FILLER_PREFIX_MIN: 4,
 
   // Bunyi ragu non-leksikal. SENGAJA TIDAK dipakai untuk mencocokkan transkrip,
-  // karena terbukti tidak pernah sampai ke sana. Didaftarkan di sini sebagai
-  // catatan hasil uji, dan menjadi tanggung jawab heuristik audio di Tahap 3
-  // (energi suara konstan melewati VOICE_FILL_DURATION_MS tanpa kata baru).
+  // karena terbukti tidak pernah sampai ke sana. Didaftarkan di sini hanya
+  // sebagai catatan hasil uji. Deteksi akustiknya DIBATALKAN pada Tahap 3
+  // (14 September 2026); jeda hening panjang di js/audio.js dipakai sebagai
+  // indikator hesitasi penggantinya. Alasan lengkap di kepala js/audio.js.
   FILLER_BUNYI_NONLEKSIKAL: ["eee", "emm", "hmm"],
 
   // Ambang perhitungan skor kata pengisi dan jeda
@@ -86,13 +87,24 @@ export const CONFIG = {
   PANDANG_SARAN_MIN: 0.6,
   SUBSKOR_KUAT: 0.8,            // Sub-skor di atas ini layak disebut kekuatan
 
-  // Analisis Audio (RMS & Jeda)
-  VOICE_RMS_MIN: 0.03,             // Ambang batas suara vokal aktif
-  VOICE_FILL_DURATION_MS: 800,     // Durasi suara monoton untuk deteksi bunyi "eee"
-  SILENCE_RMS_MAX: 0.012,          // Ambang batas hening (silence)
-  SILENCE_DURATION_S: 3,           // Jeda hening > 3 detik dihitung 1 jeda
-  VOLUME_PELAN_RMS: 0.02,          // Batas volume pelan
-  VOLUME_IDEAL_RMS: 0.05,          // Batas volume ideal
+  // Analisis Audio (jeda panjang & volume), dipakai js/audio.js
+  audio: {
+    // Ambang bicara = suara ruangan (median RMS saat diam) × pengali ini
+    pengaliAmbangBicara: 2.5,
+    // Hening lebih lama dari ini, diapit suara bicara, dihitung satu jeda panjang
+    durasiJedaPanjangMs: 3000,
+    // Suara di atas ambang harus bertahan selama ini agar diakui sebagai bicara.
+    // Nilai AWAL, belum dikalibrasi: menyaring ketukan meja dan klik mouse
+    // supaya tidak memecah satu hening panjang. Periksa lewat debug.
+    minDurasiSuaraMs: 200,
+    // Lama pengukuran suara ruangan di Layar Persiapan
+    durasiUkurNoiseMs: 2000,
+    // Rata-rata RMS saat bicara di bawah ini dilabeli "pelan", selain itu "ideal".
+    // null = belum ditetapkan dari uji; selama null, label volume tidak ditampilkan.
+    ambangVolumePelan: null,
+    // true: cetak noise floor, RMS per detik, tiap jeda, dan hasil akhir ke console
+    debug: false
+  },
 
   // Arah Pandang (MediaPipe Face Blendshapes)
   LOOK_DOWN_THRESHOLD: 0.5,        // Rata-rata eyeLookDownLeft & eyeLookDownRight di atas ini dihitung menunduk
@@ -162,6 +174,8 @@ const DOM = {
   videoPreviewPersiapan: document.getElementById('video-preview-persiapan'),
   meterVolumeBar: document.getElementById('meter-volume-bar'),
   meterVolumeAngka: document.getElementById('meter-volume-angka'),
+  statusKalibrasiRuangan: document.getElementById('status-kalibrasi-ruangan'),
+  btnUkurUlangRuangan: document.getElementById('btn-ukur-ulang-ruangan'),
   statusModelWajah: document.getElementById('status-model-wajah'),
   statusModelPostur: document.getElementById('status-model-postur'),
   tombolMulaiSesi: document.getElementById('btn-mulai-sesi'),
@@ -193,7 +207,9 @@ const DOM = {
   raporPandangNilai: document.getElementById('rapor-pandang-nilai'),
   raporPandangKet: document.getElementById('rapor-pandang-ket'),
   raporJedaNilai: document.getElementById('rapor-jeda-nilai'),
+  raporJedaKet: document.getElementById('rapor-jeda-ket'),
   raporVolumeNilai: document.getElementById('rapor-volume-nilai'),
+  raporVolumeKet: document.getElementById('rapor-volume-ket'),
   raporPosturKartu: document.getElementById('rapor-postur-kartu'),
   raporPosturNilai: document.getElementById('rapor-postur-nilai'),
   raporCatatanStorage: document.getElementById('rapor-catatan-storage'),
@@ -307,21 +323,28 @@ async function mintaIzinMedia() {
         onVolumeTick: (rms) => {
           updateMeterVolume(rms);
         }
-      });
+      }, CONFIG);
     }
 
     // Tampilkan area media dan sembunyikan kotak edukasi awal
     DOM.kotakIzinEdukasi.style.display = 'none';
     DOM.areaMediaPersiapan.style.display = 'grid';
 
-    // Aktifkan tombol mulai sesi. Sengaja dilakukan SEBELUM model wajah selesai
-    // dimuat: sesi tetap boleh berjalan tanpa metrik arah pandang, dan menunggu
-    // unduhan model hanya akan menahan pengguna tanpa alasan.
-    DOM.tombolMulaiSesi.disabled = false;
+    // Tombol mulai sesi dinyalakan oleh ukurSuaraRuangan() setelah pengukuran
+    // 2 detik selesai. Tombol ini sengaja TIDAK menunggu model wajah: sesi tetap
+    // boleh berjalan tanpa metrik arah pandang.
     DOM.btnMulaiUjiBentrok.disabled = false;
 
     // Muat model wajah secara lazy, lalu laporkan hasilnya apa adanya
     muatModelWajah();
+
+    // Ukur suara ruangan untuk ambang bicara adaptif
+    if (audioInitSukses) {
+      ukurSuaraRuangan();
+    } else {
+      tampilkanStatusKalibrasi('Mikrofon tidak terhubung ke analisis audio. Jeda dan volume tidak akan dinilai.', false);
+      DOM.tombolMulaiSesi.disabled = false;
+    }
 
   } catch (error) {
     console.error('Izin kamera/mikrofon ditolak:', error);
@@ -369,6 +392,7 @@ function siapkanLayarPersiapan() {
 
   DOM.meterVolumeBar.style.width = '0%';
   DOM.meterVolumeAngka.textContent = '0%';
+  tampilkanStatusKalibrasi('', true);
 }
 
 /**
@@ -398,6 +422,45 @@ async function muatModelWajah() {
     DOM.statusModelWajah.className = 'status-model-badge badge-gagal';
     DOM.statusModelWajah.title = 'Sesi tetap bisa berjalan, tetapi arah pandang tidak akan dinilai.';
   }
+}
+
+/**
+ * Mengukur suara ruangan di Layar Persiapan untuk ambang bicara adaptif.
+ *
+ * CARA KERJA:
+ * 1. Meminta pengguna diam, lalu mengunci tombol "Mulai sesi" dan "Ukur ulang"
+ *    selama pengukuran supaya sesi tidak dimulai dengan ambang setengah jadi.
+ * 2. js/audio.js membaca energi ruangan selama CONFIG.audio.durasiUkurNoiseMs
+ *    dan menetapkan ambang bicara dari situ.
+ * 3. Hasilnya dilaporkan apa adanya. Bila gagal, sesi tetap boleh dimulai,
+ *    tetapi jeda dan volume tidak dinilai dan bobotnya dialihkan di rumus skor.
+ *
+ * Pengguna yang tidak sengaja bicara saat pengukuran akan mendapat ambang
+ * terlalu tinggi; tombol "Ukur ulang" disediakan untuk kasus itu.
+ */
+async function ukurSuaraRuangan() {
+  DOM.tombolMulaiSesi.disabled = true;
+  DOM.btnUkurUlangRuangan.disabled = true;
+  tampilkanStatusKalibrasi('Jangan bicara dulu, kami mengukur suara ruanganmu...', true);
+
+  const hasil = await audioModule.ukurNoiseFloor(CONFIG);
+
+  // Pengguna bisa saja sudah meninggalkan Layar Persiapan selama 2 detik itu
+  if (!state.streamKameraMic) return;
+
+  if (hasil.berhasil) {
+    tampilkanStatusKalibrasi('Suara ruangan terukur. Silakan mulai kapan pun kamu siap.', true);
+  } else {
+    tampilkanStatusKalibrasi('Suara ruangan gagal diukur. Sesi tetap bisa berjalan, tetapi jeda dan volume tidak akan dinilai.', false);
+  }
+
+  DOM.tombolMulaiSesi.disabled = false;
+  DOM.btnUkurUlangRuangan.disabled = false;
+}
+
+function tampilkanStatusKalibrasi(pesan, normal) {
+  DOM.statusKalibrasiRuangan.textContent = pesan;
+  DOM.statusKalibrasiRuangan.style.color = normal ? '' : 'var(--bahaya)';
 }
 
 /**
@@ -583,8 +646,8 @@ function mulaiSesiLatihan() {
     }
   }, CONFIG);
 
-  // 2. Modul Audio
-  audioModule.start();
+  // 2. Modul Audio (jeda panjang & volume, memakai ambang dari Layar Persiapan)
+  audioModule.start({}, CONFIG);
 
   // 3. Modul Wajah (Face)
   faceModule.start({
@@ -727,8 +790,7 @@ function prosesDanTampilkanRapor() {
     wpmSeri: hasilSpeech.wpmSeri,
     filler: {
       total: hasilSpeech.filler.total,
-      rincian: hasilSpeech.filler.rincian,
-      dariAudio: hasilAudio.fillerDariAudio.total
+      rincian: hasilSpeech.filler.rincian
     },
     // Modul arah pandang melaporkan sendiri apakah datanya benar-benar terukur.
     // Selama dilumpuhkan (sampai Tahap 2) nilainya null, bukan 0, supaya
@@ -739,11 +801,19 @@ function prosesDanTampilkanRapor() {
     // Event bertimestamp untuk baris kedua timeline di Tahap 4B. Ini daftar
     // jarang (puluhan per sesi), bukan data per frame, jadi aman disimpan.
     menundukSegmen: hasilFace.tersedia === true ? hasilFace.menundukSegmen : [],
-    jeda: {
-      jumlah: hasilAudio.jeda.jumlah,
-      terlamaDetik: hasilAudio.jeda.terlamaDetik
-    },
-    volumeLabel: hasilAudio.volumeLabel,
+    // Jeda dan volume hanya punya arti bila ambang bicara sempat diukur di Layar
+    // Persiapan. Tanpa itu nilainya null, bukan 0, supaya "tidak diukur" tidak
+    // pernah terbaca sebagai "tidak ada jeda" dan tidak mendongkrak skor.
+    jedaTersedia: hasilAudio.tersedia === true,
+    jeda: hasilAudio.tersedia === true
+      ? {
+          jumlah: hasilAudio.jeda.jumlah,
+          terlamaDetik: hasilAudio.jeda.terlamaDetik,
+          // Event bertimestamp untuk baris "masalah" di timeline Tahap 4B
+          daftar: hasilAudio.jeda.daftar
+        }
+      : { jumlah: null, terlamaDetik: null, daftar: [] },
+    volumeLabel: hasilAudio.tersedia === true ? hasilAudio.volumeLabel : null,
     postur: {
       // Diambil dari laporan modulnya, bukan dari centang checkbox. Dengan begitu
       // modul stub tidak bisa menyumbang bobot skor untuk sesuatu yang tidak diukur.
@@ -800,8 +870,31 @@ function renderRaporUI(data, statusSimpan) {
     DOM.raporPandangKet.textContent = 'modul arah pandang belum berjalan, jadi tidak ikut dihitung dalam skor';
   }
 
-  DOM.raporJedaNilai.textContent = `${data.jeda.jumlah}× (terlama ${data.jeda.terlamaDetik.toFixed(1)}s)`;
-  DOM.raporVolumeNilai.textContent = data.volumeLabel;
+  // Kartu jeda: angka terukur, atau "belum aktif" bila suara ruangan gagal diukur
+  if (data.jedaTersedia) {
+    DOM.raporJedaNilai.classList.remove('kartu-metrik__nilai--nonaktif');
+    DOM.raporJedaNilai.textContent = `${data.jeda.jumlah}×`;
+    DOM.raporJedaKet.textContent = data.jeda.jumlah > 0
+      ? `terlama ${data.jeda.terlamaDetik.toFixed(1)} detik`
+      : 'hening di awal dan akhir sesi tidak dihitung';
+  } else {
+    DOM.raporJedaNilai.classList.add('kartu-metrik__nilai--nonaktif');
+    DOM.raporJedaNilai.textContent = 'belum aktif';
+    DOM.raporJedaKet.textContent = 'suara ruangan tidak terukur, jadi jeda tidak ikut dihitung dalam skor';
+  }
+
+  // Kartu volume: label hanya tampil bila ambangnya sudah ditetapkan dari uji
+  if (data.jedaTersedia && data.volumeLabel) {
+    DOM.raporVolumeNilai.classList.remove('kartu-metrik__nilai--nonaktif');
+    DOM.raporVolumeNilai.textContent = data.volumeLabel;
+    DOM.raporVolumeKet.textContent = 'dihitung dari saat kamu berbicara saja';
+  } else {
+    DOM.raporVolumeNilai.classList.add('kartu-metrik__nilai--nonaktif');
+    DOM.raporVolumeNilai.textContent = 'belum aktif';
+    DOM.raporVolumeKet.textContent = data.jedaTersedia
+      ? 'batas volume belum dikalibrasi'
+      : 'suara ruangan tidak terukur';
+  }
 
   // Kartu postur (hanya jika modul aktif)
   if (data.postur.aktif) {
@@ -939,6 +1032,7 @@ function initEventListeners() {
 
   // Persiapan
   DOM.tombolMintaIzin.addEventListener('click', mintaIzinMedia);
+  DOM.btnUkurUlangRuangan.addEventListener('click', ukurSuaraRuangan);
   DOM.btnMulaiUjiBentrok.addEventListener('click', mulaiUjiBentrokMikrofon);
   DOM.tombolMulaiSesi.addEventListener('click', mulaiSesiLatihan);
   DOM.btnBatalPersiapan.addEventListener('click', () => {

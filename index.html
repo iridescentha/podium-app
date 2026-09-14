@@ -185,6 +185,12 @@
             </div>
           </div>
           <div class="teks-kecil">Mikrofon aktif & terhubung via Web Audio API.</div>
+          <!-- Pengukuran suara ruangan untuk ambang bicara adaptif (Tahap 3) -->
+          <div>
+            <div id="status-kalibrasi-ruangan" class="teks-kecil" aria-live="polite"></div>
+            <button id="btn-ukur-ulang-ruangan" class="tombol tombol--sekunder"
+              style="margin-top: 8px; font-size: 14px; padding: 8px 20px;" disabled>Ukur ulang suara ruangan</button>
+          </div>
         </div>
       </div>
 
@@ -306,10 +312,10 @@
           <div id="rapor-filler-nilai" class="kartu-metrik__nilai">0×</div>
           <div class="kartu-metrik__label">kata pengisi (filler)</div>
           <div id="rapor-filler-rincian" class="teks-kecil" style="margin-top: 2px;">tidak ada</div>
-          <!-- Catatan kejujuran: bunyi ragu non-leksikal tidak pernah sampai ke
-               transkrip Chrome id-ID, jadi angka di atas hanya mencakup kata
-               terucap. Tahap 3 yang akan menghapus atau mengubah baris ini. -->
-          <div id="rapor-filler-catatan" class="teks-kecil" style="margin-top: 6px;">Bunyi ragu seperti "eee" belum terhitung di angka ini.</div>
+          <!-- Catatan kejujuran PERMANEN: bunyi ragu non-leksikal tidak pernah
+               sampai ke transkrip Chrome id-ID (uji 12 September 2026), dan
+               deteksi akustiknya dibatalkan di Tahap 3. Jangan dihapus. -->
+          <div id="rapor-filler-catatan" class="teks-kecil" style="margin-top: 6px;">Hanya kata pengisi yang terucap sebagai kata. Bunyi ragu seperti "eee" tidak ikut terhitung.</div>
         </div>
 
         <!-- Kontak Pandang -->
@@ -324,12 +330,14 @@
         <div class="kartu-metrik">
           <div id="rapor-jeda-nilai" class="kartu-metrik__nilai">0×</div>
           <div class="kartu-metrik__label">jeda hening (>3 detik)</div>
+          <div id="rapor-jeda-ket" class="teks-kecil" style="margin-top: 2px;"></div>
         </div>
 
         <!-- Volume Suara -->
         <div class="kartu-metrik">
-          <div id="rapor-volume-nilai" class="kartu-metrik__nilai" style="text-transform: capitalize;">ideal</div>
+          <div id="rapor-volume-nilai" class="kartu-metrik__nilai">ideal</div>
           <div class="kartu-metrik__label">tingkat volume suara</div>
+          <div id="rapor-volume-ket" class="teks-kecil" style="margin-top: 2px;"></div>
         </div>
 
         <!-- Postur (kondisional) -->
