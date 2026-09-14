@@ -38,7 +38,7 @@
 ## 2. Struktur Berkas Proyek
 
 ```
-scan-to-wake/
+podium-app/
 ├── GEMINI.md         # Dokumentasi master konteks proyek dan panduan agen
 ├── index.html        # SPA 5 layar (<section>) dengan navigasi tanpa reload
 ├── style.css         # Desain sistem token (panggung/terang), tipografi, & tata letak
@@ -118,7 +118,7 @@ Aplikasi menerapkan konsep pencahayaan teater:
 
 ## 5. Logika Metrik, Rumus Skor, & Kalibrasi `CONFIG`
 
-Seluruh parameter threshold ditulis terpusat pada objek `CONFIG` di [js/app.js](file:///Users/hugoafizaadinanta/Desktop/scan-to-wake/js/app.js) untuk mempermudah kalibrasi lapangan:
+Seluruh parameter threshold ditulis terpusat pada objek `CONFIG` di [js/app.js](js/app.js) untuk mempermudah kalibrasi lapangan:
 
 ```javascript
 export const CONFIG = {
