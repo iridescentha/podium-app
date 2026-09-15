@@ -31,6 +31,35 @@
  * terpisah lewat wajahTakTerlihatPersen.
  *
  * ----------------------------------------------------------------------------
+ * TEMUAN UJI 15 SEPTEMBER 2026: KEDIPAN TERBACA SEBAGAI MENUNDUK
+ * ----------------------------------------------------------------------------
+ * Uji manual Tahap 2 menunjukkan pola yang konsisten: menatap ke depan dengan
+ * mata terbuka tidak pernah terdaftar menunduk, tetapi begitu mata ditutup
+ * sejenak lalu dibuka, frame itu langsung terdaftar menunduk. Pencahayaan
+ * bukan faktornya.
+ *
+ * Penyebabnya: blendshape eyeLookDownLeft/Right IKUT NAIK saat kelopak mata
+ * menutup. Dari sudut pandang model, kelopak yang turun menutupi bola mata
+ * terlihat mirip dengan bola mata yang bergulir ke bawah. Karena itu kedipan
+ * harus disaring sebelum arah pandang diputuskan.
+ *
+ * Dua perbaikan diterapkan, dan keduanya perlu:
+ * 1. SARING KEDIPAN. Bila eyeBlinkLeft ATAU eyeBlinkRight melewati
+ *    CONFIG.FACE_BLINK_THRESHOLD, frame itu tidak dihitung menunduk maupun
+ *    menatap depan, dan dikeluarkan dari pembagi persentase, persis seperti
+ *    frame tanpa wajah. Saat mata tertutup, arah pandang memang tidak bisa
+ *    diukur. Frame berkedip dicatat di penghitung sendiri (frameBerkedip),
+ *    TIDAK digabung ke "wajah tidak terlihat" karena itu kejadian berbeda.
+ * 2. PENGHALUSAN TEMPORAL. Status depan/menunduk hanya berganti setelah
+ *    CONFIG.FACE_SMOOTHING_FRAMES frame berturut-turut konsisten. Ini menangani
+ *    frame meleset karena sebab lain (gerak cepat, blur, awal/akhir kedipan
+ *    yang nilainya belum melewati ambang kedip).
+ *
+ * Risiko yang harus diawasi saat kalibrasi: saat benar-benar menunduk membaca
+ * catatan, kelopak mata ikut turun sehingga eyeBlink juga naik. Ambang kedip
+ * yang terlalu rendah akan menyaring menunduk sungguhan sebagai kedipan.
+ *
+ * ----------------------------------------------------------------------------
  * CATATAN SEJARAH (jangan dihapus)
  * ----------------------------------------------------------------------------
  * Sampai commit 6fe98e0 (12 September 2026) modul ini mengarang data: sebuah
@@ -60,6 +89,7 @@ const URL_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmark
 // dimuat. Bila salah satu tidak ditemukan, modul menolak melaporkan angka
 // alih-alih menebak (lihat blendshapeTersedia di bawah).
 const NAMA_LOOK_DOWN = ['eyeLookDownLeft', 'eyeLookDownRight'];
+const NAMA_BLINK = ['eyeBlinkLeft', 'eyeBlinkRight'];
 
 // ----------------------------------------------------------------------------
 // STATE MODUL
@@ -78,6 +108,13 @@ let totalFrameDianalisis = 0;
 let frameMenatapDepan = 0;
 let frameMenunduk = 0;
 let frameWajahTakTerlihat = 0;
+let frameBerkedip = 0;             // Dikeluarkan dari pembagi; tidak ditampilkan di UI
+
+// Penghalusan temporal (lihat terapkanPenghalusan)
+let statusStabil = null;           // null | 'depan' | 'menunduk'
+let kandidat = null;               // Status mentah yang sedang "mengantre" untuk menggantikan statusStabil
+let kandidatJumlah = 0;            // Jumlah frame berturut-turut milik kandidat, belum masuk penghitung
+let kandidatMulaiDetik = null;     // Kapan deretan kandidat dimulai
 
 // Segmen menunduk panjang sebagai event bertimestamp (untuk timeline Tahap 4B)
 let menundukSegmen = [];           // [{ mulaiDetik, durasiDetik }]
@@ -91,6 +128,8 @@ let timestampTerakhir = 0;
 // Konfigurasi aktif
 const KONFIG_BAWAAN = {
   LOOK_DOWN_THRESHOLD: 0.5,
+  FACE_BLINK_THRESHOLD: 0.5,
+  FACE_SMOOTHING_FRAMES: 3,
   FACE_POLL_INTERVAL_MS: 150,
   MENUNDUK_EVENT_MIN_DETIK: 3,
   FACE_DEBUG: false
@@ -213,6 +252,9 @@ export function start(callbacks = {}, videoElement = null, config = {}) {
   frameMenatapDepan = 0;
   frameMenunduk = 0;
   frameWajahTakTerlihat = 0;
+  frameBerkedip = 0;
+  statusStabil = null;
+  resetKandidat();
   menundukSegmen = [];
   menundukMulaiDetik = null;
   waktuVideoTerakhir = -1;
@@ -243,10 +285,15 @@ export function start(callbacks = {}, videoElement = null, config = {}) {
  * Jam sesi ditutup dan interval dilepas, sehingga tidak ada frame yang dicatat
  * selama jeda. Segmen menunduk yang sedang berjalan ditutup di sini, karena
  * membiarkannya terbuka akan membuat durasinya ikut menelan waktu jeda.
+ * Frame kandidat yang belum dikonfirmasi diserahkan ke status stabil, lalu
+ * status stabil dikosongkan: sesudah resume(), status harus dibangun ulang
+ * dari frame baru, dan segmen menunduk bisa dibuka lagi dengan benar.
  */
 export function pause() {
   if (status !== 'berjalan') return false;
+  lepasKandidatKe(statusStabil);
   tutupSegmenMenunduk();
+  statusStabil = null;
   status = 'dijeda';
   tutupSegmenJam();
   hentikanLoopInferensi();
@@ -277,7 +324,11 @@ export function resume() {
  * membuat sesi berikutnya mulai seketika tanpa mengunduh model lagi.
  */
 export function stop() {
-  if (status === 'berjalan') tutupSegmenMenunduk();
+  if (status === 'berjalan') {
+    lepasKandidatKe(statusStabil);
+    tutupSegmenMenunduk();
+    statusStabil = null;
+  }
   status = 'berhenti';
   tutupSegmenJam();
   hentikanLoopInferensi();
@@ -315,10 +366,15 @@ function hentikanLoopInferensi() {
  *    dan membuat persentase condong ke keadaan yang kebetulan sedang berlangsung.
  * 3. Timestamp yang dikirim ke MediaPipe wajib selalu naik. Bila tidak, pustaka
  *    melempar galat dan loop berhenti diam-diam.
- * 4. Bila tidak ada wajah, frame dicatat sebagai "wajah tidak terlihat" dan
- *    segmen menunduk yang sedang berjalan ditutup.
- * 5. Bila ada wajah, rata-rata dua blendshape mata dibandingkan dengan ambang
- *    untuk memutuskan menunduk atau menatap depan.
+ * 4. Bila tidak ada wajah, frame dicatat sebagai "wajah tidak terlihat",
+ *    segmen menunduk yang sedang berjalan ditutup, dan status stabil
+ *    dikosongkan supaya dibangun ulang saat wajah kembali.
+ * 5. Bila salah satu mata berkedip (eyeBlink di atas CONFIG.FACE_BLINK_THRESHOLD),
+ *    frame dicatat di frameBerkedip dan berhenti di situ: tidak menunduk, tidak
+ *    menatap depan, tidak mengubah status. Lihat temuan uji di kepala berkas.
+ * 6. Selain itu, rata-rata dua blendshape eyeLookDown dibandingkan dengan ambang
+ *    untuk mendapat status MENTAH frame ini, lalu diserahkan ke penghalusan
+ *    temporal yang memutuskan kapan status benar-benar berganti.
  */
 function prosesSatuFrame() {
   if (status !== 'berjalan' || !landmarker || !videoSumber) return;
@@ -344,7 +400,9 @@ function prosesSatuFrame() {
   const adaWajah = Boolean(hasil && hasil.faceLandmarks && hasil.faceLandmarks.length > 0);
   if (!adaWajah) {
     frameWajahTakTerlihat++;
+    lepasKandidatKe(statusStabil);
     tutupSegmenMenunduk();
+    statusStabil = null;
     laporkanArah('tidak terlihat');
     return;
   }
@@ -355,14 +413,16 @@ function prosesSatuFrame() {
 
   const nilaiKiri = ambilBlendshape(kategori, NAMA_LOOK_DOWN[0]);
   const nilaiKanan = ambilBlendshape(kategori, NAMA_LOOK_DOWN[1]);
+  const kedipKiri = ambilBlendshape(kategori, NAMA_BLINK[0]);
+  const kedipKanan = ambilBlendshape(kategori, NAMA_BLINK[1]);
 
   // Bila nama blendshape yang dibutuhkan tidak ada di model, modul tidak boleh
   // menebak. Penanda ini membuat getResults() melaporkan dirinya tidak tersedia.
-  if (nilaiKiri === null || nilaiKanan === null) {
+  if (nilaiKiri === null || nilaiKanan === null || kedipKiri === null || kedipKanan === null) {
     if (blendshapeTersedia) {
       blendshapeTersedia = false;
       console.error(
-        'Face Landmarker: blendshape eyeLookDownLeft/eyeLookDownRight tidak ditemukan pada model ini. ' +
+        'Face Landmarker: blendshape eyeLookDownLeft/Right atau eyeBlinkLeft/Right tidak ditemukan pada model ini. ' +
         'Arah pandang tidak akan dilaporkan. Nama yang tersedia:',
         (kategori || []).map(k => k.categoryName)
       );
@@ -371,20 +431,102 @@ function prosesSatuFrame() {
     return;
   }
 
+  const detik = detikSesiSekarang();
   const rataLookDown = (nilaiKiri + nilaiKanan) / 2;
-  const menunduk = rataLookDown > konfig.LOOK_DOWN_THRESHOLD;
 
-  if (menunduk) {
-    frameMenunduk++;
-    if (menundukMulaiDetik === null) menundukMulaiDetik = detikSesiSekarang();
-    laporkanArah('menunduk');
-  } else {
-    frameMenatapDepan++;
-    tutupSegmenMenunduk();
-    laporkanArah('depan');
+  // Saring kedipan: mata tertutup berarti arah pandang tidak bisa diukur
+  const berkedip = kedipKiri > konfig.FACE_BLINK_THRESHOLD || kedipKanan > konfig.FACE_BLINK_THRESHOLD;
+  if (berkedip) {
+    frameBerkedip++;
+    cetakDebug(kategori, nilaiKiri, nilaiKanan, rataLookDown, kedipKiri, kedipKanan, 'KEDIP (dikeluarkan)');
+    return;
   }
 
-  cetakDebug(kategori, nilaiKiri, nilaiKanan, rataLookDown, menunduk);
+  const mentah = rataLookDown > konfig.LOOK_DOWN_THRESHOLD ? 'menunduk' : 'depan';
+  terapkanPenghalusan(mentah, detik);
+
+  cetakDebug(kategori, nilaiKiri, nilaiKanan, rataLookDown, kedipKiri, kedipKanan,
+    `mentah=${mentah} stabil=${statusStabil} kandidat=${kandidat}x${kandidatJumlah}`);
+}
+
+/**
+ * Penghalusan temporal status arah pandang.
+ *
+ * CARA KERJA:
+ * Modul memegang satu STATUS STABIL (depan atau menunduk) yang hanya boleh
+ * berganti bila CONFIG.FACE_SMOOTHING_FRAMES frame berturut-turut sepakat.
+ *
+ * - Frame mentah SAMA dengan status stabil: frame dihitung untuk status stabil.
+ *   Bila sebelumnya ada deretan kandidat yang belum cukup panjang, deretan itu
+ *   dianggap frame meleset dan ikut dihitung sebagai status stabil.
+ * - Frame mentah BERBEDA dari status stabil: frame masuk antrean kandidat dan
+ *   BELUM dihitung ke mana pun.
+ * - Begitu antrean kandidat mencapai jumlah frame yang disyaratkan, status
+ *   stabil berganti, dan SELURUH frame antrean dihitung untuk status baru.
+ *   Frame-frame itu memang sudah berada di status baru sejak awal antrean, jadi
+ *   tidak ada waktu yang salah dikreditkan akibat penundaan konfirmasi.
+ * - Segmen menunduk dibuka dan ditutup pada detik AWAL antrean yang
+ *   mengonfirmasi pergantian, bukan saat konfirmasi, supaya durasi event di
+ *   timeline tidak bergeser sebesar penundaan penghalusan.
+ *
+ * Frame berkedip tidak masuk fungsi ini sama sekali, sehingga kedipan di
+ * tengah antrean tidak memutus maupun menambah antrean.
+ *
+ * @param {'depan'|'menunduk'} mentah - Keputusan dari frame ini saja
+ * @param {number} detik - Posisi jam sesi saat frame ini dibaca
+ */
+function terapkanPenghalusan(mentah, detik) {
+  if (mentah === statusStabil) {
+    lepasKandidatKe(statusStabil);
+    tambahFrame(statusStabil, 1);
+    return;
+  }
+
+  if (mentah !== kandidat) {
+    lepasKandidatKe(statusStabil);
+    kandidat = mentah;
+    kandidatMulaiDetik = detik;
+  }
+  kandidatJumlah++;
+
+  const syarat = Math.max(1, Math.round(konfig.FACE_SMOOTHING_FRAMES));
+  if (kandidatJumlah < syarat) return;
+
+  const statusLama = statusStabil;
+  const mulaiBaru = kandidatMulaiDetik;
+  statusStabil = kandidat;
+  tambahFrame(statusStabil, kandidatJumlah);
+  resetKandidat();
+
+  if (statusStabil === 'menunduk') {
+    menundukMulaiDetik = mulaiBaru;
+  } else if (statusLama === 'menunduk') {
+    tutupSegmenMenunduk(mulaiBaru);
+  }
+
+  laporkanArah(statusStabil);
+}
+
+/**
+ * Menyerahkan frame antrean kandidat ke sebuah status, lalu mengosongkan antrean.
+ * Bila statusnya null (status stabil belum terbentuk, misalnya di awal sesi),
+ * frame antrean dibuang: tanpa status yang disepakati, frame itu tidak bisa
+ * dinilai dan karenanya dikeluarkan dari pembagi.
+ */
+function lepasKandidatKe(statusTujuan) {
+  if (kandidatJumlah > 0 && statusTujuan) tambahFrame(statusTujuan, kandidatJumlah);
+  resetKandidat();
+}
+
+function resetKandidat() {
+  kandidat = null;
+  kandidatJumlah = 0;
+  kandidatMulaiDetik = null;
+}
+
+function tambahFrame(statusFrame, jumlah) {
+  if (statusFrame === 'menunduk') frameMenunduk += jumlah;
+  else if (statusFrame === 'depan') frameMenatapDepan += jumlah;
 }
 
 /**
@@ -410,11 +552,11 @@ function ambilBlendshape(kategori, nama) {
  * Penyaringan ini juga yang menjaga daftar event tetap jarang, puluhan per sesi,
  * sesuai aturan "agregat, bukan data per frame" di CLAUDE.md.
  */
-function tutupSegmenMenunduk() {
+function tutupSegmenMenunduk(detikSelesai = detikSesiSekarang()) {
   if (menundukMulaiDetik === null) return;
 
   const mulai = menundukMulaiDetik;
-  const durasi = detikSesiSekarang() - mulai;
+  const durasi = detikSelesai - mulai;
   menundukMulaiDetik = null;
 
   if (durasi >= konfig.MENUNDUK_EVENT_MIN_DETIK) {
@@ -437,11 +579,12 @@ function laporkanArah(arah) {
  * CARA KERJA:
  * Sekali di awal, mencetak seluruh nama blendshape yang benar-benar dikirim
  * model, supaya bisa dipastikan nama yang dipakai modul ini memang ada. Setelah
- * itu mencetak nilai kedua mata beserta keputusannya, sehingga
- * CONFIG.LOOK_DOWN_THRESHOLD bisa ditetapkan dari angka nyata di laptop
- * pengguna, bukan dari tebakan.
+ * itu mencetak nilai eyeLookDown dan eyeBlink kedua mata beserta keputusan
+ * penyaringan dan penghalusannya, sehingga CONFIG.LOOK_DOWN_THRESHOLD,
+ * CONFIG.FACE_BLINK_THRESHOLD, dan CONFIG.FACE_SMOOTHING_FRAMES bisa ditetapkan
+ * dari angka nyata di laptop pengguna, bukan dari tebakan.
  */
-function cetakDebug(kategori, kiri, kanan, rata, menunduk) {
+function cetakDebug(kategori, kiri, kanan, rata, kedipKiri, kedipKanan, keputusan) {
   if (!konfig.FACE_DEBUG) return;
 
   if (!sudahCetakDaftarBlendshape) {
@@ -451,8 +594,9 @@ function cetakDebug(kategori, kiri, kanan, rata, menunduk) {
 
   console.log(
     `[face] t=${detikSesiSekarang().toFixed(1)}s ` +
-    `kiri=${kiri.toFixed(3)} kanan=${kanan.toFixed(3)} rata=${rata.toFixed(3)} ` +
-    `ambang=${konfig.LOOK_DOWN_THRESHOLD} -> ${menunduk ? 'MENUNDUK' : 'depan'}`
+    `lookDown kiri=${kiri.toFixed(3)} kanan=${kanan.toFixed(3)} rata=${rata.toFixed(3)} (ambang ${konfig.LOOK_DOWN_THRESHOLD}) ` +
+    `blink kiri=${kedipKiri.toFixed(3)} kanan=${kedipKanan.toFixed(3)} (ambang ${konfig.FACE_BLINK_THRESHOLD}) ` +
+    `-> ${keputusan}`
   );
 }
 
@@ -464,15 +608,19 @@ function cetakDebug(kategori, kiri, kanan, rata, menunduk) {
  *    tidak cocok, atau tidak ada satu pun frame yang sempat dianalisis. Dalam
  *    ketiga kondisi itu modul TIDAK mengembalikan angka apa pun, dan report.js
  *    akan mengeluarkan bobot arah pandang dari rumus skor.
- * 2. Persentase kontak pandang dihitung hanya dari frame yang wajahnya terlihat.
- *    Frame tanpa wajah dikeluarkan dari pembagi dan dilaporkan terpisah.
- * 3. Segmen menunduk panjang disertakan sebagai event bertimestamp untuk
+ * 2. Persentase kontak pandang dihitung hanya dari frame yang benar-benar
+ *    dinilai: menatap depan + menunduk. Tiga jenis frame dikeluarkan dari
+ *    pembagi: tanpa wajah, berkedip, dan antrean kandidat yang dibuang karena
+ *    status stabil belum terbentuk.
+ * 3. wajahTakTerlihatPersen HANYA berisi frame tanpa wajah. Frame berkedip
+ *    dilaporkan terpisah lewat frameBerkedip dan tidak ditampilkan di UI.
+ * 4. Segmen menunduk panjang disertakan sebagai event bertimestamp untuk
  *    timeline di Tahap 4B.
  *
  * @returns {Object} { tersedia: false } atau agregat lengkap arah pandang
  */
 export function getResults() {
-  const frameValid = totalFrameDianalisis - frameWajahTakTerlihat;
+  const frameValid = frameMenatapDepan + frameMenunduk;
 
   if (!tersedia || !blendshapeTersedia || totalFrameDianalisis === 0 || frameValid <= 0) {
     return { tersedia: false };
@@ -487,6 +635,7 @@ export function getResults() {
     wajahTakTerlihatPersen: Math.min(Math.max(wajahTakTerlihatPersen, 0), 1),
     totalFrame: totalFrameDianalisis,
     frameMenunduk: frameMenunduk,
+    frameBerkedip: frameBerkedip,
     menundukSegmen: menundukSegmen.slice()
   };
 }

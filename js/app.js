@@ -108,6 +108,8 @@ export const CONFIG = {
 
   // Arah Pandang (MediaPipe Face Blendshapes)
   LOOK_DOWN_THRESHOLD: 0.5,        // Rata-rata eyeLookDownLeft & eyeLookDownRight di atas ini dihitung menunduk
+  FACE_BLINK_THRESHOLD: 0.5,       // eyeBlinkLeft ATAU eyeBlinkRight di atas ini = berkedip, frame dikeluarkan (nilai awal, kalibrasi via debug)
+  FACE_SMOOTHING_FRAMES: 3,        // Status depan/menunduk baru berganti setelah sekian frame berturut-turut sepakat (nilai awal)
   FACE_POLL_INTERVAL_MS: 150,      // Frekuensi inferensi wajah tiap 150 ms
   MENUNDUK_EVENT_MIN_DETIK: 3,     // Menunduk selama ini atau lebih dicatat sebagai satu event timeline
   FACE_DEBUG: false,               // true: cetak nama & nilai blendshape ke console untuk kalibrasi ambang
