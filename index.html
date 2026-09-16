@@ -191,6 +191,12 @@
             <button id="btn-ukur-ulang-ruangan" class="tombol tombol--sekunder"
               style="margin-top: 8px; font-size: 14px; padding: 8px 20px;" disabled>Ukur ulang suara ruangan</button>
           </div>
+          <!-- Pengukuran postur kepala netral untuk arah pandang (Tahap 2) -->
+          <div>
+            <div id="status-kalibrasi-postur" class="teks-kecil" aria-live="polite"></div>
+            <button id="btn-kalibrasi-postur" class="tombol tombol--sekunder"
+              style="margin-top: 8px; font-size: 14px; padding: 8px 20px;" disabled>Kalibrasi ulang postur</button>
+          </div>
         </div>
       </div>
 
@@ -324,6 +330,9 @@
           <div class="kartu-metrik__label">waktu menatap ke depan</div>
           <div id="rapor-pandang-ket" class="teks-kecil" style="margin-top: 2px;">wajah tak terlihat: <span
               id="rapor-wajah-hilang-nilai">0%</span></div>
+          <!-- Keterbatasan PERMANEN, hasil uji 16 September 2026: yang diukur
+               sudut kepala, bukan gerakan bola mata. Jangan dihapus. -->
+          <div id="rapor-pandang-catatan" class="teks-kecil" style="margin-top: 6px;">Gerakan mata saja tidak terdeteksi; yang diukur adalah arah kepala.</div>
         </div>
 
         <!-- Jeda Panjang -->

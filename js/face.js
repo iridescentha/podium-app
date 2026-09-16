@@ -11,15 +11,19 @@
  * ----------------------------------------------------------------------------
  * CARA KERJA SINGKAT
  * ----------------------------------------------------------------------------
- * FaceLandmarker mengembalikan dua hal untuk tiap frame: titik-titik wajah, dan
- * sekumpulan "blendshape", yaitu nilai 0..1 yang menyatakan seberapa kuat sebuah
- * ekspresi sedang terjadi. Modul ini hanya memakai dua di antaranya,
- * eyeLookDownLeft dan eyeLookDownRight, lalu merata-ratakan keduanya. Bila
- * rata-ratanya melewati CONFIG.LOOK_DOWN_THRESHOLD, frame itu dihitung menunduk.
+ * FaceLandmarker mengembalikan tiga hal yang dipakai modul ini: titik-titik
+ * wajah, sekumpulan "blendshape" (nilai 0..1 untuk tiap ekspresi), dan sebuah
+ * matriks transformasi 4x4 yang menyatakan posisi serta ROTASI kepala di ruang
+ * tiga dimensi.
  *
- * Kenapa blendshape mata, bukan kemiringan kepala: pengguna yang membaca catatan
- * sering menunduk hanya dengan matanya sementara kepalanya tetap tegak, dan
- * justru gerakan mata itu yang menandakan perhatiannya lepas dari audiens.
+ * Arah pandang diputuskan dari SUDUT KEPALA ATAS-BAWAH (pitch) yang diambil dari
+ * matriks itu. Pitch dibandingkan dengan POSISI NETRAL pengguna yang diukur di
+ * Layar Persiapan, bukan dengan angka mutlak: kamera laptop berada di bawah
+ * garis mata, sehingga menatap kamera pun sudah menghasilkan pitch negatif
+ * (sekitar -10 derajat pada laptop penguji). Bila pitch turun lebih dari
+ * CONFIG.FACE_PITCH_MENUNDUK_DERAJAT di bawah netral, frame itu dihitung menunduk.
+ *
+ * Blendshape tetap dipakai untuk satu hal: menyaring kedipan.
  *
  * ----------------------------------------------------------------------------
  * ATURAN PEMBAGI (Bagian 6.1 GEMINI.md + CLAUDE.md)
@@ -29,6 +33,64 @@
  * dari bingkai bukan berarti menunduk, dan menghitungnya begitu akan menghukum
  * pengguna untuk sesuatu yang tidak pernah diukur. Kejadian itu dilaporkan
  * terpisah lewat wajahTakTerlihatPersen.
+ *
+ * ----------------------------------------------------------------------------
+ * TEMUAN UJI 16 SEPTEMBER 2026: eyeLookDown ADALAH FITUR YANG SALAH
+ * ----------------------------------------------------------------------------
+ * Sampai commit 831eb52 modul ini memutuskan menunduk dari rata-rata blendshape
+ * eyeLookDownLeft/Right, mengikuti spesifikasi awal di GEMINI.md. Uji lapangan
+ * membuktikan fitur itu salah pilih, bukan salah ambang.
+ *
+ * eyeLookDown mengukur posisi BOLA MATA RELATIF TERHADAP KEPALA, bukan arah
+ * kepala. Akibatnya dua kesalahan berlawanan muncul:
+ * 1. Saat kepala menunduk membaca kertas, bola mata justru bergulir ke atas
+ *    relatif terhadap kepala agar tetap melihat kertas, sehingga eyeLookDown
+ *    MENGECIL. Pada uji 16 September 2026, sepuluh detik membaca kertas
+ *    menghasilkan eyeLookDown 0.01-0.37 yang tidak pernah melewati ambang 0.5;
+ *    membaca catatan akan selalu tercatat "menatap depan".
+ * 2. Saat kepala mendongak sementara mata tetap menatap layar, bola mata
+ *    berputar ke bawah relatif terhadap kepala, eyeLookDown MEMBESAR, dan
+ *    mendongak tercatat sebagai menunduk.
+ *
+ * Angka uji yang sama (rata-rata per detik, satu pengguna, kamera laptop):
+ *   kepala tegak menatap kamera : pitch  -8.2 s/d -11.1 derajat
+ *   kepala tegak, mata ke bawah : pitch  -6.9 s/d  -8.9 derajat
+ *   kepala menunduk ke kertas   : pitch -24.0 s/d -28.3 derajat
+ *   kepala tegak, mata ke atas  : pitch  -7.0 s/d  -9.3 derajat
+ *
+ * Pitch kepala memisahkan gerakan kepala dari gerakan mata dengan bersih:
+ * gerakan mata saja menggesernya kurang dari 3 derajat, sementara menunduk
+ * menggesernya sekitar 16 derajat. Perkiraan pitch dari posisi hidung terhadap
+ * garis mata juga diuji dan DITOLAK: nilainya ikut berubah saat hanya mata yang
+ * bergerak, dan celah antar-posenya cuma 0.004.
+ *
+ * Karena pitch bertanda, mendongak menggerakkan nilainya ke arah yang
+ * BERLAWANAN dengan ambang menunduk, sehingga kesalahan nomor 2 mustahil
+ * terjadi lagi. eyeLookDown tidak bisa begitu: ia nilai 0..1 tanpa tanda.
+ *
+ * KONSEKUENSI YANG DIAKUI JUJUR: melirik catatan dengan mata saja, tanpa
+ * menggerakkan kepala, TIDAK terhitung menunduk. Yang diukur adalah arah kepala.
+ * Keterbatasan ini disebutkan di kartu rapor, bukan disembunyikan.
+ *
+ * ----------------------------------------------------------------------------
+ * TEMUAN UJI 16 SEPTEMBER 2026: WAJAH HILANG SAAT MENUNDUK DALAM
+ * ----------------------------------------------------------------------------
+ * MediaPipe kehilangan wajah pada sudut menunduk yang ekstrem. Pada uji yang
+ * sama, menunduk membaca kertas (-28 derajat) masih terdeteksi penuh, tetapi
+ * menunduk lebih dalam membuat wajah hilang, dan pitch terakhir sebelum tiap
+ * kehilangan selalu sudah dalam: -21, -28, dan -26 derajat.
+ *
+ * Karena itu frame tanpa wajah TIDAK diperlakukan sama rata:
+ * - Hilang saat status stabil sedang 'menunduk' dihitung sebagai MENUNDUK,
+ *   paling lama CONFIG.FACE_HILANG_MENUNDUK_MAKS_DETIK. Penyebab realistis
+ *   satu-satunya adalah kepala menunduk lebih dalam.
+ * - Hilang saat status sedang 'depan' tetap dilaporkan "wajah tidak terlihat":
+ *   itu kasus menutup kamera atau keluar dari bingkai.
+ * - Batas waktu tadi ada supaya orang yang melirik catatan lalu PERGI dari meja
+ *   tidak tercatat menunduk berkepanjangan.
+ * Tanpa aturan ini, kebiasaan terburuk (menunduk dalam membaca catatan) justru
+ * membuat persentase kontak pandang terlihat lebih bagus, karena frame tanpa
+ * wajah dikeluarkan dari pembagi.
  *
  * ----------------------------------------------------------------------------
  * TEMUAN UJI 15 SEPTEMBER 2026: KEDIPAN TERBACA SEBAGAI MENUNDUK
@@ -42,6 +104,10 @@
  * menutup. Dari sudut pandang model, kelopak yang turun menutupi bola mata
  * terlihat mirip dengan bola mata yang bergulir ke bawah. Karena itu kedipan
  * harus disaring sebelum arah pandang diputuskan.
+ *
+ * Temuan ini muncul saat modul masih memakai eyeLookDown. Saringan kedipan
+ * tetap dipertahankan sesudah pindah ke pitch, karena pengaruh kelopak mata
+ * terhadap pitch belum diukur; buang hanya bila uji menunjukkannya tidak perlu.
  *
  * Dua perbaikan diterapkan, dan keduanya perlu:
  * 1. SARING KEDIPAN. Bila eyeBlinkLeft ATAU eyeBlinkRight melewati
@@ -84,11 +150,10 @@ const URL_BUNDLE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VERSI
 const URL_WASM = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VERSI_TASKS_VISION}/wasm`;
 const URL_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 
-// Nama blendshape yang dibutuhkan. Nama ini berasal dari berkas model, bukan
-// dari pustaka JS, jadi tidak bisa diverifikasi sebelum model benar-benar
-// dimuat. Bila salah satu tidak ditemukan, modul menolak melaporkan angka
-// alih-alih menebak (lihat blendshapeTersedia di bawah).
-const NAMA_LOOK_DOWN = ['eyeLookDownLeft', 'eyeLookDownRight'];
+// Nama blendshape yang dibutuhkan, kini hanya untuk menyaring kedipan. Nama ini
+// berasal dari berkas model, bukan dari pustaka JS, jadi tidak bisa diverifikasi
+// sebelum model benar-benar dimuat. Bila tidak ditemukan, modul menolak
+// melaporkan angka alih-alih menebak (lihat blendshapeTersedia di bawah).
 const NAMA_BLINK = ['eyeBlinkLeft', 'eyeBlinkRight'];
 
 // ----------------------------------------------------------------------------
@@ -109,6 +174,15 @@ let frameMenatapDepan = 0;
 let frameMenunduk = 0;
 let frameWajahTakTerlihat = 0;
 let frameBerkedip = 0;             // Dikeluarkan dari pembagi; tidak ditampilkan di UI
+let frameHilangDihitungMenunduk = 0; // Frame tanpa wajah yang diatribusikan ke menunduk
+
+// Posisi kepala netral pengguna (derajat), diukur di Layar Persiapan.
+// null berarti belum dikalibrasi; selama null, arah pandang TIDAK dilaporkan.
+let pitchNetral = null;
+
+// Pelacak kehilangan wajah (lihat tanganiWajahHilang)
+let hilangMulaiDetik = null;
+let statusSaatHilang = null;
 
 // Penghalusan temporal (lihat terapkanPenghalusan)
 let statusStabil = null;           // null | 'depan' | 'menunduk'
@@ -127,7 +201,9 @@ let timestampTerakhir = 0;
 
 // Konfigurasi aktif
 const KONFIG_BAWAAN = {
-  LOOK_DOWN_THRESHOLD: 0.5,
+  FACE_PITCH_MENUNDUK_DERAJAT: 8,
+  FACE_KALIBRASI_MS: 2000,
+  FACE_HILANG_MENUNDUK_MAKS_DETIK: 5,
   FACE_BLINK_THRESHOLD: 0.5,
   FACE_SMOOTHING_FRAMES: 3,
   FACE_POLL_INTERVAL_MS: 150,
@@ -206,7 +282,10 @@ export async function loadModel() {
         runningMode: 'VIDEO',
         numFaces: 1,
         outputFaceBlendshapes: true,
-        outputFacialTransformationMatrixes: false
+        // DIAGNOSTIK SEMENTARA (15 September 2026): dinyalakan untuk mengukur
+        // rotasi kepala (pitch) sebagai pembanding eyeLookDown. Belum dipakai
+        // untuk keputusan apa pun.
+        outputFacialTransformationMatrixes: true
       });
 
       try {
@@ -232,6 +311,115 @@ export async function loadModel() {
 }
 
 /**
+ * Menghitung sudut kepala atas-bawah (pitch) dan kiri-kanan (yaw) dari matriks
+ * transformasi wajah, dalam derajat.
+ *
+ * CARA KERJA:
+ * MediaPipe mencocokkan model wajah tiga dimensi ke wajah yang terlihat, lalu
+ * mengembalikan matriks 4x4 berisi rotasi dan posisinya terhadap kamera. Kolom
+ * ketiga matriks rotasi adalah SUMBU DEPAN wajah, yaitu ke mana wajah menghadap.
+ * Komponen tegaknya (y) langsung memberi pitch lewat arcsin, dan komponen
+ * mendatarnya (x) memberi yaw.
+ *
+ * Tata letak data matriks (kolom dulu atau baris dulu) tidak diasumsikan,
+ * melainkan dideteksi dari letak komponen translasi z. Nilai itu selalu jauh
+ * dari nol karena wajah berada puluhan sentimeter dari kamera, sehingga
+ * posisinya menunjukkan tata letak yang sebenarnya dipakai pustaka.
+ *
+ * Nilai pitch di sini MUTLAK terhadap kamera, belum dikurangi posisi netral.
+ *
+ * @returns {{pitch: number, yaw: number}|null} null bila matriks tidak tersedia
+ */
+function hitungSudutKepala(hasil) {
+  const m = hasil && hasil.facialTransformationMatrixes && hasil.facialTransformationMatrixes[0];
+  if (!m || !m.data || m.data.length !== 16) return null;
+
+  const d = m.data;
+  const kolomDulu = Math.abs(d[14]) > Math.abs(d[11]);
+  const fx = kolomDulu ? d[8] : d[2];
+  const fy = kolomDulu ? d[9] : d[6];
+  const derajat = (r) => Math.asin(Math.max(-1, Math.min(1, r))) * 180 / Math.PI;
+
+  return { pitch: derajat(fy), yaw: derajat(fx) };
+}
+
+/**
+ * Mengukur posisi kepala netral pengguna di Layar Persiapan.
+ *
+ * CARA KERJA:
+ * 1. Selama CONFIG.FACE_KALIBRASI_MS (awal 2 detik), pitch dibaca dari preview
+ *    kamera sementara pengguna diminta menatap kamera dengan posisi duduk wajar.
+ * 2. Netral diambil dari MEDIAN sampel, bukan rata-rata, supaya satu gerakan
+ *    kepala sesaat tidak menggeser titik acuan seluruh sesi.
+ * 3. Seluruh keputusan menunduk nantinya memakai SELISIH terhadap netral ini.
+ *    Kalibrasi ulang diperlukan bila pengguna memindahkan laptop atau berganti
+ *    posisi duduk, dan itulah gunanya tombol "Kalibrasi ulang postur".
+ * 4. Bila tidak ada satu pun frame berwajah (pengguna di luar bingkai, kamera
+ *    tertutup), netral dibiarkan null dan arah pandang tidak akan dilaporkan.
+ *
+ * Nilai netral lama selalu dibuang lebih dulu, supaya kalibrasi ulang yang gagal
+ * tidak diam-diam memakai acuan dari posisi duduk sebelumnya.
+ *
+ * @param {HTMLVideoElement} videoElement - Preview kamera di Layar Persiapan
+ * @param {Object} config - Objek CONFIG dari app.js
+ * @returns {Promise<{berhasil: boolean, pitchNetral: number|null, jumlahSampel: number}>}
+ */
+export function kalibrasiPostur(videoElement, config = {}) {
+  const k = { ...KONFIG_BAWAAN, ...config };
+  pitchNetral = null;
+
+  return new Promise((selesai) => {
+    if (!isReady() || !videoElement) {
+      selesai({ berhasil: false, pitchNetral: null, jumlahSampel: 0 });
+      return;
+    }
+
+    const sampel = [];
+    const idInterval = setInterval(() => {
+      if (videoElement.readyState < 2 || !videoElement.videoWidth) return;
+
+      const timestamp = Math.max(performance.now(), timestampTerakhir + 1);
+      timestampTerakhir = timestamp;
+
+      let hasil = null;
+      try {
+        hasil = landmarker.detectForVideo(videoElement, timestamp);
+      } catch (err) {
+        return;
+      }
+
+      if (!hasil || !hasil.faceLandmarks || hasil.faceLandmarks.length === 0) return;
+      const sudut = hitungSudutKepala(hasil);
+      if (sudut) sampel.push(sudut.pitch);
+    }, 100);
+
+    setTimeout(() => {
+      clearInterval(idInterval);
+
+      if (sampel.length === 0) {
+        selesai({ berhasil: false, pitchNetral: null, jumlahSampel: 0 });
+        return;
+      }
+
+      const urut = sampel.slice().sort((a, b) => a - b);
+      const tengah = Math.floor(urut.length / 2);
+      pitchNetral = (urut.length % 2 === 0)
+        ? (urut[tengah - 1] + urut[tengah]) / 2
+        : urut[tengah];
+
+      if (k.FACE_DEBUG) {
+        console.log(
+          `[face] postur netral: ${sampel.length} sampel, ` +
+          `min=${urut[0].toFixed(1)}° median=${pitchNetral.toFixed(1)}° maks=${urut[urut.length - 1].toFixed(1)}°`
+        );
+      }
+
+      selesai({ berhasil: true, pitchNetral, jumlahSampel: sampel.length });
+    }, k.FACE_KALIBRASI_MS);
+  });
+}
+
+/**
  * Memulai analisis arah pandang dari nol.
  *
  * CARA KERJA:
@@ -253,8 +441,12 @@ export function start(callbacks = {}, videoElement = null, config = {}) {
   frameMenunduk = 0;
   frameWajahTakTerlihat = 0;
   frameBerkedip = 0;
+  frameHilangDihitungMenunduk = 0;
   statusStabil = null;
+  hilangMulaiDetik = null;
+  statusSaatHilang = null;
   resetKandidat();
+  diag.detik = -1;
   menundukSegmen = [];
   menundukMulaiDetik = null;
   waktuVideoTerakhir = -1;
@@ -266,7 +458,10 @@ export function start(callbacks = {}, videoElement = null, config = {}) {
 
   videoSumber = videoElement;
 
-  if (!isReady() || !videoSumber) {
+  // Tanpa posisi netral, selisih pitch tidak punya arti apa pun. Modul menolak
+  // berjalan alih-alih memakai nol sebagai netral, karena kamera laptop membuat
+  // posisi menatap kamera pun bernilai jauh dari nol.
+  if (!isReady() || !videoSumber || pitchNetral === null) {
     status = 'berhenti';
     laporkanArah('belum aktif');
     return false;
@@ -294,6 +489,8 @@ export function pause() {
   lepasKandidatKe(statusStabil);
   tutupSegmenMenunduk();
   statusStabil = null;
+  hilangMulaiDetik = null;
+  statusSaatHilang = null;
   status = 'dijeda';
   tutupSegmenJam();
   hentikanLoopInferensi();
@@ -328,6 +525,8 @@ export function stop() {
     lepasKandidatKe(statusStabil);
     tutupSegmenMenunduk();
     statusStabil = null;
+    hilangMulaiDetik = null;
+    statusSaatHilang = null;
   }
   status = 'berhenti';
   tutupSegmenJam();
@@ -398,32 +597,35 @@ function prosesSatuFrame() {
   totalFrameDianalisis++;
 
   const adaWajah = Boolean(hasil && hasil.faceLandmarks && hasil.faceLandmarks.length > 0);
+  catatDiagnostik(hasil, adaWajah);
+
+  const detik = detikSesiSekarang();
+
   if (!adaWajah) {
-    frameWajahTakTerlihat++;
-    lepasKandidatKe(statusStabil);
-    tutupSegmenMenunduk();
-    statusStabil = null;
-    laporkanArah('tidak terlihat');
+    tanganiWajahHilang(detik);
     return;
   }
+
+  // Wajah kembali terlihat: pelacak kehilangan dikosongkan
+  hilangMulaiDetik = null;
+  statusSaatHilang = null;
 
   const kategori = (hasil.faceBlendshapes && hasil.faceBlendshapes[0])
     ? hasil.faceBlendshapes[0].categories
     : null;
 
-  const nilaiKiri = ambilBlendshape(kategori, NAMA_LOOK_DOWN[0]);
-  const nilaiKanan = ambilBlendshape(kategori, NAMA_LOOK_DOWN[1]);
   const kedipKiri = ambilBlendshape(kategori, NAMA_BLINK[0]);
   const kedipKanan = ambilBlendshape(kategori, NAMA_BLINK[1]);
+  const sudut = hitungSudutKepala(hasil);
 
-  // Bila nama blendshape yang dibutuhkan tidak ada di model, modul tidak boleh
+  // Bila blendshape kedipan atau matriks rotasi tidak ada, modul tidak boleh
   // menebak. Penanda ini membuat getResults() melaporkan dirinya tidak tersedia.
-  if (nilaiKiri === null || nilaiKanan === null || kedipKiri === null || kedipKanan === null) {
+  if (kedipKiri === null || kedipKanan === null || sudut === null) {
     if (blendshapeTersedia) {
       blendshapeTersedia = false;
       console.error(
-        'Face Landmarker: blendshape eyeLookDownLeft/Right atau eyeBlinkLeft/Right tidak ditemukan pada model ini. ' +
-        'Arah pandang tidak akan dilaporkan. Nama yang tersedia:',
+        'Face Landmarker: blendshape eyeBlinkLeft/Right atau matriks transformasi wajah tidak tersedia. ' +
+        'Arah pandang tidak akan dilaporkan. Nama blendshape yang ada:',
         (kategori || []).map(k => k.categoryName)
       );
     }
@@ -431,22 +633,72 @@ function prosesSatuFrame() {
     return;
   }
 
-  const detik = detikSesiSekarang();
-  const rataLookDown = (nilaiKiri + nilaiKanan) / 2;
-
   // Saring kedipan: mata tertutup berarti arah pandang tidak bisa diukur
   const berkedip = kedipKiri > konfig.FACE_BLINK_THRESHOLD || kedipKanan > konfig.FACE_BLINK_THRESHOLD;
   if (berkedip) {
     frameBerkedip++;
-    cetakDebug(kategori, nilaiKiri, nilaiKanan, rataLookDown, kedipKiri, kedipKanan, 'KEDIP (dikeluarkan)');
+    cetakDebug(sudut, kedipKiri, kedipKanan, null, 'KEDIP (dikeluarkan)');
     return;
   }
 
-  const mentah = rataLookDown > konfig.LOOK_DOWN_THRESHOLD ? 'menunduk' : 'depan';
+  // Selisih terhadap posisi netral. Negatif berarti kepala lebih menunduk
+  // daripada saat kalibrasi; mendongak membuatnya positif dan karena itu tidak
+  // pernah bisa melewati ambang menunduk.
+  const selisih = sudut.pitch - pitchNetral;
+  const mentah = selisih < -konfig.FACE_PITCH_MENUNDUK_DERAJAT ? 'menunduk' : 'depan';
   terapkanPenghalusan(mentah, detik);
 
-  cetakDebug(kategori, nilaiKiri, nilaiKanan, rataLookDown, kedipKiri, kedipKanan,
+  cetakDebug(sudut, kedipKiri, kedipKanan, selisih,
     `mentah=${mentah} stabil=${statusStabil} kandidat=${kandidat}x${kandidatJumlah}`);
+}
+
+/**
+ * Memutuskan arti satu frame yang wajahnya tidak terdeteksi.
+ *
+ * CARA KERJA:
+ * Frame tanpa wajah punya dua arti yang sangat berbeda, dan yang membedakannya
+ * adalah status tepat sebelum wajah hilang (lihat temuan uji di kepala berkas).
+ *
+ * 1. Hilang saat status 'menunduk': kepala menunduk lebih dalam sampai melewati
+ *    batas sudut yang masih bisa dikenali MediaPipe. Frame dihitung MENUNDUK dan
+ *    segmen menunduk dibiarkan terbuka, tetapi hanya sampai
+ *    CONFIG.FACE_HILANG_MENUNDUK_MAKS_DETIK. Batas itu memisahkan "menunduk
+ *    dalam" dari "meninggalkan meja setelah melirik catatan".
+ * 2. Hilang saat status 'depan', atau sesudah batas waktu di atas terlampaui:
+ *    frame dihitung sebagai "wajah tidak terlihat" seperti sebelumnya, dan
+ *    dikeluarkan dari pembagi persentase.
+ */
+function tanganiWajahHilang(detik) {
+  if (hilangMulaiDetik === null) {
+    hilangMulaiDetik = detik;
+    statusSaatHilang = statusStabil;
+    lepasKandidatKe(statusStabil);
+  }
+
+  const batas = konfig.FACE_HILANG_MENUNDUK_MAKS_DETIK;
+  const masihDalamBatas = (detik - hilangMulaiDetik) <= batas;
+
+  if (statusSaatHilang === 'menunduk' && masihDalamBatas) {
+    frameMenunduk++;
+    frameHilangDihitungMenunduk++;
+    laporkanArah('menunduk');
+    return;
+  }
+
+  // Sesudah batas waktu, segmen menunduk ditutup pada detik batas itu, bukan
+  // pada saat wajah akhirnya kembali, supaya durasinya tidak menelan waktu
+  // pengguna meninggalkan meja.
+  if (statusSaatHilang === 'menunduk') {
+    tutupSegmenMenunduk(hilangMulaiDetik + batas);
+    statusSaatHilang = null;
+    statusStabil = null;
+  } else if (statusStabil !== null) {
+    tutupSegmenMenunduk();
+    statusStabil = null;
+  }
+
+  frameWajahTakTerlihat++;
+  laporkanArah('tidak terlihat');
 }
 
 /**
@@ -579,24 +831,104 @@ function laporkanArah(arah) {
  * CARA KERJA:
  * Sekali di awal, mencetak seluruh nama blendshape yang benar-benar dikirim
  * model, supaya bisa dipastikan nama yang dipakai modul ini memang ada. Setelah
- * itu mencetak nilai eyeLookDown dan eyeBlink kedua mata beserta keputusan
- * penyaringan dan penghalusannya, sehingga CONFIG.LOOK_DOWN_THRESHOLD,
+ * itu mencetak pitch kepala, selisihnya terhadap netral, nilai kedipan, dan
+ * keputusan penghalusannya, sehingga CONFIG.FACE_PITCH_MENUNDUK_DERAJAT,
  * CONFIG.FACE_BLINK_THRESHOLD, dan CONFIG.FACE_SMOOTHING_FRAMES bisa ditetapkan
  * dari angka nyata di laptop pengguna, bukan dari tebakan.
  */
-function cetakDebug(kategori, kiri, kanan, rata, kedipKiri, kedipKanan, keputusan) {
+function cetakDebug(sudut, kedipKiri, kedipKanan, selisih, keputusan) {
   if (!konfig.FACE_DEBUG) return;
 
   if (!sudahCetakDaftarBlendshape) {
     sudahCetakDaftarBlendshape = true;
-    console.log('[face] blendshape tersedia:', (kategori || []).map(k => k.categoryName).join(', '));
+    console.log(`[face] netral=${pitchNetral === null ? 'belum diukur' : pitchNetral.toFixed(1) + '°'}, ambang menunduk=${konfig.FACE_PITCH_MENUNDUK_DERAJAT}° di bawah netral`);
   }
 
   console.log(
     `[face] t=${detikSesiSekarang().toFixed(1)}s ` +
-    `lookDown kiri=${kiri.toFixed(3)} kanan=${kanan.toFixed(3)} rata=${rata.toFixed(3)} (ambang ${konfig.LOOK_DOWN_THRESHOLD}) ` +
+    `pitch=${sudut.pitch.toFixed(1)}° yaw=${sudut.yaw.toFixed(1)}° ` +
+    `selisih=${selisih === null ? '-' : selisih.toFixed(1) + '°'} ` +
     `blink kiri=${kedipKiri.toFixed(3)} kanan=${kedipKanan.toFixed(3)} (ambang ${konfig.FACE_BLINK_THRESHOLD}) ` +
     `-> ${keputusan}`
+  );
+}
+
+// ----------------------------------------------------------------------------
+// DIAGNOSTIK SEMENTARA (15 September 2026) — BELUM DIPAKAI UNTUK KEPUTUSAN
+//
+// Uji manual menunjukkan arah terbalik: melihat ke atas terbaca menunduk, dan
+// menunduk sungguhan menurunkan eyeLookDown. Hipotesis: eyeLookDown mengukur
+// posisi bola mata RELATIF TERHADAP KEPALA, bukan arah kepala. Saat kepala
+// menunduk ke kertas, bola mata bisa justru bergulir ke atas relatif terhadap
+// kepala. Untuk memastikannya, empat sinyal dicetak berdampingan, dirata-rata
+// per detik supaya angkanya bisa disalin:
+//   lookDown  rata-rata eyeLookDownLeft/Right   (fitur yang dipakai sekarang)
+//   lookUp    rata-rata eyeLookUpLeft/Right
+//   pitch     rotasi kepala atas-bawah (derajat) dari matriks transformasi wajah
+//   yaw       rotasi kepala kiri-kanan (derajat), untuk melihat gangguan menoleh
+//   hidung    jarak tegak ujung hidung di bawah garis mata, dibagi jarak antar
+//             sudut mata luar (estimasi pitch dari landmark 2D)
+//   hilang    jumlah frame tanpa wajah dalam detik itu
+// ----------------------------------------------------------------------------
+const diag = { detik: -1, n: 0, hilang: 0, lookDown: 0, lookUp: 0, pitch: 0, yaw: 0, nPose: 0, hidung: 0, tataLetak: null };
+
+function catatDiagnostik(hasil, adaWajah) {
+  if (!konfig.FACE_DEBUG) return;
+
+  const detikBulat = Math.floor(detikSesiSekarang());
+  if (detikBulat !== diag.detik) {
+    cetakDiagnostikPerDetik();
+    Object.assign(diag, { detik: detikBulat, n: 0, hilang: 0, lookDown: 0, lookUp: 0, pitch: 0, yaw: 0, nPose: 0, hidung: 0 });
+  }
+
+  if (!adaWajah) { diag.hilang++; return; }
+
+  const kategori = (hasil.faceBlendshapes && hasil.faceBlendshapes[0]) ? hasil.faceBlendshapes[0].categories : null;
+  const b = (nama) => ambilBlendshape(kategori, nama) ?? 0;
+  diag.n++;
+  diag.lookDown += (b('eyeLookDownLeft') + b('eyeLookDownRight')) / 2;
+  diag.lookUp += (b('eyeLookUpLeft') + b('eyeLookUpRight')) / 2;
+
+  // Estimasi pitch dari landmark 2D. Indeks 1 = ujung hidung, 33 dan 263 =
+  // sudut luar mata kiri dan kanan pada mesh 468 titik. Koordinat dinormalisasi
+  // 0..1, jadi dikalikan ukuran video agar skala x dan y setara.
+  const lm = hasil.faceLandmarks[0];
+  if (lm && lm[1] && lm[33] && lm[263]) {
+    const w = videoSumber.videoWidth, h = videoSumber.videoHeight;
+    const mataY = ((lm[33].y + lm[263].y) / 2) * h;
+    const jarakMata = Math.hypot((lm[263].x - lm[33].x) * w, (lm[263].y - lm[33].y) * h);
+    if (jarakMata > 0) diag.hidung += (lm[1].y * h - mataY) / jarakMata;
+  }
+
+  // Pitch dan yaw dari matriks transformasi 4x4. Tata letak data (kolom atau
+  // baris dulu) dideteksi dari posisi komponen translasi z, yang jauh lebih
+  // besar dari nol karena wajah berada puluhan sentimeter dari kamera.
+  const m = hasil.facialTransformationMatrixes && hasil.facialTransformationMatrixes[0];
+  if (m && m.data && m.data.length === 16) {
+    const d = m.data;
+    const kolomDulu = Math.abs(d[14]) > Math.abs(d[11]);
+    if (diag.tataLetak === null) {
+      diag.tataLetak = kolomDulu ? 'kolom-dulu' : 'baris-dulu';
+      console.log(`[diag] matriks transformasi terdeteksi: tata letak ${diag.tataLetak}, data=`, Array.from(d).map(x => +x.toFixed(3)));
+    }
+    // Sumbu depan wajah (kolom ke-3 matriks rotasi) dalam koordinat kamera
+    const fx = kolomDulu ? d[8] : d[2];
+    const fy = kolomDulu ? d[9] : d[6];
+    const derajat = (r) => Math.asin(Math.max(-1, Math.min(1, r))) * 180 / Math.PI;
+    diag.pitch += derajat(fy);
+    diag.yaw += derajat(fx);
+    diag.nPose++;
+  }
+}
+
+function cetakDiagnostikPerDetik() {
+  if (diag.detik < 0) return;
+  const rata = (x, n, digit = 3) => n > 0 ? (x / n).toFixed(digit) : '-';
+  console.log(
+    `[diag] t=${diag.detik}s frame=${diag.n} hilang=${diag.hilang} ` +
+    `lookDown=${rata(diag.lookDown, diag.n)} lookUp=${rata(diag.lookUp, diag.n)} ` +
+    `pitch=${rata(diag.pitch, diag.nPose, 1)}° yaw=${rata(diag.yaw, diag.nPose, 1)}° ` +
+    `hidung=${rata(diag.hidung, diag.n)}`
   );
 }
 
@@ -604,10 +936,10 @@ function cetakDebug(kategori, kiri, kanan, rata, kedipKiri, kedipKanan, keputusa
  * Mengambil agregat kontak pandang untuk Rapor.
  *
  * CARA KERJA:
- * 1. Melaporkan diri tidak tersedia bila model gagal dimuat, nama blendshape
- *    tidak cocok, atau tidak ada satu pun frame yang sempat dianalisis. Dalam
- *    ketiga kondisi itu modul TIDAK mengembalikan angka apa pun, dan report.js
- *    akan mengeluarkan bobot arah pandang dari rumus skor.
+ * 1. Melaporkan diri tidak tersedia bila model gagal dimuat, posisi netral belum
+ *    dikalibrasi, matriks atau blendshape tidak tersedia, atau tidak ada satu
+ *    pun frame yang sempat dinilai. Dalam kondisi itu modul TIDAK mengembalikan
+ *    angka apa pun, dan report.js mengeluarkan bobot arah pandang dari skor.
  * 2. Persentase kontak pandang dihitung hanya dari frame yang benar-benar
  *    dinilai: menatap depan + menunduk. Tiga jenis frame dikeluarkan dari
  *    pembagi: tanpa wajah, berkedip, dan antrean kandidat yang dibuang karena
@@ -622,7 +954,7 @@ function cetakDebug(kategori, kiri, kanan, rata, kedipKiri, kedipKanan, keputusa
 export function getResults() {
   const frameValid = frameMenatapDepan + frameMenunduk;
 
-  if (!tersedia || !blendshapeTersedia || totalFrameDianalisis === 0 || frameValid <= 0) {
+  if (!tersedia || !blendshapeTersedia || pitchNetral === null || totalFrameDianalisis === 0 || frameValid <= 0) {
     return { tersedia: false };
   }
 
@@ -636,6 +968,8 @@ export function getResults() {
     totalFrame: totalFrameDianalisis,
     frameMenunduk: frameMenunduk,
     frameBerkedip: frameBerkedip,
+    frameHilangDihitungMenunduk: frameHilangDihitungMenunduk,
+    pitchNetral: pitchNetral,
     menundukSegmen: menundukSegmen.slice()
   };
 }

@@ -106,13 +106,20 @@ export const CONFIG = {
     debug: false
   },
 
-  // Arah Pandang (MediaPipe Face Blendshapes)
-  LOOK_DOWN_THRESHOLD: 0.5,        // Rata-rata eyeLookDownLeft & eyeLookDownRight di atas ini dihitung menunduk
+  // Arah Pandang (sudut kepala dari matriks transformasi MediaPipe)
+  // Pitch sekian derajat DI BAWAH posisi netral pengguna dihitung menunduk.
+  // Nilai awal dari uji 16 September 2026: netral -8° s/d -12°, membaca kertas
+  // -24° s/d -28°, sedangkan gerakan mata saja menggeser kurang dari 3°.
+  FACE_PITCH_MENUNDUK_DERAJAT: 8,
+  FACE_KALIBRASI_MS: 2000,         // Lama pengukuran posisi kepala netral di Layar Persiapan
+  // Wajah yang hilang saat status sedang menunduk dihitung menunduk paling lama
+  // sekian detik. Batas ini memisahkan menunduk dalam dari meninggalkan meja.
+  FACE_HILANG_MENUNDUK_MAKS_DETIK: 5,
   FACE_BLINK_THRESHOLD: 0.5,       // eyeBlinkLeft ATAU eyeBlinkRight di atas ini = berkedip, frame dikeluarkan (nilai awal, kalibrasi via debug)
   FACE_SMOOTHING_FRAMES: 3,        // Status depan/menunduk baru berganti setelah sekian frame berturut-turut sepakat (nilai awal)
   FACE_POLL_INTERVAL_MS: 150,      // Frekuensi inferensi wajah tiap 150 ms
   MENUNDUK_EVENT_MIN_DETIK: 3,     // Menunduk selama ini atau lebih dicatat sebagai satu event timeline
-  FACE_DEBUG: false,               // true: cetak nama & nilai blendshape ke console untuk kalibrasi ambang
+  FACE_DEBUG: false,               // true: cetak pitch, selisih netral, dan nilai kedipan ke console untuk kalibrasi
 
   // Postur (Teachable Machine)
   POSE_CONFIDENCE_MIN: 0.7,        // Minimal confidence 0.7
@@ -178,6 +185,8 @@ const DOM = {
   meterVolumeAngka: document.getElementById('meter-volume-angka'),
   statusKalibrasiRuangan: document.getElementById('status-kalibrasi-ruangan'),
   btnUkurUlangRuangan: document.getElementById('btn-ukur-ulang-ruangan'),
+  statusKalibrasiPostur: document.getElementById('status-kalibrasi-postur'),
+  btnKalibrasiPostur: document.getElementById('btn-kalibrasi-postur'),
   statusModelWajah: document.getElementById('status-model-wajah'),
   statusModelPostur: document.getElementById('status-model-postur'),
   tombolMulaiSesi: document.getElementById('btn-mulai-sesi'),
@@ -208,6 +217,7 @@ const DOM = {
   raporFillerRincian: document.getElementById('rapor-filler-rincian'),
   raporPandangNilai: document.getElementById('rapor-pandang-nilai'),
   raporPandangKet: document.getElementById('rapor-pandang-ket'),
+  raporPandangCatatan: document.getElementById('rapor-pandang-catatan'),
   raporJedaNilai: document.getElementById('rapor-jeda-nilai'),
   raporJedaKet: document.getElementById('rapor-jeda-ket'),
   raporVolumeNilai: document.getElementById('rapor-volume-nilai'),
@@ -395,6 +405,8 @@ function siapkanLayarPersiapan() {
   DOM.meterVolumeBar.style.width = '0%';
   DOM.meterVolumeAngka.textContent = '0%';
   tampilkanStatusKalibrasi('', true);
+  tampilkanStatusPostur('', true);
+  DOM.btnKalibrasiPostur.disabled = true;
 }
 
 /**
@@ -419,6 +431,8 @@ async function muatModelWajah() {
   if (berhasil) {
     DOM.statusModelWajah.textContent = 'Selesai';
     DOM.statusModelWajah.className = 'status-model-badge badge-sukses';
+    // Posisi kepala netral baru bisa diukur sesudah modelnya siap
+    kalibrasiPosturKepala();
   } else {
     DOM.statusModelWajah.textContent = 'Gagal dimuat';
     DOM.statusModelWajah.className = 'status-model-badge badge-gagal';
@@ -463,6 +477,52 @@ async function ukurSuaraRuangan() {
 function tampilkanStatusKalibrasi(pesan, normal) {
   DOM.statusKalibrasiRuangan.textContent = pesan;
   DOM.statusKalibrasiRuangan.style.color = normal ? '' : 'var(--bahaya)';
+}
+
+/**
+ * Mengukur posisi kepala netral pengguna di Layar Persiapan.
+ *
+ * CARA KERJA:
+ * Modul wajah menilai menunduk dari SELISIH sudut kepala terhadap posisi netral,
+ * bukan dari sudut mutlak, karena kamera laptop berada di bawah garis mata:
+ * menatap kamera pun sudah menghasilkan sudut yang jauh dari nol, dan angkanya
+ * berbeda untuk tiap orang dan tiap posisi laptop.
+ *
+ * Tombol "Kalibrasi ulang postur" memakai fungsi yang sama. Kalibrasi ulang
+ * diperlukan bila pengguna terlanjur mengukur sambil membungkuk, atau memindahkan
+ * laptopnya. Tanpa acuan yang benar, seluruh persentase arah pandang ikut salah.
+ *
+ * Kegagalan di sini tidak menghentikan sesi: modul wajah melaporkan dirinya
+ * tidak tersedia dan bobot arah pandang dialihkan ke metrik lain.
+ */
+async function kalibrasiPosturKepala() {
+  if (!faceModule.isReady()) {
+    tampilkanStatusPostur('Model arah pandang belum siap, postur netral tidak bisa diukur.', false);
+    return;
+  }
+
+  DOM.tombolMulaiSesi.disabled = true;
+  DOM.btnKalibrasiPostur.disabled = true;
+  tampilkanStatusPostur('Tatap kamera dengan posisi duduk wajar, kami mengukur postur netralmu...', true);
+
+  const hasil = await faceModule.kalibrasiPostur(DOM.videoPreviewPersiapan, CONFIG);
+
+  // Pengguna bisa saja sudah meninggalkan Layar Persiapan selama pengukuran
+  if (!state.streamKameraMic) return;
+
+  if (hasil.berhasil) {
+    tampilkanStatusPostur(`Postur netral terukur (${hasil.pitchNetral.toFixed(1)}°). Kalibrasi ulang bila kamu memindahkan laptop.`, true);
+  } else {
+    tampilkanStatusPostur('Postur netral gagal diukur, wajahmu tidak terlihat kamera. Arah pandang tidak akan dinilai.', false);
+  }
+
+  DOM.tombolMulaiSesi.disabled = false;
+  DOM.btnKalibrasiPostur.disabled = false;
+}
+
+function tampilkanStatusPostur(pesan, normal) {
+  DOM.statusKalibrasiPostur.textContent = pesan;
+  DOM.statusKalibrasiPostur.style.color = normal ? '' : 'var(--bahaya)';
 }
 
 /**
@@ -866,10 +926,13 @@ function renderRaporUI(data, statusSimpan) {
     DOM.raporPandangNilai.textContent = `${Math.round(data.pandangPersen * 100)}%`;
     DOM.raporPandangKet.innerHTML =
       `wajah tak terlihat: <span id="rapor-wajah-hilang-nilai">${Math.round(data.wajahTakTerlihatPersen * 100)}%</span>`;
+    // Keterbatasan hanya relevan bila metriknya memang terukur
+    DOM.raporPandangCatatan.style.display = '';
   } else {
     DOM.raporPandangNilai.classList.add('kartu-metrik__nilai--nonaktif');
     DOM.raporPandangNilai.textContent = 'belum aktif';
-    DOM.raporPandangKet.textContent = 'modul arah pandang belum berjalan, jadi tidak ikut dihitung dalam skor';
+    DOM.raporPandangKet.textContent = 'postur netral belum terukur atau model gagal dimuat, jadi tidak ikut dihitung dalam skor';
+    DOM.raporPandangCatatan.style.display = 'none';
   }
 
   // Kartu jeda: angka terukur, atau "belum aktif" bila suara ruangan gagal diukur
@@ -1035,6 +1098,7 @@ function initEventListeners() {
   // Persiapan
   DOM.tombolMintaIzin.addEventListener('click', mintaIzinMedia);
   DOM.btnUkurUlangRuangan.addEventListener('click', ukurSuaraRuangan);
+  DOM.btnKalibrasiPostur.addEventListener('click', kalibrasiPosturKepala);
   DOM.btnMulaiUjiBentrok.addEventListener('click', mulaiUjiBentrokMikrofon);
   DOM.tombolMulaiSesi.addEventListener('click', mulaiSesiLatihan);
   DOM.btnBatalPersiapan.addEventListener('click', () => {
