@@ -388,17 +388,22 @@
           <div id="rapor-volume-ket" class="teks-kecil" style="margin-top: 2px;"></div>
         </div>
 
-        <!-- Postur (kondisional) -->
-        <div id="rapor-postur-kartu" class="kartu-metrik" style="display: none;">
-          <div id="rapor-postur-nilai" class="kartu-metrik__nilai">-</div>
+        <!-- Postur: selalu tampil, dengan keadaan apa adanya. Modulnya masih
+             stub sampai Tahap 5, jadi nilainya "belum aktif", bukan angka. -->
+        <div id="rapor-postur-kartu" class="kartu-metrik">
+          <div id="rapor-postur-nilai" class="kartu-metrik__nilai">belum aktif</div>
           <div class="kartu-metrik__label">distribusi postur tubuh</div>
+          <div id="rapor-postur-ket" class="teks-kecil" style="margin-top: 2px;"></div>
         </div>
       </div>
 
       <!-- Grafik Garis WPM per 30 Detik -->
-      <div class="grafik-kartu">
+      <div id="grafik-wpm-kartu" class="grafik-kartu">
         <h3>Kecepatan Berbicara (WPM per 30 Detik)</h3>
-        <canvas id="chart-wpm-sesi" height="120"></canvas>
+        <div class="grafik-wadah">
+          <canvas id="chart-wpm-sesi"></canvas>
+        </div>
+        <div id="grafik-wpm-kosong" class="teks-kecil" style="display: none;"></div>
       </div>
 
       <!-- Saran Konkret Berdasarkan ATURAN_SARAN -->
@@ -433,6 +438,15 @@
           style="font-size: 14px; padding: 10px 20px; display: none;">
           Hapus semua
         </button>
+      </div>
+
+      <!-- Grafik Tren Skor 10 Sesi Terakhir -->
+      <div id="grafik-tren-kartu" class="grafik-kartu" style="display: none;">
+        <h3>Tren Skor (10 Sesi Terakhir)</h3>
+        <div class="grafik-wadah">
+          <canvas id="chart-tren-skor"></canvas>
+        </div>
+        <div id="grafik-tren-catatan" class="teks-kecil" style="margin-top: 12px;"></div>
       </div>
 
       <!-- Daftar Kartu Sesi Riwayat -->

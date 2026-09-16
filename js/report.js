@@ -283,6 +283,225 @@ export function buatKalimatRingkasan(metrik, skorTotal, config) {
   return `${kekuatan} — ${perbaikan}`;
 }
 
+// ============================================================================
+// GRAFIK (Chart.js)
+// ============================================================================
+//
+// Dua aturan yang berlaku untuk seluruh grafik di berkas ini:
+//
+// 1. WARNA DIAMBIL DARI TOKEN CSS, bukan dari bawaan Chart.js. Chart.js akan
+//    memakai biru dan abu-abunya sendiri bila dibiarkan, dan itu langsung
+//    melanggar aturan aksen tunggal di GEMINI.md. Nilai token dibaca saat
+//    menggambar lewat getComputedStyle, sehingga mengubah satu nilai di
+//    style.css otomatis mengubah grafiknya juga.
+// 2. INSTANS LAMA WAJIB DIHANCURKAN sebelum menggambar ulang di kanvas yang
+//    sama. Chart.js menolak memakai kanvas yang masih dipegang instans lain,
+//    dan tanpa ini grafik akan mati diam-diam pada sesi kedua.
+// ============================================================================
+
+// Menyimpan instans Chart.js per id kanvas, supaya bisa dihancurkan saat digambar ulang
+const instansGrafik = {};
+
+/**
+ * Membaca satu token desain dari CSS supaya grafik memakai palet yang sama
+ * dengan seluruh aplikasi.
+ */
+function token(nama) {
+  return getComputedStyle(document.documentElement).getPropertyValue(nama).trim();
+}
+
+/**
+ * Menyiapkan kanvas: memastikan Chart.js benar-benar termuat, lalu menghancurkan
+ * grafik lama di kanvas yang sama.
+ *
+ * @returns {boolean} False bila Chart.js tidak tersedia (CDN gagal saat luring)
+ */
+function siapkanKanvas(kanvas) {
+  if (!kanvas) return false;
+  if (typeof window.Chart === 'undefined') {
+    console.warn('Chart.js tidak termuat; grafik dilewati.');
+    return false;
+  }
+  if (instansGrafik[kanvas.id]) {
+    instansGrafik[kanvas.id].destroy();
+    delete instansGrafik[kanvas.id];
+  }
+  return true;
+}
+
+/**
+ * Mengubah detik menjadi label sumbu waktu MM:SS.
+ */
+function labelWaktu(detik) {
+  const m = Math.floor(detik / 60).toString().padStart(2, '0');
+  const s = Math.round(detik % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+/**
+ * Menggambar grafik kecepatan bicara per potongan waktu.
+ *
+ * CARA KERJA:
+ * Deretnya sudah dihitung js/speech.js dari cap waktu tiap kata, jadi berkas ini
+ * hanya menggambar. Dua garis putus-putus mendatar menandai batas rentang
+ * nyaman (CONFIG.WPM_SLOW dan CONFIG.WPM_FAST), supaya pengguna bisa melihat
+ * bukan cuma angkanya naik turun, melainkan kapan ia keluar dari rentang itu.
+ * Animasi dimatikan: layar rapor sudah punya satu animasi angka skor, dan
+ * menambah gerakan hanya mengalihkan perhatian.
+ *
+ * @param {HTMLCanvasElement} kanvas
+ * @param {Array<{detikMulai:number, detikSelesai:number, wpm:number}>} deret
+ * @param {Object} config - CONFIG dari app.js (batas rentang nyaman)
+ * @returns {boolean} False bila grafik tidak bisa digambar
+ */
+export function gambarGrafikWpm(kanvas, deret, config) {
+  if (!siapkanKanvas(kanvas)) return false;
+  if (!Array.isArray(deret) || deret.length === 0) return false;
+
+  const a = ambang(config);
+  const warnaAksen = token('--sorot');
+  const warnaTeks = token('--redup');
+  const warnaGaris = token('--border-terang');
+
+  const garisBatas = (nilai) => ({
+    label: `batas ${nilai}`,
+    data: deret.map(() => nilai),
+    borderColor: warnaTeks,
+    borderWidth: 1,
+    borderDash: [4, 4],
+    pointRadius: 0,
+    fill: false
+  });
+
+  instansGrafik[kanvas.id] = new window.Chart(kanvas, {
+    type: 'line',
+    data: {
+      labels: deret.map(d => labelWaktu(d.detikMulai)),
+      datasets: [
+        {
+          label: 'WPM',
+          data: deret.map(d => d.wpm),
+          borderColor: warnaAksen,
+          backgroundColor: warnaAksen,
+          borderWidth: 2,
+          pointRadius: 3,
+          tension: 0.25,
+          fill: false
+        },
+        garisBatas(a.WPM_SLOW),
+        garisBatas(a.WPM_FAST)
+      ]
+    },
+    options: {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (item) => `menit ${item[0].label}`,
+            label: (item) => (item.datasetIndex === 0)
+              ? `${item.parsed.y} kata per menit`
+              : `${item.dataset.label}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: warnaTeks, font: { size: 11 } },
+          grid: { color: warnaGaris, drawTicks: false }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: warnaTeks, font: { size: 11 } },
+          grid: { color: warnaGaris, drawTicks: false }
+        }
+      }
+    }
+  });
+
+  return true;
+}
+
+/**
+ * Menggambar tren skor beberapa sesi terakhir di Layar Riwayat.
+ *
+ * CARA KERJA:
+ * Daftar sesi datang terurut dari yang terbaru, jadi dibalik dulu supaya waktu
+ * berjalan ke kanan seperti grafik pada umumnya. Hanya sejumlah sesi terakhir
+ * yang ditampilkan agar titiknya tetap terbaca.
+ *
+ * Mode sesi ikut disebut di tooltip, bukan disembunyikan: skor mode suara saja
+ * disusun dari tiga metrik dan skor mode lengkap dari empat, sehingga keduanya
+ * tidak benar-benar sebanding meski berada di satu garis.
+ *
+ * @param {HTMLCanvasElement} kanvas
+ * @param {Array<Object>} daftarSesi - Terurut dari terbaru ke terlama
+ * @param {number} maksSesi - Berapa sesi terakhir yang digambar
+ * @returns {boolean} False bila grafik tidak bisa digambar
+ */
+export function gambarGrafikTrenSkor(kanvas, daftarSesi, maksSesi = 10) {
+  if (!siapkanKanvas(kanvas)) return false;
+  if (!Array.isArray(daftarSesi) || daftarSesi.length === 0) return false;
+
+  const urutLama = daftarSesi.slice(0, maksSesi).reverse();
+  const warnaAksen = token('--sorot');
+  const warnaTeks = token('--redup');
+  const warnaGaris = token('--border-terang');
+
+  instansGrafik[kanvas.id] = new window.Chart(kanvas, {
+    type: 'line',
+    data: {
+      labels: urutLama.map(s => new Date(s.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })),
+      datasets: [{
+        label: 'Skor',
+        data: urutLama.map(s => s.skor),
+        borderColor: warnaAksen,
+        backgroundColor: warnaAksen,
+        borderWidth: 2,
+        pointRadius: 4,
+        tension: 0.25,
+        fill: false
+      }]
+    },
+    options: {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (item) => urutLama[item[0].dataIndex].judul,
+            label: (item) => {
+              const sesi = urutLama[item.dataIndex];
+              const mode = sesi.mode === 'suara-saja' ? 'mode suara saja'
+                : sesi.mode === 'lengkap' ? 'mode lengkap'
+                : 'mode tidak tercatat';
+              return `skor ${sesi.skor} — ${mode}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: warnaTeks, font: { size: 11 } },
+          grid: { color: warnaGaris, drawTicks: false }
+        },
+        y: {
+          min: 0,
+          max: 100,
+          ticks: { color: warnaTeks, font: { size: 11 }, stepSize: 25 },
+          grid: { color: warnaGaris, drawTicks: false }
+        }
+      }
+    }
+  });
+
+  return true;
+}
+
 /**
  * Menentukan daftar saran terbaik berdasarkan data sesi.
  *

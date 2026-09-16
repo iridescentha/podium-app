@@ -65,6 +65,26 @@ let rincianFiller = {}; // { 'eee': 4, 'anu': 2, ... }
 let totalFiller = 0;
 
 // ----------------------------------------------------------------------------
+// EVENT BERTIMESTAMP UNTUK TIMELINE (Tahap 4B)
+//
+// Dua daftar dengan aturan privasi yang BERBEDA, jangan sampai tertukar:
+//
+// fillerEvents  : [{ detik, kata }] — metrik, bukan rekaman. Boleh disimpan ke
+//                 localStorage bersama sesi, sama seperti daftar jeda dan
+//                 segmen menunduk.
+// potonganTranskrip : [{ detikMulai, detikSelesai, teks }] — INI TRANSKRIP.
+//                 Hanya hidup di memori selama sesi dan selama Layar Rapor
+//                 terbuka, lalu dibuang. DILARANG masuk localStorage dalam
+//                 bentuk apa pun (TAHAP-4b.md Bagian 2).
+//
+// Keduanya event jarang, puluhan per sesi, jadi tidak melanggar aturan
+// "kembalikan agregat, bukan data per frame" di CLAUDE.md.
+// ----------------------------------------------------------------------------
+let fillerEvents = [];
+let potonganTranskrip = [];
+let detikAkhirPotonganTerakhir = 0;
+
+// ----------------------------------------------------------------------------
 // JAM SESI: waktu berjalan yang MENGABAIKAN durasi jeda.
 //
 // Kenapa tidak memakai jam dinding: kalau pengguna menjeda sesi lima menit lalu
@@ -177,6 +197,9 @@ export function start(callbacks = {}, config = {}) {
   kataPerWaktu = [];
   rincianFiller = {};
   totalFiller = 0;
+  fillerEvents = [];
+  potonganTranskrip = [];
+  detikAkhirPotonganTerakhir = 0;
 
   // Jam sesi dimulai dari nol
   detikSegmenSelesai = 0;
@@ -394,8 +417,22 @@ function prosesPotonganFinal(potonganTeks) {
     kataPerWaktu.push({ detikSesi, kata: k });
   }
 
+  // Simpan potongan transkrip beserta rentang waktunya untuk timeline Tahap 4B.
+  //
+  // Kedua ujung rentang ini PERKIRAAN, dan itu harus jujur disebut di UI nanti:
+  // detikSelesai adalah saat Chrome memfinalkan kalimat, yang selalu tertinggal
+  // beberapa saat dari ucapan aslinya, sedangkan detikMulai diambil dari ujung
+  // potongan sebelumnya. Mengklik satu titik di timeline akan memberi kalimat
+  // yang kira-kira benar, bukan potongan yang tepat pada katanya.
+  potonganTranskrip.push({
+    detikMulai: Math.round(detikAkhirPotonganTerakhir * 10) / 10,
+    detikSelesai: Math.round(detikSesi * 10) / 10,
+    teks: potonganTeks.trim()
+  });
+  detikAkhirPotonganTerakhir = detikSesi;
+
   // Deteksi kata pengisi
-  const adaPenambahanFiller = hitungKataPengisi(teksBersih);
+  const adaPenambahanFiller = hitungKataPengisi(teksBersih, detikSesi);
 
   if (adaPenambahanFiller && typeof eventCallbacks.onFillerUpdate === 'function') {
     eventCallbacks.onFillerUpdate(totalFiller, rincianFiller);
@@ -436,7 +473,7 @@ function prosesPotonganFinal(potonganTeks) {
  * @param {string} teksBersih - Potongan transkrip final yang sudah huruf kecil
  * @returns {boolean} True bila ada kata pengisi baru yang terhitung
  */
-function hitungKataPengisi(teksBersih) {
+function hitungKataPengisi(teksBersih, detikSesi = detikSesiSekarang()) {
   const minAwalan = konfig.FILLER_PREFIX_MIN;
   const semua = konfig.FILLER_WORDS.map(f => String(f).trim().toLowerCase()).filter(Boolean);
   const daftarFrasa = semua.filter(f => /\s/.test(f));
@@ -457,6 +494,10 @@ function hitungKataPengisi(teksBersih) {
       rincianFiller[frasa] = (rincianFiller[frasa] || 0) + jumlah;
       totalFiller += jumlah;
       adaPenambahan = true;
+      // Satu event per kemunculan, memakai cap waktu potongan finalnya
+      for (let i = 0; i < jumlah; i++) {
+        fillerEvents.push({ detik: Math.round(detikSesi * 10) / 10, kata: frasa });
+      }
     }
   }
 
@@ -483,6 +524,7 @@ function hitungKataPengisi(teksBersih) {
       rincianFiller[entriTerpilih] = (rincianFiller[entriTerpilih] || 0) + 1;
       totalFiller += 1;
       adaPenambahan = true;
+      fillerEvents.push({ detik: Math.round(detikSesi * 10) / 10, kata: entriTerpilih });
     }
   }
 
@@ -609,8 +651,14 @@ export function getResults(durasiDetik = null) {
     wpmSeri: deret.map(d => d.wpm),
     filler: {
       total: totalFiller,
-      rincian: { ...rincianFiller }
+      rincian: { ...rincianFiller },
+      // Event bertimestamp untuk baris "masalah" di timeline Tahap 4B. Ini
+      // metrik (kapan dan kata apa), bukan rekaman, jadi boleh ikut disimpan.
+      events: fillerEvents.slice()
     },
+    // TRANSKRIP: hanya untuk dipakai selama Layar Rapor terbuka, lalu dibuang
+    // pemanggilnya. Jangan pernah menulis field ini ke localStorage.
+    potonganTranskrip: potonganTranskrip.slice(),
     transkripRingkas: transkripFinalGabungan.trim()
   };
 }

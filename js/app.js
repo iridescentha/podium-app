@@ -173,6 +173,11 @@ const state = {
   // 'lengkap' (kamera + mikrofon) atau 'suara-saja' (tanpa kamera sama sekali)
   modeSesi: 'lengkap',
 
+  // Potongan transkrip bertimestamp sesi terakhir, HANYA di memori dan hanya
+  // selama Layar Rapor terbuka (dipakai timeline Tahap 4B). Tidak pernah masuk
+  // localStorage, dan dikosongkan begitu pengguna meninggalkan rapor.
+  transkripSesi: null,
+
   // Status Sesi
   sesiBerjalan: false,
   sesiDijeda: false,
@@ -274,6 +279,9 @@ const DOM = {
   raporVolumeKet: document.getElementById('rapor-volume-ket'),
   raporPosturKartu: document.getElementById('rapor-postur-kartu'),
   raporPosturNilai: document.getElementById('rapor-postur-nilai'),
+  raporPosturKet: document.getElementById('rapor-postur-ket'),
+  chartWpmSesi: document.getElementById('chart-wpm-sesi'),
+  grafikWpmKosong: document.getElementById('grafik-wpm-kosong'),
   raporCatatanStorage: document.getElementById('rapor-catatan-storage'),
   daftarSaranRapor: document.getElementById('daftar-saran-rapor'),
   btnRaporLatihanLagi: document.getElementById('btn-rapor-latihan-lagi'),
@@ -281,6 +289,9 @@ const DOM = {
 
   // Layar Riwayat
   daftarSesiRiwayat: document.getElementById('daftar-sesi-riwayat'),
+  grafikTrenKartu: document.getElementById('grafik-tren-kartu'),
+  chartTrenSkor: document.getElementById('chart-tren-skor'),
+  grafikTrenCatatan: document.getElementById('grafik-tren-catatan'),
   btnHapusSemuaSesi: document.getElementById('btn-hapus-semua-sesi'),
   btnRiwayatKeBeranda: document.getElementById('btn-riwayat-ke-beranda')
 };
@@ -302,6 +313,13 @@ const DOM = {
  * @param {string} idLayar - ID elemen layar tujuan (contoh: 'layar-beranda')
  */
 export function tampilkanLayar(idLayar) {
+  // Transkrip hanya boleh hidup selama Layar Rapor terbuka (TAHAP-4b.md Bagian 2).
+  // Begitu pengguna beranjak, potongan transkripnya dibuang dari memori. Ia tidak
+  // pernah ditulis ke localStorage, jadi ini titik terakhir keberadaannya.
+  if (state.layarSaatIni === 'layar-rapor' && idLayar !== 'layar-rapor') {
+    state.transkripSesi = null;
+  }
+
   state.layarSaatIni = idLayar;
 
   DOM.layarDaftar.forEach(layar => {
@@ -1048,9 +1066,15 @@ function prosesDanTampilkanRapor() {
     // Deret kecepatan bicara per 30 detik, disusun oleh speech.js yang memegang
     // cap waktu tiap kata. Ini sumber data grafik pertama di rapor (Tahap 4).
     wpmSeri: hasilSpeech.wpmSeri,
+    // Bentuk lengkapnya dengan rentang waktu tiap potongan, dibutuhkan baris
+    // kecepatan pada timeline Tahap 4B. Ukurannya beberapa puluh angka per sesi.
+    deretWpm: hasilSpeech.deretWpm,
     filler: {
       total: hasilSpeech.filler.total,
-      rincian: hasilSpeech.filler.rincian
+      rincian: hasilSpeech.filler.rincian,
+      // Event bertimestamp tiap kata pengisi untuk timeline Tahap 4B.
+      // Ini metrik (detik ke berapa, kata apa), bukan transkrip.
+      events: hasilSpeech.filler.events
     },
     // Modul arah pandang melaporkan sendiri apakah datanya benar-benar terukur.
     // Selama dilumpuhkan (sampai Tahap 2) nilainya null, bukan 0, supaya
@@ -1085,6 +1109,11 @@ function prosesDanTampilkanRapor() {
   // Hitung Skor Total (0-100)
   const skorTotal = reportModule.hitungSkorTotal(dataSesiLengkap, state.analisisPosturAktif, CONFIG);
   dataSesiLengkap.skor = skorTotal;
+
+  // TRANSKRIP: disimpan di memori saja, khusus untuk timeline Tahap 4B selama
+  // Layar Rapor terbuka. Sengaja TIDAK dimasukkan ke dataSesiLengkap, karena
+  // objek itulah yang ditulis ke localStorage. Dibuang di tinggalkanLayarRapor().
+  state.transkripSesi = hasilSpeech.potonganTranskrip;
 
   // Simpan ke storage (dengan proteksi jika storage penuh)
   const statusSimpan = storage.simpanSesi(dataSesiLengkap);
@@ -1164,12 +1193,33 @@ function renderRaporUI(data, statusSimpan) {
       : 'suara ruangan tidak terukur';
   }
 
-  // Kartu postur (hanya jika modul aktif)
+  // Kartu postur: selalu tampil dengan keadaan sebenarnya. Selama modulnya
+  // masih stub, kartunya menyebut "belum aktif" dan bobotnya dialihkan, bukan
+  // disembunyikan seolah metrik ini tidak pernah dijanjikan.
   if (data.postur.aktif) {
-    DOM.raporPosturKartu.style.display = 'block';
-    DOM.raporPosturNilai.textContent = 'Tersedia';
+    DOM.raporPosturNilai.classList.remove('kartu-metrik__nilai--nonaktif');
+    const kelasTeratas = Object.entries(data.postur.distribusi)
+      .sort((x, y) => y[1] - x[1])[0];
+    DOM.raporPosturNilai.textContent = kelasTeratas
+      ? `${Math.round(kelasTeratas[1] * 100)}%`
+      : 'belum aktif';
+    DOM.raporPosturKet.textContent = kelasTeratas ? `terbanyak: ${kelasTeratas[0]}` : '';
   } else {
-    DOM.raporPosturKartu.style.display = 'none';
+    DOM.raporPosturNilai.classList.add('kartu-metrik__nilai--nonaktif');
+    DOM.raporPosturNilai.textContent = 'belum aktif';
+    DOM.raporPosturKet.textContent = 'modul postur belum berjalan, jadi tidak ikut dihitung dalam skor';
+  }
+
+  // Grafik kecepatan bicara. Sesi yang terlalu pendek untuk menghasilkan satu
+  // potongan penuh tidak digambar; kotak keterangan menggantikannya supaya
+  // tidak ada kanvas kosong yang terlihat seperti grafik rusak.
+  const adaGrafik = reportModule.gambarGrafikWpm(DOM.chartWpmSesi, data.deretWpm, CONFIG);
+  DOM.chartWpmSesi.style.display = adaGrafik ? '' : 'none';
+  DOM.grafikWpmKosong.style.display = adaGrafik ? 'none' : 'block';
+  if (!adaGrafik) {
+    DOM.grafikWpmKosong.textContent = (typeof window.Chart === 'undefined')
+      ? 'Grafik tidak bisa ditampilkan karena pustaka grafik gagal dimuat (kemungkinan sedang luring). Angka di atas tetap terukur.'
+      : 'Sesi ini terlalu singkat untuk menggambar grafik kecepatan bicara.';
   }
 
   // Catatan storage jika gagal
@@ -1232,10 +1282,26 @@ function muatTampilanRiwayat() {
   if (daftar.length === 0) {
     DOM.daftarSesiRiwayat.innerHTML = '<div class="pesan-kosong">Belum ada riwayat sesi latihan.</div>';
     DOM.btnHapusSemuaSesi.style.display = 'none';
+    DOM.grafikTrenKartu.style.display = 'none';
     return;
   }
 
   DOM.btnHapusSemuaSesi.style.display = 'inline-flex';
+
+  // Grafik tren skor. Butuh minimal dua sesi: satu titik bukan tren, dan
+  // menggambarnya hanya akan menyiratkan perbandingan yang belum ada.
+  const bisaTren = daftar.length >= 2
+    && reportModule.gambarGrafikTrenSkor(DOM.chartTrenSkor, daftar, 10);
+  DOM.grafikTrenKartu.style.display = bisaTren ? 'block' : 'none';
+
+  if (bisaTren) {
+    // Skor dua mode tidak benar-benar sebanding; disebut apa adanya bila
+    // riwayatnya memang bercampur, bukan disembunyikan.
+    const modeYangAda = new Set(daftar.slice(0, 10).map(s => s.mode || 'tidak-tercatat'));
+    DOM.grafikTrenCatatan.textContent = modeYangAda.size > 1
+      ? 'Riwayat ini memuat lebih dari satu mode latihan. Skor mode suara saja dihitung dari tiga metrik, mode lengkap dari empat, jadi keduanya tidak sepenuhnya sebanding.'
+      : '';
+  }
 
   daftar.forEach(sesi => {
     const tanggalFormat = new Date(sesi.tanggal).toLocaleDateString('id-ID', {
