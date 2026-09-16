@@ -203,6 +203,7 @@ let timestampTerakhir = 0;
 const KONFIG_BAWAAN = {
   FACE_PITCH_MENUNDUK_DERAJAT: 8,
   FACE_KALIBRASI_MS: 2000,
+  FACE_KALIBRASI_MIN_RASIO: 0.6,
   FACE_HILANG_MENUNDUK_MAKS_DETIK: 5,
   FACE_BLINK_THRESHOLD: 0.5,
   FACE_SMOOTHING_FRAMES: 3,
@@ -354,8 +355,11 @@ function hitungSudutKepala(hasil) {
  * 3. Seluruh keputusan menunduk nantinya memakai SELISIH terhadap netral ini.
  *    Kalibrasi ulang diperlukan bila pengguna memindahkan laptop atau berganti
  *    posisi duduk, dan itulah gunanya tombol "Kalibrasi ulang postur".
- * 4. Bila tidak ada satu pun frame berwajah (pengguna di luar bingkai, kamera
- *    tertutup), netral dibiarkan null dan arah pandang tidak akan dilaporkan.
+ * 4. Bila wajah terdeteksi pada kurang dari CONFIG.FACE_KALIBRASI_MIN_RASIO
+ *    bagian jendela pengukuran (kamera menghadap langit-langit, pengguna di luar
+ *    bingkai, lensa tertutup), pengukuran DIGAGALKAN dengan alasan
+ *    'wajah-tidak-terdeteksi' dan netral dibiarkan null. Acuan tidak pernah
+ *    disimpan sebagian.
  *
  * Nilai netral lama selalu dibuang lebih dulu, supaya kalibrasi ulang yang gagal
  * tidak diam-diam memakai acuan dari posisi duduk sebelumnya.
@@ -370,7 +374,7 @@ export function kalibrasiPostur(videoElement, config = {}) {
 
   return new Promise((selesai) => {
     if (!isReady() || !videoElement) {
-      selesai({ berhasil: false, pitchNetral: null, jumlahSampel: 0 });
+      selesai({ berhasil: false, alasan: 'model-belum-siap', pitchNetral: null, jumlahSampel: 0 });
       return;
     }
 
@@ -396,8 +400,20 @@ export function kalibrasiPostur(videoElement, config = {}) {
     setTimeout(() => {
       clearInterval(idInterval);
 
-      if (sampel.length === 0) {
-        selesai({ berhasil: false, pitchNetral: null, jumlahSampel: 0 });
+      // Wajah harus terdeteksi di sebagian besar jendela pengukuran. Kamera yang
+      // mengarah ke langit-langit tetap menghasilkan beberapa frame berwajah
+      // secara kebetulan, dan median dari segelintir sampel itu akan jadi acuan
+      // yang salah untuk seluruh sesi. Karena itu yang diperiksa bukan "ada
+      // sampel", melainkan "cukup banyak sampel dibanding yang seharusnya".
+      const diharapkan = Math.max(1, Math.floor(k.FACE_KALIBRASI_MS / 100));
+      if (sampel.length < diharapkan * k.FACE_KALIBRASI_MIN_RASIO) {
+        selesai({
+          berhasil: false,
+          alasan: 'wajah-tidak-terdeteksi',
+          pitchNetral: null,
+          jumlahSampel: sampel.length,
+          jumlahDiharapkan: diharapkan
+        });
         return;
       }
 
@@ -414,7 +430,7 @@ export function kalibrasiPostur(videoElement, config = {}) {
         );
       }
 
-      selesai({ berhasil: true, pitchNetral, jumlahSampel: sampel.length });
+      selesai({ berhasil: true, alasan: null, pitchNetral, jumlahSampel: sampel.length, jumlahDiharapkan: diharapkan });
     }, k.FACE_KALIBRASI_MS);
   });
 }

@@ -80,13 +80,33 @@ export const ATURAN_SARAN = [
 ];
 
 /**
- * Tabel bobot skor sesuai Bagian 6.2 GEMINI.md. Keduanya berjumlah tepat 100
- * saat seluruh metrik di dalamnya benar-benar terukur.
+ * Jaring pengaman tabel bobot. Tabel yang sebenarnya dipakai ada di
+ * CONFIG.BOBOT_SKOR pada js/app.js, ditulis lengkap di sana supaya pemilik
+ * proyek bisa membaca dan mengubahnya tanpa membuka berkas ini. Nilai di sini
+ * sengaja dibuat identik.
  */
 export const BOBOT_SKOR = {
-  tanpaPostur: { wpm: 35, filler: 27, pandang: 27, jeda: 11 },
-  denganPostur: { wpm: 30, filler: 25, pandang: 25, jeda: 10, postur: 10 }
+  lengkap: { wpm: 35, filler: 27, pandang: 27, jeda: 11 },
+  lengkapDenganPostur: { wpm: 30, filler: 25, pandang: 25, jeda: 10, postur: 10 },
+  suaraSaja: { wpm: 48, filler: 37, jeda: 15 }
 };
+
+/**
+ * Memilih tabel bobot sesuai mode sesi dan modul yang benar-benar aktif.
+ *
+ * CARA KERJA:
+ * Mode 'suara-saja' memakai tabel tersendiri yang memang tidak punya komponen
+ * arah pandang, karena kameranya tidak pernah dinyalakan. Mode lengkap memakai
+ * tabel dengan atau tanpa postur. Tabel diambil dari CONFIG bila dioper, dan
+ * disalin supaya pemanggil tidak pernah mengubah tabel aslinya saat sebuah
+ * komponen dikeluarkan dari hitungan.
+ */
+function pilihTabelBobot(mode, posturTerukur, config) {
+  const tabel = (config && config.BOBOT_SKOR) ? config.BOBOT_SKOR : BOBOT_SKOR;
+
+  if (mode === 'suara-saja') return { ...tabel.suaraSaja };
+  return { ...(posturTerukur ? tabel.lengkapDenganPostur : tabel.lengkap) };
+}
 
 /**
  * Membatasi sebuah nilai ke rentang 0.0–1.0 agar tidak ada sub-skor liar.
@@ -157,7 +177,8 @@ export function hitungSkorJeda(jumlahJeda, config) {
  * Menghitung skor total akhir (0–100) berdasarkan modul yang benar-benar terukur.
  *
  * CARA KERJA:
- * 1. Memilih tabel bobot dasar: dengan postur atau tanpa postur (Bagian 6.2).
+ * 1. Memilih tabel bobot dasar dari CONFIG sesuai mode sesi: lengkap, lengkap
+ *    dengan postur, atau suara saja (tanpa kamera, tanpa komponen pandang).
  * 2. MEMBUANG komponen yang modulnya tidak menghasilkan data. Contohnya: model
  *    wajah gagal dimuat (kunci `pandang` dibuang) atau suara ruangan gagal
  *    diukur (kunci `jeda` dibuang), alih-alih diisi angka karangan.
@@ -182,7 +203,7 @@ export function hitungSkorTotal(metrik, posturAktif = false, config) {
   // Postur hanya ikut dihitung bila pengguna memintanya DAN modulnya benar-benar
   // melaporkan diri aktif. Checkbox yang dicentang di atas modul stub tidak cukup.
   const posturTerukur = Boolean(posturAktif && metrik.postur && metrik.postur.aktif);
-  const bobot = { ...(posturTerukur ? BOBOT_SKOR.denganPostur : BOBOT_SKOR.tanpaPostur) };
+  const bobot = pilihTabelBobot(metrik.mode, posturTerukur, config);
 
   const subSkor = {
     wpm: hitungSkorWpm(metrik.wpmRata, a),
@@ -199,6 +220,7 @@ export function hitungSkorTotal(metrik, posturAktif = false, config) {
   }
 
   // Arah pandang: hanya masuk hitungan bila modulnya melaporkan data terukur.
+  // Pada mode 'suara-saja' kunci ini memang tidak ada sejak awal.
   if (metrik.pandangTersedia === true) {
     subSkor.pandang = klem01(metrik.pandangPersen);
   } else {

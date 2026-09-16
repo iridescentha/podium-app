@@ -74,6 +74,30 @@ export const CONFIG = {
   // indikator hesitasi penggantinya. Alasan lengkap di kepala js/audio.js.
   FILLER_BUNYI_NONLEKSIKAL: ["eee", "emm", "hmm"],
 
+  // --------------------------------------------------------------------------
+  // BOBOT SKOR TIAP MODE
+  //
+  // Ditulis lengkap di sini, bukan dihitung otomatis, supaya bisa dibaca dan
+  // diubah langsung tanpa membuka logika penilaian. Tiap tabel berjumlah 100.
+  //
+  // 'suaraSaja' adalah bobot 'lengkap' tanpa arah pandang: 27 poin milik
+  // pandang dibagi ke tiga metrik sisanya menurut proporsinya masing-masing
+  // (35 : 27 : 11 dari total 73), lalu dibulatkan supaya tetap berjumlah 100.
+  //
+  // Metrik yang modulnya tidak menghasilkan data tetap dikeluarkan oleh
+  // report.js dan bobotnya dinormalkan ulang, jadi tabel ini adalah titik awal,
+  // bukan jaminan bahwa semua komponennya pasti ikut dihitung.
+  // --------------------------------------------------------------------------
+  BOBOT_SKOR: {
+    lengkap:            { wpm: 35, filler: 27, pandang: 27, jeda: 11 },
+    lengkapDenganPostur: { wpm: 30, filler: 25, pandang: 25, jeda: 10, postur: 10 },
+    suaraSaja:          { wpm: 48, filler: 37, jeda: 15 }
+  },
+
+  // Lama hitung mundur sebelum tiap kalibrasi mulai merekam, supaya pengguna
+  // sempat bersiap (diam untuk suara ruangan, menatap kamera untuk postur).
+  KALIBRASI_HITUNG_MUNDUR_DETIK: 3,
+
   // Ambang perhitungan skor kata pengisi dan jeda
   FILLER_IDEAL_PER_MENIT: 2,    // <= 2 per menit dianggap sempurna
   FILLER_BURUK_PER_MENIT: 10,   // >= 10 per menit dianggap skor 0
@@ -99,6 +123,11 @@ export const CONFIG = {
     minDurasiSuaraMs: 200,
     // Lama pengukuran suara ruangan di Layar Persiapan
     durasiUkurNoiseMs: 2000,
+    // Batas atas ambang bicara hasil pengukuran. Di atas ini suara ruangan
+    // dianggap setinggi suara bicara, dan kalibrasi digagalkan alih-alih
+    // menyimpan acuan yang pasti salah.
+    // NILAI AWAL, BELUM DIVALIDASI: tetapkan dari RMS bicara sungguhan lewat debug.
+    ambangBicaraMaks: 0.08,
     // Rata-rata RMS saat bicara di bawah ini dilabeli "pelan", selain itu "ideal".
     // null = belum ditetapkan dari uji; selama null, label volume tidak ditampilkan.
     ambangVolumePelan: null,
@@ -112,6 +141,9 @@ export const CONFIG = {
   // -24° s/d -28°, sedangkan gerakan mata saja menggeser kurang dari 3°.
   FACE_PITCH_MENUNDUK_DERAJAT: 8,
   FACE_KALIBRASI_MS: 2000,         // Lama pengukuran posisi kepala netral di Layar Persiapan
+  // Bagian minimal jendela kalibrasi yang wajahnya harus terdeteksi. Di bawah
+  // ini kalibrasi digagalkan, karena median dari segelintir frame bukan acuan.
+  FACE_KALIBRASI_MIN_RASIO: 0.6,
   // Wajah yang hilang saat status sedang menunduk dihitung menunduk paling lama
   // sekian detik. Batas ini memisahkan menunduk dalam dari meninggalkan meja.
   FACE_HILANG_MENUNDUK_MAKS_DETIK: 5,
@@ -138,6 +170,8 @@ const state = {
   judulLatihan: '',
   durasiTargetDetik: 0,        // 0 berarti bebas
   analisisPosturAktif: false,
+  // 'lengkap' (kamera + mikrofon) atau 'suara-saja' (tanpa kamera sama sekali)
+  modeSesi: 'lengkap',
 
   // Status Sesi
   sesiBerjalan: false,
@@ -190,7 +224,11 @@ const DOM = {
   videoPreviewPersiapan: document.getElementById('video-preview-persiapan'),
   meterVolumeBar: document.getElementById('meter-volume-bar'),
   meterVolumeAngka: document.getElementById('meter-volume-angka'),
+  modeLengkap: document.getElementById('mode-lengkap'),
+  modeSuaraSaja: document.getElementById('mode-suara-saja'),
+  previewKameraKotak: document.getElementById('preview-kamera-kotak'),
   blokKalibrasi: document.getElementById('blok-kalibrasi'),
+  barisKalibrasiPostur: document.getElementById('baris-kalibrasi-postur'),
   statusKalibrasiRuangan: document.getElementById('status-kalibrasi-ruangan'),
   badgeKalibrasiRuangan: document.getElementById('badge-kalibrasi-ruangan'),
   btnUkurUlangRuangan: document.getElementById('btn-ukur-ulang-ruangan'),
@@ -215,11 +253,13 @@ const DOM = {
   liveAngkaFiller: document.getElementById('live-angka-filler'),
   liveStatusPandang: document.getElementById('live-status-pandang'),
   videoPreviewSesi: document.getElementById('video-preview-sesi'),
+  previewKameraPojok: document.getElementById('preview-kamera-pojok'),
   tombolJedaSesi: document.getElementById('btn-jeda-sesi'),
   tombolSelesaiSesi: document.getElementById('btn-selesai-sesi'),
 
   // Layar Rapor
   raporSkorAngka: document.getElementById('rapor-skor-angka'),
+  raporModeLabel: document.getElementById('rapor-mode-label'),
   raporRingkasanTeks: document.getElementById('rapor-ringkasan-teks'),
   raporWpmNilai: document.getElementById('rapor-wpm-nilai'),
   raporWpmLabel: document.getElementById('rapor-wpm-label'),
@@ -316,13 +356,18 @@ async function mintaIzinMedia() {
   DOM.tombolMintaIzin.disabled = true;
   DOM.tombolMintaIzin.textContent = 'Menghubungkan perangkat...';
 
+  // Mode dibaca tepat sebelum izin diminta, karena inilah yang menentukan
+  // apakah kamera ikut dinyalakan sama sekali.
+  state.modeSesi = DOM.modeSuaraSaja.checked ? 'suara-saja' : 'lengkap';
+  const pakaiKamera = (state.modeSesi === 'lengkap');
+
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 640 },
-        height: { ideal: 480 },
-        facingMode: 'user'
-      },
+      // Mode suara saja TIDAK meminta izin kamera sama sekali, bukan sekadar
+      // menyembunyikan previewnya. Lampu kamera pun tidak pernah menyala.
+      video: pakaiKamera
+        ? { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+        : false,
       audio: {
         echoCancellation: true,
         noiseSuppression: false, // Menjaga akurasi deteksi bunyi nafas / jeda
@@ -332,9 +377,11 @@ async function mintaIzinMedia() {
 
     state.streamKameraMic = stream;
 
-    // Tampilkan video di preview persiapan
-    DOM.videoPreviewPersiapan.srcObject = stream;
-    DOM.videoPreviewPersiapan.play().catch(e => console.warn('Autoplay video error:', e));
+    // Tampilkan video di preview persiapan (hanya bila kamera dipakai)
+    if (pakaiKamera) {
+      DOM.videoPreviewPersiapan.srcObject = stream;
+      DOM.videoPreviewPersiapan.play().catch(e => console.warn('Autoplay video error:', e));
+    }
 
     // Hubungkan audio ke meter volume
     const audioInitSukses = audioModule.initAudio(stream);
@@ -352,21 +399,35 @@ async function mintaIzinMedia() {
     DOM.kotakIzinEdukasi.style.display = 'none';
     DOM.areaMediaPersiapan.style.display = 'grid';
     DOM.blokKalibrasi.style.display = 'block';
+    DOM.previewKameraKotak.style.display = pakaiKamera ? '' : 'none';
+    DOM.barisKalibrasiPostur.style.display = pakaiKamera ? '' : 'none';
 
-    // Tombol mulai sesi dinyalakan oleh ukurSuaraRuangan() setelah pengukuran
-    // 2 detik selesai. Tombol ini sengaja TIDAK menunggu model wajah: sesi tetap
-    // boleh berjalan tanpa metrik arah pandang.
+    // Mode tidak boleh berubah sesudah izin diberikan: kalibrasi dan izin
+    // perangkat sudah terikat ke mode yang dipilih. Tombol Batal mengembalikannya.
+    DOM.modeLengkap.disabled = true;
+    DOM.modeSuaraSaja.disabled = true;
+
+    DOM.tombolMulaiSesi.disabled = false;
     DOM.btnMulaiUjiBentrok.disabled = false;
 
-    // Muat model wajah secara lazy, lalu laporkan hasilnya apa adanya
-    muatModelWajah();
-
-    // Ukur suara ruangan untuk ambang bicara adaptif
+    // Kalibrasi TIDAK berjalan sendiri. Pengukuran otomatis bisa merekam kamera
+    // yang menghadap langit-langit atau ruangan yang sedang ramai, lalu
+    // menyimpan acuan salah tanpa pengguna sadar. Pengguna yang menekannya.
     if (audioInitSukses) {
-      ukurSuaraRuangan();
+      setStatusKalibrasi('ruangan', 'belum', 'Menentukan batas antara hening dan suara bicaramu.');
     } else {
-      setStatusKalibrasi('ruangan', 'gagal', 'Mikrofon tidak terhubung ke analisis audio. Jeda dan volume tidak akan dinilai.');
-      DOM.tombolMulaiSesi.disabled = false;
+      setStatusKalibrasi('ruangan', 'belum', 'Mikrofon tidak terhubung ke analisis audio. Jeda dan volume tidak akan dinilai.', true);
+    }
+
+    if (pakaiKamera) {
+      // Model wajah diunduh lebih dulu; tombol kalibrasi postur menunggu sampai siap
+      setStatusKalibrasi('postur', 'belum', 'Menunggu model arah pandang selesai dimuat...');
+      DOM.btnKalibrasiPostur.disabled = true;
+      muatModelWajah();
+    } else {
+      DOM.statusModelWajah.textContent = 'Tidak dipakai';
+      DOM.statusModelWajah.className = 'status-model-badge badge-menunggu';
+      perbaruiHirarkiMulaiSesi();
     }
 
   } catch (error) {
@@ -417,8 +478,12 @@ function siapkanLayarPersiapan() {
   DOM.meterVolumeAngka.textContent = '0%';
 
   // Kalibrasi milik satu perangkat dan satu posisi duduk, jadi ikut disetel ulang
-  // begitu izin perangkat harus diminta lagi.
+  // begitu izin perangkat harus diminta lagi. Pilihan mode ikut dibuka kembali,
+  // karena tanpa izin yang berlaku tidak ada lagi yang terikat padanya.
   DOM.blokKalibrasi.style.display = 'none';
+  DOM.modeLengkap.disabled = false;
+  DOM.modeSuaraSaja.disabled = false;
+  state.modeSesi = DOM.modeSuaraSaja.checked ? 'suara-saja' : 'lengkap';
   setStatusKalibrasi('ruangan', 'belum', 'Menentukan batas antara hening dan suara bicaramu.');
   setStatusKalibrasi('postur', 'belum', 'Menentukan posisi kepalamu saat menatap audiens.');
 }
@@ -445,13 +510,14 @@ async function muatModelWajah() {
   if (berhasil) {
     DOM.statusModelWajah.textContent = 'Selesai';
     DOM.statusModelWajah.className = 'status-model-badge badge-sukses';
-    // Posisi kepala netral baru bisa diukur sesudah modelnya siap
-    kalibrasiPosturKepala();
+    // Modelnya siap; kalibrasi postur menunggu pengguna menekan tombolnya
+    setStatusKalibrasi('postur', 'belum', 'Menentukan posisi kepalamu saat menatap audiens.');
   } else {
     DOM.statusModelWajah.textContent = 'Gagal dimuat';
     DOM.statusModelWajah.className = 'status-model-badge badge-gagal';
     DOM.statusModelWajah.title = 'Sesi tetap bisa berjalan, tetapi arah pandang tidak akan dinilai.';
-    setStatusKalibrasi('postur', 'gagal', 'Model arah pandang gagal dimuat, jadi postur netral tidak bisa diukur.');
+    setStatusKalibrasi('postur', 'belum', 'Model arah pandang gagal dimuat, jadi postur netral tidak bisa diukur.', true);
+    DOM.btnKalibrasiPostur.disabled = true;
   }
 }
 
@@ -469,19 +535,66 @@ async function muatModelWajah() {
  * Pengguna yang tidak sengaja bicara saat pengukuran akan mendapat ambang
  * terlalu tinggi; tombol "Ukur ulang" disediakan untuk kasus itu.
  */
+/**
+ * Menunda sekian milidetik, dipakai hitung mundur kalibrasi.
+ */
+function tunggu(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Hitung mundur sebelum sebuah kalibrasi mulai merekam.
+ *
+ * CARA KERJA:
+ * Pengukuran hanya berlangsung dua detik, jadi pengguna perlu tahu persis kapan
+ * detik-detik itu dimulai: diam untuk suara ruangan, menatap kamera untuk postur.
+ * Tanpa jeda ini, detik pertama pengukuran hampir selalu berisi bunyi klik mouse
+ * atau kepala yang masih bergerak ke posisi.
+ *
+ * @returns {Promise<boolean>} False bila pengguna meninggalkan layar di tengah jalan
+ */
+async function hitungMundurKalibrasi(nama, instruksi) {
+  for (let sisa = CONFIG.KALIBRASI_HITUNG_MUNDUR_DETIK; sisa > 0; sisa--) {
+    setStatusKalibrasi(nama, 'bersiap', `${instruksi} Mulai dalam ${sisa}...`);
+    await tunggu(1000);
+    if (!state.streamKameraMic) return false;
+  }
+  return true;
+}
+
+/**
+ * Mengukur suara ruangan. Dijalankan HANYA saat pengguna menekan tombolnya.
+ *
+ * CARA KERJA:
+ * Sesudah hitung mundur, js/audio.js membaca energi ruangan selama
+ * CONFIG.audio.durasiUkurNoiseMs dan menurunkan ambang bicara dari situ.
+ *
+ * Kegagalan tidak pernah menyimpan acuan setengah jadi: modul audio membuang
+ * nilai lamanya di awal pengukuran, dan bila gagal, baris ini kembali ke keadaan
+ * "belum dikalibrasi" lengkap dengan alasan yang bisa ditindaklanjuti. Sesi tetap
+ * boleh dimulai, tetapi jeda dan volume akan dilaporkan "belum aktif" di rapor.
+ */
 async function ukurSuaraRuangan() {
   DOM.tombolMulaiSesi.disabled = true;
-  setStatusKalibrasi('ruangan', 'mengukur', 'Jangan bicara dulu, kami mengukur suara ruanganmu...');
 
+  const siap = await hitungMundurKalibrasi('ruangan', 'Jangan bicara dulu, kami akan mengukur suara ruanganmu.');
+  if (!siap) return;
+
+  setStatusKalibrasi('ruangan', 'mengukur', 'Sedang mengukur, mohon tetap diam...');
   const hasil = await audioModule.ukurNoiseFloor(CONFIG);
 
-  // Pengguna bisa saja sudah meninggalkan Layar Persiapan selama 2 detik itu
+  // Pengguna bisa saja sudah meninggalkan Layar Persiapan selama pengukuran
   if (!state.streamKameraMic) return;
 
   if (hasil.berhasil) {
     setStatusKalibrasi('ruangan', 'selesai', 'Batas suara bicara sudah menyesuaikan ruanganmu.');
   } else {
-    setStatusKalibrasi('ruangan', 'gagal', 'Gagal diukur. Sesi tetap bisa berjalan, tetapi jeda dan volume tidak akan dinilai.');
+    const pesan = {
+      'ruangan-berisik': 'Ruangan terlalu berisik — suara latar setinggi suara bicara. Cari tempat yang lebih tenang, lalu coba lagi.',
+      'mikrofon-bisu': 'Tidak ada suara masuk — pastikan mikrofonmu tidak dimatikan, lalu coba lagi.',
+      'mikrofon-tidak-siap': 'Mikrofon belum terhubung ke analisis audio. Muat ulang halaman, lalu coba lagi.'
+    }[hasil.alasan] || 'Pengukuran gagal. Coba lagi.';
+    setStatusKalibrasi('ruangan', 'belum', pesan, true);
   }
 
   DOM.tombolMulaiSesi.disabled = false;
@@ -500,7 +613,7 @@ async function ukurSuaraRuangan() {
  * @param {'belum'|'mengukur'|'selesai'|'gagal'} status
  * @param {string} keterangan - Kalimat penjelas yang tampil di bawah judul baris
  */
-function setStatusKalibrasi(nama, status, keterangan) {
+function setStatusKalibrasi(nama, status, keterangan, gagal = false) {
   state.kalibrasi[nama] = status;
 
   const elemen = (nama === 'ruangan')
@@ -508,15 +621,19 @@ function setStatusKalibrasi(nama, status, keterangan) {
     : { ket: DOM.statusKalibrasiPostur, badge: DOM.badgeKalibrasiPostur, tombol: DOM.btnKalibrasiPostur, labelUlang: 'Kalibrasi ulang', labelMulai: 'Kalibrasi sekarang' };
 
   elemen.ket.textContent = keterangan;
-  elemen.ket.style.color = (status === 'gagal') ? 'var(--bahaya)' : '';
+  elemen.ket.style.color = gagal ? 'var(--bahaya)' : '';
 
   // Penanda status memakai KATA, bukan sekadar warna, supaya keadaannya tetap
   // terbaca tanpa bergantung pada persepsi warna.
+  //
+  // Kalibrasi yang gagal kembali ke 'belum', bukan status tersendiri: acuan
+  // tidak pernah tersimpan sebagian, jadi keadaannya memang sama dengan belum
+  // pernah diukur. Yang membedakan hanya keterangan merah berisi alasannya.
   const penanda = {
-    belum: { teks: 'belum', kelas: 'badge-menunggu' },
+    belum: { teks: gagal ? 'gagal' : 'belum', kelas: gagal ? 'badge-gagal' : 'badge-menunggu' },
+    bersiap: { teks: 'bersiap', kelas: 'badge-menunggu' },
     mengukur: { teks: 'mengukur', kelas: 'badge-menunggu' },
-    selesai: { teks: 'selesai', kelas: 'badge-sukses' },
-    gagal: { teks: 'gagal', kelas: 'badge-gagal' }
+    selesai: { teks: 'selesai', kelas: 'badge-sukses' }
   }[status];
   elemen.badge.textContent = penanda.teks;
   elemen.badge.className = `status-model-badge ${penanda.kelas}`;
@@ -527,7 +644,7 @@ function setStatusKalibrasi(nama, status, keterangan) {
   const selesai = (status === 'selesai');
   elemen.tombol.className = `tombol ${selesai ? 'tombol--sekunder' : 'tombol--utama'} tombol--kecil`;
   elemen.tombol.textContent = selesai ? elemen.labelUlang : elemen.labelMulai;
-  elemen.tombol.disabled = (status === 'mengukur');
+  elemen.tombol.disabled = (status === 'mengukur' || status === 'bersiap');
 
   perbaruiHirarkiMulaiSesi();
 }
@@ -543,7 +660,10 @@ function setStatusKalibrasi(nama, status, keterangan) {
  * diisi angka karangan.
  */
 function perbaruiHirarkiMulaiSesi() {
-  const semuaSelesai = state.kalibrasi.ruangan === 'selesai' && state.kalibrasi.postur === 'selesai';
+  // Mode suara saja tidak punya kalibrasi postur, jadi yang ditunggu hanya satu.
+  const posturDibutuhkan = (state.modeSesi === 'lengkap');
+  const semuaSelesai = state.kalibrasi.ruangan === 'selesai'
+    && (!posturDibutuhkan || state.kalibrasi.postur === 'selesai');
   DOM.tombolMulaiSesi.className = `tombol ${semuaSelesai ? 'tombol--utama' : 'tombol--sekunder'}`;
 }
 
@@ -565,13 +685,16 @@ function perbaruiHirarkiMulaiSesi() {
  */
 async function kalibrasiPosturKepala() {
   if (!faceModule.isReady()) {
-    setStatusKalibrasi('postur', 'gagal', 'Model arah pandang belum siap, postur netral belum bisa diukur.');
+    setStatusKalibrasi('postur', 'belum', 'Model arah pandang belum siap, postur netral belum bisa diukur.', true);
     return;
   }
 
   DOM.tombolMulaiSesi.disabled = true;
-  setStatusKalibrasi('postur', 'mengukur', 'Tatap kamera dengan posisi duduk wajar, kami mengukur postur netralmu...');
 
+  const siap = await hitungMundurKalibrasi('postur', 'Duduklah seperti saat presentasi dan tatap kamera.');
+  if (!siap) return;
+
+  setStatusKalibrasi('postur', 'mengukur', 'Sedang mengukur, tahan posisimu...');
   const hasil = await faceModule.kalibrasiPostur(DOM.videoPreviewPersiapan, CONFIG);
 
   // Pengguna bisa saja sudah meninggalkan Layar Persiapan selama pengukuran
@@ -580,7 +703,11 @@ async function kalibrasiPosturKepala() {
   if (hasil.berhasil) {
     setStatusKalibrasi('postur', 'selesai', `Posisi kepala netralmu terukur ${hasil.pitchNetral.toFixed(1)}°. Kalibrasi ulang bila kamu memindahkan laptop.`);
   } else {
-    setStatusKalibrasi('postur', 'gagal', 'Gagal diukur, wajahmu tidak terlihat kamera. Arah pandang tidak akan dinilai.');
+    const pesan = {
+      'wajah-tidak-terdeteksi': 'Wajah tidak terdeteksi — pastikan kamera mengarah ke wajahmu, lalu coba lagi.',
+      'model-belum-siap': 'Model arah pandang belum siap. Tunggu sebentar, lalu coba lagi.'
+    }[hasil.alasan] || 'Pengukuran gagal. Coba lagi.';
+    setStatusKalibrasi('postur', 'belum', pesan, true);
   }
 
   DOM.tombolMulaiSesi.disabled = false;
@@ -724,8 +851,10 @@ function mulaiSesiLatihan() {
   // Berpindah ke Layar Sesi
   tampilkanLayar('layar-sesi');
 
-  // Hubungkan stream kamera ke preview kecil di pojok
-  if (state.streamKameraMic) {
+  // Preview kecil di pojok hanya ada bila kamera memang dipakai
+  const pakaiKamera = (state.modeSesi === 'lengkap');
+  DOM.previewKameraPojok.style.display = pakaiKamera ? '' : 'none';
+  if (pakaiKamera && state.streamKameraMic) {
     DOM.videoPreviewSesi.srcObject = state.streamKameraMic;
     DOM.videoPreviewSesi.play().catch(e => console.warn(e));
   }
@@ -772,13 +901,17 @@ function mulaiSesiLatihan() {
   // 2. Modul Audio (jeda panjang & volume, memakai ambang dari Layar Persiapan)
   audioModule.start({}, CONFIG);
 
-  // 3. Modul Wajah (Face)
-  faceModule.start({
-    onGazeUpdate: (arah) => {
-      state.metrikLive.arahPandang = arah;
-      DOM.liveStatusPandang.textContent = arah;
-    }
-  }, DOM.videoPreviewSesi, CONFIG);
+  // 3. Modul Wajah (Face), hanya pada mode lengkap
+  if (pakaiKamera) {
+    faceModule.start({
+      onGazeUpdate: (arah) => {
+        state.metrikLive.arahPandang = arah;
+        DOM.liveStatusPandang.textContent = arah;
+      }
+    }, DOM.videoPreviewSesi, CONFIG);
+  } else {
+    DOM.liveStatusPandang.textContent = 'tanpa kamera';
+  }
 
   // 4. Modul Postur (jika diaktifkan)
   if (state.analisisPosturAktif) {
@@ -905,6 +1038,10 @@ function prosesDanTampilkanRapor() {
     id: `s_${Date.now()}`,
     tanggal: new Date().toISOString(),
     judul: state.judulLatihan,
+    // Mode ikut disimpan karena skor dari tiga metrik tidak sebanding dengan
+    // skor dari empat metrik. Tanpa penanda ini, dua angka di Riwayat akan
+    // terbaca seolah-olah bisa dibandingkan langsung.
+    mode: state.modeSesi,
     durasiDetik: state.durasiBerjalanDetik,
     skor: 0, // Dihitung di bawah
     wpmRata: hasilSpeech.wpmRata,
@@ -963,6 +1100,11 @@ function prosesDanTampilkanRapor() {
 function renderRaporUI(data, statusSimpan) {
   // Count-up animasi skor 72px sekali saat dibuka
   animasiCountUp(DOM.raporSkorAngka, data.skor);
+
+  // Label mode, netral: menerangkan dari berapa metrik skor ini disusun
+  DOM.raporModeLabel.textContent = (data.mode === 'suara-saja')
+    ? 'Mode suara saja — dinilai dari kecepatan, kata pengisi, dan jeda'
+    : 'Mode lengkap — dinilai dari kecepatan, kata pengisi, jeda, dan arah pandang';
 
   // Kalimat ringkasan
   DOM.raporRingkasanTeks.textContent = reportModule.buatKalimatRingkasan(data, data.skor, CONFIG);
@@ -1108,12 +1250,18 @@ function muatTampilanRiwayat() {
     const s = sesi.durasiDetik % 60;
     const durasiStr = `${m}m ${s}s`;
 
+    // Sesi lama (sebelum mode ada) tidak diberi label mode karena modenya
+    // memang tidak diketahui; menebaknya akan jadi keterangan karangan.
+    const labelMode = sesi.mode === 'suara-saja' ? ' • Mode suara saja'
+      : sesi.mode === 'lengkap' ? ' • Mode lengkap'
+      : '';
+
     const el = document.createElement('div');
     el.className = 'item-sesi';
     el.innerHTML = `
       <div class="item-sesi__info">
         <div class="item-sesi__judul">${sesi.judul}</div>
-        <div class="item-sesi__meta">${tanggalFormat} • Durasi ${durasiStr} • WPM ${sesi.wpmRata} • Filler ${sesi.filler.total}×</div>
+        <div class="item-sesi__meta">${tanggalFormat} • Durasi ${durasiStr} • WPM ${sesi.wpmRata} • Filler ${sesi.filler.total}×${labelMode}</div>
       </div>
       <div class="item-sesi__aksi">
         <div class="item-sesi__skor">${sesi.skor}</div>
@@ -1160,6 +1308,14 @@ function initEventListeners() {
   DOM.tombolMintaIzin.addEventListener('click', mintaIzinMedia);
   DOM.btnUkurUlangRuangan.addEventListener('click', ukurSuaraRuangan);
   DOM.btnKalibrasiPostur.addEventListener('click', kalibrasiPosturKepala);
+
+  // Mode dicatat begitu dipilih supaya hierarki tombol langsung menyesuaikan
+  [DOM.modeLengkap, DOM.modeSuaraSaja].forEach(radio => {
+    radio.addEventListener('change', () => {
+      state.modeSesi = DOM.modeSuaraSaja.checked ? 'suara-saja' : 'lengkap';
+      perbaruiHirarkiMulaiSesi();
+    });
+  });
   DOM.btnMulaiUjiBentrok.addEventListener('click', mulaiUjiBentrokMikrofon);
   DOM.tombolMulaiSesi.addEventListener('click', mulaiSesiLatihan);
   DOM.btnBatalPersiapan.addEventListener('click', () => {

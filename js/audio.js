@@ -96,6 +96,7 @@ let suaraMulaiDetik = null;     // Kapan deretan suara di atas ambang yang sedan
 // selalu dari CONFIG.audio di app.js.
 const KONFIG_BAWAAN = {
   pengaliAmbangBicara: 2.5,
+  ambangBicaraMaks: 0.08,
   durasiJedaPanjangMs: 3000,
   minDurasiSuaraMs: 200,
   durasiUkurNoiseMs: 2000,
@@ -245,9 +246,15 @@ export function hitungRMS() {
  *    Ambang relatif ini yang membuat deteksi jeda tetap bekerja di ruangan
  *    berisik maupun sunyi, dan pada mikrofon dengan penguatan berbeda-beda.
  *    Konstanta absolut tidak bisa: gain mikrofon antar laptop berbeda jauh.
- * 4. Bila pengukuran gagal (tidak ada analyser, tidak ada sampel, atau energi
- *    tepat nol yang berarti mikrofon bisu), ambang dibiarkan null. Modul lalu
- *    melaporkan diri tidak tersedia alih-alih menebak ambangnya.
+ * 4. Bila pengukuran gagal, ambang dibiarkan null dan modul melaporkan diri
+ *    tidak tersedia alih-alih menebak. Empat sebab kegagalan:
+ *    - 'mikrofon-tidak-siap': rantai Web Audio belum terbentuk.
+ *    - 'tidak-ada-sampel'   : tidak satu pun pembacaan sempat terkumpul.
+ *    - 'mikrofon-bisu'      : energi tepat nol, mikrofon kemungkinan dimatikan.
+ *    - 'ruangan-berisik'    : ambang hasil hitungan melewati
+ *      CONFIG.audio.ambangBicaraMaks, artinya suara ruangan setinggi suara
+ *      bicara dan tidak ada acuan yang bisa dipercaya.
+ *    Acuan TIDAK PERNAH disimpan sebagian: nilai lama sudah dibuang di awal.
  *
  * Nilai ambang lama selalu dibuang lebih dulu, supaya kegagalan pengukuran
  * ulang tidak diam-diam memakai ambang dari mikrofon atau ruangan sebelumnya.
@@ -262,7 +269,7 @@ export function ukurNoiseFloor(config = {}) {
 
   return new Promise((selesai) => {
     if (!analyserNode) {
-      selesai({ berhasil: false, noiseFloorRms: null, ambangBicara: null });
+      selesai({ berhasil: false, alasan: 'mikrofon-tidak-siap', noiseFloorRms: null, ambangBicara: null });
       return;
     }
 
@@ -277,7 +284,7 @@ export function ukurNoiseFloor(config = {}) {
       clearInterval(idInterval);
 
       if (sampel.length === 0) {
-        selesai({ berhasil: false, noiseFloorRms: null, ambangBicara: null });
+        selesai({ berhasil: false, alasan: 'tidak-ada-sampel', noiseFloorRms: null, ambangBicara: null });
         return;
       }
 
@@ -296,12 +303,24 @@ export function ukurNoiseFloor(config = {}) {
 
       if (!(median > 0)) {
         console.warn('[audio] Suara ruangan terukur nol. Mikrofon kemungkinan bisu; jeda tidak akan dilaporkan.');
-        selesai({ berhasil: false, noiseFloorRms: null, ambangBicara: null });
+        selesai({ berhasil: false, alasan: 'mikrofon-bisu', noiseFloorRms: null, ambangBicara: null });
+        return;
+      }
+
+      // Ruangan terlalu berisik: ambang bicara yang diturunkan dari suara
+      // ruangan sudah melewati batas yang masih masuk akal dicapai suara
+      // manusia pada mikrofon laptop. Kalau ini dibiarkan, seluruh sesi akan
+      // terbaca hening dan jeda palsu bermunculan. Lebih jujur menolak
+      // menyimpan acuan daripada menyimpan acuan yang pasti salah.
+      const calonAmbang = median * k.pengaliAmbangBicara;
+      if (calonAmbang > k.ambangBicaraMaks) {
+        console.warn(`[audio] Suara ruangan terlalu tinggi: ambang ${calonAmbang.toFixed(4)} melewati batas ${k.ambangBicaraMaks}.`);
+        selesai({ berhasil: false, alasan: 'ruangan-berisik', noiseFloorRms: median, ambangBicara: null });
         return;
       }
 
       noiseFloorRms = median;
-      ambangBicara = median * k.pengaliAmbangBicara;
+      ambangBicara = calonAmbang;
 
       if (k.debug) {
         console.log(`[audio] ambang bicara = ${median.toFixed(4)} × ${k.pengaliAmbangBicara} = ${ambangBicara.toFixed(4)}`);

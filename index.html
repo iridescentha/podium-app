@@ -142,6 +142,19 @@
           </select>
         </div>
 
+        <!-- Mode Latihan: menentukan apakah kamera dipakai sama sekali -->
+        <div class="form-grup">
+          <span class="form-label">Mode latihan</span>
+          <label class="form-checkbox-grup">
+            <input type="radio" name="mode-sesi" id="mode-lengkap" class="form-checkbox" value="lengkap" checked>
+            <span>Lengkap — suara dan arah pandang (butuh kamera)</span>
+          </label>
+          <label class="form-checkbox-grup">
+            <input type="radio" name="mode-sesi" id="mode-suara-saja" class="form-checkbox" value="suara-saja">
+            <span>Suara saja — tanpa kamera, arah pandang tidak dinilai</span>
+          </label>
+        </div>
+
         <!-- Checkbox Analisis Postur (Default MATI sampai model tersedia di Tahap 5) -->
         <label class="form-checkbox-grup">
           <input type="checkbox" id="checkbox-postur" class="form-checkbox">
@@ -163,8 +176,8 @@
 
       <!-- Area Media & Status (Tampil setelah izin diberikan) -->
       <div id="area-media-persiapan" class="area-media-persiapan" style="display: none;">
-        <!-- Preview Kamera -->
-        <div class="preview-kamera-kotak">
+        <!-- Preview Kamera (disembunyikan pada mode suara saja) -->
+        <div id="preview-kamera-kotak" class="preview-kamera-kotak">
           <video id="video-preview-persiapan" autoplay playsinline muted></video>
         </div>
 
@@ -210,7 +223,7 @@
             <button id="btn-ukur-ulang-ruangan" class="tombol tombol--utama tombol--kecil">Ukur sekarang</button>
           </div>
 
-          <div class="kalibrasi-item">
+          <div id="baris-kalibrasi-postur" class="kalibrasi-item">
             <div class="kalibrasi-item__utama">
               <div class="kalibrasi-item__judul">Postur netral</div>
               <div id="status-kalibrasi-postur" class="kalibrasi-item__ket" aria-live="polite">
@@ -302,8 +315,8 @@
         <button id="btn-selesai-sesi" class="tombol tombol--utama">Selesai</button>
       </div>
 
-      <!-- Preview Kamera Kecil di Pojok (±180px) Selalu Terlihat -->
-      <div class="preview-kamera-pojok">
+      <!-- Preview Kamera Kecil di Pojok (±180px), disembunyikan pada mode suara saja -->
+      <div id="preview-kamera-pojok" class="preview-kamera-pojok">
         <video id="video-preview-sesi" autoplay playsinline muted></video>
         <div class="status-live-strip">
           <span class="titik-live"></span>
@@ -324,6 +337,9 @@
       <!-- Skor Total 0-100 & Kalimat Ringkasan Otomatis -->
       <div class="rapor-skor-wrap">
         <div id="rapor-skor-angka" class="rapor-skor-angka">0</div>
+        <!-- Label mode: skor dari tiga metrik dan dari empat metrik tidak
+             sebanding, jadi modenya disebut apa adanya, netral tanpa peringatan. -->
+        <div id="rapor-mode-label" class="teks-kecil">Mode lengkap</div>
         <p id="rapor-ringkasan-teks" class="rapor-ringkasan">Memuat ringkasan sesi latihan...</p>
       </div>
 
