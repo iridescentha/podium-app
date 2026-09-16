@@ -406,6 +406,22 @@
         <div id="grafik-wpm-kosong" class="teks-kecil" style="display: none;"></div>
       </div>
 
+      <!-- ====================================================================
+           PENYIMPANAN TRANSKRIP (opt-in per sesi, Tahap 4B)
+           Default MATI. Transkrip hanya ikut tersimpan bila kotak ini dicentang,
+           dan hanya untuk sesi ini. Tidak ada setelan "selalu simpan".
+           ==================================================================== -->
+      <div class="kotak-transkrip">
+        <label class="form-checkbox-grup">
+          <input type="checkbox" id="checkbox-simpan-transkrip" class="form-checkbox">
+          <span>Simpan transkrip sesi ini ke riwayat</span>
+        </label>
+        <div class="teks-kecil" style="margin-top: 6px;">
+          Transkrip disimpan di perangkat ini saja. Tanpa ini, riwayat hanya menyimpan angka.
+        </div>
+        <div id="status-simpan-transkrip" class="teks-kecil" style="margin-top: 6px;" aria-live="polite"></div>
+      </div>
+
       <!-- Saran Konkret Berdasarkan ATURAN_SARAN -->
       <h3 style="margin-top: 32px;">Saran Latihan Konkret</h3>
       <div id="daftar-saran-rapor" class="daftar-saran">

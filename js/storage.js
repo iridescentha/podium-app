@@ -79,6 +79,59 @@ export function simpanSesi(sesiBaru) {
 }
 
 /**
+ * Menimpa satu sesi yang sudah tersimpan dengan versi terbarunya.
+ *
+ * CARA KERJA:
+ * Sesi dicari berdasarkan id, lalu diganti di tempat tanpa mengubah urutan
+ * riwayat. Dipakai saat pengguna menyalakan atau mematikan penyimpanan
+ * transkrip di Layar Rapor: sesinya sudah tersimpan lebih dulu, dan yang
+ * berubah hanya ada atau tidaknya potongan transkrip di dalamnya.
+ *
+ * Bila idnya tidak ditemukan (misalnya sesi gagal disimpan karena kuota penuh),
+ * fungsi ini TIDAK menambahkan sesi baru: laporan "tidak tersimpan" yang sudah
+ * ditampilkan rapor harus tetap benar.
+ *
+ * @param {Object} sesiBaru - Objek sesi lengkap, harus punya id yang sama
+ * @returns {{ sukses: boolean, pesan?: string, tidakDitemukan?: boolean }}
+ */
+export function perbaruiSesi(sesiBaru) {
+  try {
+    const daftar = ambilDaftarSesi();
+    const indeks = daftar.findIndex(s => s.id === sesiBaru.id);
+    if (indeks === -1) {
+      return { sukses: false, tidakDitemukan: true };
+    }
+
+    daftar[indeks] = sesiBaru;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(daftar));
+    return { sukses: true };
+  } catch (error) {
+    console.warn('Gagal memperbarui sesi di localStorage (kemungkinan kuota penuh):', error);
+    return {
+      sukses: false,
+      pesan: 'Perubahan tidak tersimpan (penyimpanan lokal peramban penuh atau tidak diizinkan).'
+    };
+  }
+}
+
+/**
+ * Memperkirakan ukuran riwayat yang tersimpan, dalam kilobyte.
+ *
+ * CARA KERJA:
+ * Panjang string JSON dipakai sebagai perkiraan ukuran. Ini bukan angka pasti
+ * (peramban menyimpan string sebagai UTF-16 dan punya biaya tambahan sendiri),
+ * tetapi cukup untuk memantau apakah penyimpanan transkrip mulai membengkak.
+ */
+export function perkiraanUkuranKb() {
+  try {
+    const mentah = localStorage.getItem(STORAGE_KEY);
+    return mentah ? Math.round((mentah.length / 1024) * 10) / 10 : 0;
+  } catch (error) {
+    return 0;
+  }
+}
+
+/**
  * Menghapus satu sesi tertentu berdasarkan ID uniknya.
  * 
  * CARA KERJA:

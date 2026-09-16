@@ -936,6 +936,17 @@ button:disabled, .tombol:disabled {
   box-shadow: none;
 }
 
+/* Kotak pilihan penyimpanan transkrip di Layar Rapor. Permukaan kartu terang
+   yang sama dengan kartu metrik, tanpa aksen, supaya tidak bersaing dengan
+   angka skor yang harus tetap jadi elemen paling menonjol di layar ini. */
+.kotak-transkrip {
+  margin-top: 24px;
+  padding: 20px;
+  border-radius: 10px;
+  background-color: var(--kartu-terang);
+  border: 1px solid var(--border-terang);
+}
+
 /* Tinggi grafik dikunci di pembungkusnya, bukan lewat atribut height kanvas.
    Chart.js menggambar ulang kanvas sesuai ukuran induknya, jadi cara ini yang
    membuat grafik tetap proporsional saat lebar layar berubah. */

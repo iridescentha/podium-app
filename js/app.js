@@ -158,7 +158,11 @@ export const CONFIG = {
   POSE_POLL_INTERVAL_MS: 2000,     // Klasifikasi postur tiap 2 detik
 
   // Batasan Sesi
-  MIN_SESSION_DURATION_S: 30       // Sesi < 30 detik ditolak (tidak disimpan ke riwayat)
+  MIN_SESSION_DURATION_S: 30,      // Sesi < 30 detik ditolak (tidak disimpan ke riwayat)
+
+  // true: cetak seluruh event bertimestamp sesi ke console saat rapor dibuka,
+  // untuk mencocokkan isinya dengan apa yang benar-benar dilakukan (Tahap 4B).
+  TIMELINE_DEBUG: false
 };
 
 // ----------------------------------------------------------------------------
@@ -174,9 +178,15 @@ const state = {
   modeSesi: 'lengkap',
 
   // Potongan transkrip bertimestamp sesi terakhir, HANYA di memori dan hanya
-  // selama Layar Rapor terbuka (dipakai timeline Tahap 4B). Tidak pernah masuk
-  // localStorage, dan dikosongkan begitu pengguna meninggalkan rapor.
+  // selama Layar Rapor terbuka (dipakai timeline Tahap 4B). Ikut tersimpan ke
+  // localStorage hanya bila pengguna mencentang kotak di Layar Rapor, dan
+  // dikosongkan begitu pengguna meninggalkan rapor.
   transkripSesi: null,
+
+  // Objek sesi terakhir apa adanya, dipakai saat pengguna menyalakan atau
+  // mematikan penyimpanan transkrip setelah sesinya tersimpan.
+  sesiTerakhir: null,
+  sesiTerakhirTersimpan: false,
 
   // Status Sesi
   sesiBerjalan: false,
@@ -283,6 +293,8 @@ const DOM = {
   chartWpmSesi: document.getElementById('chart-wpm-sesi'),
   grafikWpmKosong: document.getElementById('grafik-wpm-kosong'),
   raporCatatanStorage: document.getElementById('rapor-catatan-storage'),
+  checkboxSimpanTranskrip: document.getElementById('checkbox-simpan-transkrip'),
+  statusSimpanTranskrip: document.getElementById('status-simpan-transkrip'),
   daftarSaranRapor: document.getElementById('daftar-saran-rapor'),
   btnRaporLatihanLagi: document.getElementById('btn-rapor-latihan-lagi'),
   btnRaporKeBeranda: document.getElementById('btn-rapor-ke-beranda'),
@@ -1111,12 +1123,23 @@ function prosesDanTampilkanRapor() {
   dataSesiLengkap.skor = skorTotal;
 
   // TRANSKRIP: disimpan di memori saja, khusus untuk timeline Tahap 4B selama
-  // Layar Rapor terbuka. Sengaja TIDAK dimasukkan ke dataSesiLengkap, karena
-  // objek itulah yang ditulis ke localStorage. Dibuang di tinggalkanLayarRapor().
+  // Layar Rapor terbuka. Sengaja TIDAK dimasukkan ke dataSesiLengkap, kecuali
+  // pengguna mencentang kotak penyimpanan transkrip di Layar Rapor.
   state.transkripSesi = hasilSpeech.potonganTranskrip;
+  state.sesiTerakhir = dataSesiLengkap;
+
+  // Kotak penyimpanan transkrip selalu kembali ke keadaan mati tiap sesi baru.
+  // Tidak ada setelan "selalu simpan": menyimpan transkrip harus jadi keputusan
+  // sadar untuk satu sesi tertentu.
+  DOM.checkboxSimpanTranskrip.checked = false;
+  DOM.statusSimpanTranskrip.textContent = '';
+  DOM.statusSimpanTranskrip.style.color = '';
+
+  cetakEventTimeline(dataSesiLengkap, hasilSpeech.potonganTranskrip);
 
   // Simpan ke storage (dengan proteksi jika storage penuh)
   const statusSimpan = storage.simpanSesi(dataSesiLengkap);
+  state.sesiTerakhirTersimpan = statusSimpan.sukses === true;
 
   // Render Layar Rapor
   renderRaporUI(dataSesiLengkap, statusSimpan);
@@ -1239,6 +1262,93 @@ function renderRaporUI(data, statusSimpan) {
     itemEl.innerHTML = `<div class="saran-item__aksen"></div><div>${teksSaran}</div>`;
     DOM.daftarSaranRapor.appendChild(itemEl);
   });
+}
+
+/**
+ * Menyalakan atau mematikan penyimpanan transkrip untuk sesi yang baru selesai.
+ *
+ * CARA KERJA:
+ * Sesinya sudah tersimpan lebih dulu tanpa transkrip. Saat kotak dicentang,
+ * potongan transkrip yang masih ada di memori disisipkan ke objek sesi itu lalu
+ * ditimpa ke localStorage; saat dilepas, field-nya dibuang dan ditimpa lagi.
+ * Karena transkrip hidup di memori sampai pengguna meninggalkan Layar Rapor,
+ * pilihan ini masih bisa diubah kapan pun selama rapor terbuka.
+ *
+ * Kuota penuh ditangani apa adanya: bila penyimpanan dengan transkrip ditolak,
+ * sesinya dikembalikan ke bentuk tanpa transkrip supaya angkanya tetap ada di
+ * riwayat, dan kotaknya dilepas kembali agar tampilan tidak mengklaim sesuatu
+ * yang tidak tersimpan.
+ */
+function terapkanPilihanSimpanTranskrip() {
+  const inginSimpan = DOM.checkboxSimpanTranskrip.checked;
+  const sesi = state.sesiTerakhir;
+
+  if (!sesi || !state.sesiTerakhirTersimpan) {
+    DOM.statusSimpanTranskrip.textContent = 'Sesi ini tidak masuk riwayat, jadi transkripnya juga tidak bisa disimpan.';
+    DOM.statusSimpanTranskrip.style.color = 'var(--bahaya)';
+    DOM.checkboxSimpanTranskrip.checked = false;
+    return;
+  }
+
+  if (inginSimpan) {
+    sesi.potonganTranskrip = state.transkripSesi || [];
+  } else {
+    delete sesi.potonganTranskrip;
+  }
+
+  const hasil = storage.perbaruiSesi(sesi);
+
+  if (hasil.sukses) {
+    DOM.statusSimpanTranskrip.style.color = '';
+    DOM.statusSimpanTranskrip.textContent = inginSimpan
+      ? `Transkrip tersimpan bersama sesi ini (riwayat kini ${storage.perkiraanUkuranKb()} KB).`
+      : 'Transkrip tidak disimpan. Riwayat hanya berisi angka.';
+    return;
+  }
+
+  // Gagal menyimpan: kembalikan sesi ke bentuk tanpa transkrip
+  delete sesi.potonganTranskrip;
+  storage.perbaruiSesi(sesi);
+  DOM.checkboxSimpanTranskrip.checked = false;
+  DOM.statusSimpanTranskrip.style.color = 'var(--bahaya)';
+  DOM.statusSimpanTranskrip.textContent = 'Transkrip tidak bisa disimpan: penyimpanan peramban penuh. Angka sesi ini tetap tersimpan.';
+}
+
+/**
+ * Mencetak seluruh event bertimestamp sesi ke console untuk pemeriksaan manual.
+ *
+ * CARA KERJA:
+ * Timeline Tahap 4B berdiri di atas empat daftar event yang dikumpulkan tiga
+ * modul berbeda. Sebelum ada satu piksel pun yang digambar, isinya perlu
+ * dicocokkan dengan apa yang benar-benar dilakukan pengguna. Fungsi ini
+ * mencetak keempatnya beserta cap waktunya, dinyalakan lewat CONFIG.TIMELINE_DEBUG.
+ *
+ * Potongan transkrip ikut dicetak karena cap waktunyalah yang paling perlu
+ * diperiksa: Web Speech memfinalkan kalimat beberapa saat setelah diucapkan.
+ */
+function cetakEventTimeline(data, potonganTranskrip) {
+  if (!CONFIG.TIMELINE_DEBUG) return;
+
+  const waktu = (d) => `${Math.floor(d / 60).toString().padStart(2, '0')}:${Math.round(d % 60).toString().padStart(2, '0')}`;
+
+  console.log(`[timeline] sesi "${data.judul}" — mode ${data.mode}, durasi ${waktu(data.durasiDetik)}`);
+
+  console.log(`[timeline] kata pengisi (${data.filler.events.length}):`);
+  console.table(data.filler.events.map(e => ({ waktu: waktu(e.detik), detik: e.detik, kata: e.kata })));
+
+  const jeda = data.jedaTersedia ? data.jeda.daftar : [];
+  console.log(`[timeline] jeda panjang (${jeda.length}):`);
+  console.table(jeda.map(j => ({ mulai: waktu(j.mulaiDetik), detik: j.mulaiDetik, durasi: j.durasiDetik })));
+
+  console.log(`[timeline] segmen menunduk (${data.menundukSegmen.length}):`);
+  console.table(data.menundukSegmen.map(s => ({ mulai: waktu(s.mulaiDetik), detik: s.mulaiDetik, durasi: s.durasiDetik })));
+
+  console.log(`[timeline] kecepatan per potongan (${data.deretWpm.length}):`);
+  console.table(data.deretWpm.map(d => ({ mulai: waktu(d.detikMulai), selesai: waktu(d.detikSelesai), wpm: d.wpm })));
+
+  const potongan = potonganTranskrip || [];
+  console.log(`[timeline] potongan transkrip (${potongan.length}), cap waktunya PERKIRAAN:`);
+  console.table(potongan.map(p => ({ mulai: waktu(p.detikMulai), selesai: waktu(p.detikSelesai), teks: p.teks })));
 }
 
 /**
@@ -1394,6 +1504,8 @@ function initEventListeners() {
   DOM.tombolSelesaiSesi.addEventListener('click', selesaiSesiLatihan);
 
   // Rapor
+  DOM.checkboxSimpanTranskrip.addEventListener('change', terapkanPilihanSimpanTranskrip);
+
   DOM.btnRaporLatihanLagi.addEventListener('click', () => {
     tampilkanLayar('layar-persiapan');
   });
