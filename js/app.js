@@ -155,7 +155,14 @@ const state = {
 
   // Pengujian Bentrok Mikrofon (Tahap 0)
   ujiBentrokTimerId: null,
-  ujiBentrokSisaDetik: 60
+  ujiBentrokSisaDetik: 60,
+
+  // Status dua kalibrasi wajib di Layar Persiapan:
+  // 'belum' | 'mengukur' | 'selesai' | 'gagal'
+  kalibrasi: {
+    ruangan: 'belum',
+    postur: 'belum'
+  }
 };
 
 // ----------------------------------------------------------------------------
@@ -183,9 +190,12 @@ const DOM = {
   videoPreviewPersiapan: document.getElementById('video-preview-persiapan'),
   meterVolumeBar: document.getElementById('meter-volume-bar'),
   meterVolumeAngka: document.getElementById('meter-volume-angka'),
+  blokKalibrasi: document.getElementById('blok-kalibrasi'),
   statusKalibrasiRuangan: document.getElementById('status-kalibrasi-ruangan'),
+  badgeKalibrasiRuangan: document.getElementById('badge-kalibrasi-ruangan'),
   btnUkurUlangRuangan: document.getElementById('btn-ukur-ulang-ruangan'),
   statusKalibrasiPostur: document.getElementById('status-kalibrasi-postur'),
+  badgeKalibrasiPostur: document.getElementById('badge-kalibrasi-postur'),
   btnKalibrasiPostur: document.getElementById('btn-kalibrasi-postur'),
   statusModelWajah: document.getElementById('status-model-wajah'),
   statusModelPostur: document.getElementById('status-model-postur'),
@@ -338,9 +348,10 @@ async function mintaIzinMedia() {
       }, CONFIG);
     }
 
-    // Tampilkan area media dan sembunyikan kotak edukasi awal
+    // Tampilkan area media dan blok kalibrasi, sembunyikan kotak edukasi awal
     DOM.kotakIzinEdukasi.style.display = 'none';
     DOM.areaMediaPersiapan.style.display = 'grid';
+    DOM.blokKalibrasi.style.display = 'block';
 
     // Tombol mulai sesi dinyalakan oleh ukurSuaraRuangan() setelah pengukuran
     // 2 detik selesai. Tombol ini sengaja TIDAK menunggu model wajah: sesi tetap
@@ -354,7 +365,7 @@ async function mintaIzinMedia() {
     if (audioInitSukses) {
       ukurSuaraRuangan();
     } else {
-      tampilkanStatusKalibrasi('Mikrofon tidak terhubung ke analisis audio. Jeda dan volume tidak akan dinilai.', false);
+      setStatusKalibrasi('ruangan', 'gagal', 'Mikrofon tidak terhubung ke analisis audio. Jeda dan volume tidak akan dinilai.');
       DOM.tombolMulaiSesi.disabled = false;
     }
 
@@ -404,9 +415,12 @@ function siapkanLayarPersiapan() {
 
   DOM.meterVolumeBar.style.width = '0%';
   DOM.meterVolumeAngka.textContent = '0%';
-  tampilkanStatusKalibrasi('', true);
-  tampilkanStatusPostur('', true);
-  DOM.btnKalibrasiPostur.disabled = true;
+
+  // Kalibrasi milik satu perangkat dan satu posisi duduk, jadi ikut disetel ulang
+  // begitu izin perangkat harus diminta lagi.
+  DOM.blokKalibrasi.style.display = 'none';
+  setStatusKalibrasi('ruangan', 'belum', 'Menentukan batas antara hening dan suara bicaramu.');
+  setStatusKalibrasi('postur', 'belum', 'Menentukan posisi kepalamu saat menatap audiens.');
 }
 
 /**
@@ -437,6 +451,7 @@ async function muatModelWajah() {
     DOM.statusModelWajah.textContent = 'Gagal dimuat';
     DOM.statusModelWajah.className = 'status-model-badge badge-gagal';
     DOM.statusModelWajah.title = 'Sesi tetap bisa berjalan, tetapi arah pandang tidak akan dinilai.';
+    setStatusKalibrasi('postur', 'gagal', 'Model arah pandang gagal dimuat, jadi postur netral tidak bisa diukur.');
   }
 }
 
@@ -456,8 +471,7 @@ async function muatModelWajah() {
  */
 async function ukurSuaraRuangan() {
   DOM.tombolMulaiSesi.disabled = true;
-  DOM.btnUkurUlangRuangan.disabled = true;
-  tampilkanStatusKalibrasi('Jangan bicara dulu, kami mengukur suara ruanganmu...', true);
+  setStatusKalibrasi('ruangan', 'mengukur', 'Jangan bicara dulu, kami mengukur suara ruanganmu...');
 
   const hasil = await audioModule.ukurNoiseFloor(CONFIG);
 
@@ -465,18 +479,72 @@ async function ukurSuaraRuangan() {
   if (!state.streamKameraMic) return;
 
   if (hasil.berhasil) {
-    tampilkanStatusKalibrasi('Suara ruangan terukur. Silakan mulai kapan pun kamu siap.', true);
+    setStatusKalibrasi('ruangan', 'selesai', 'Batas suara bicara sudah menyesuaikan ruanganmu.');
   } else {
-    tampilkanStatusKalibrasi('Suara ruangan gagal diukur. Sesi tetap bisa berjalan, tetapi jeda dan volume tidak akan dinilai.', false);
+    setStatusKalibrasi('ruangan', 'gagal', 'Gagal diukur. Sesi tetap bisa berjalan, tetapi jeda dan volume tidak akan dinilai.');
   }
 
   DOM.tombolMulaiSesi.disabled = false;
-  DOM.btnUkurUlangRuangan.disabled = false;
 }
 
-function tampilkanStatusKalibrasi(pesan, normal) {
-  DOM.statusKalibrasiRuangan.textContent = pesan;
-  DOM.statusKalibrasiRuangan.style.color = normal ? '' : 'var(--bahaya)';
+/**
+ * Menyimpan status satu kalibrasi lalu menggambar ulang hierarki Layar Persiapan.
+ *
+ * CARA KERJA:
+ * Seluruh tampilan kalibrasi (keterangan, penanda status, gaya tombol, dan
+ * tombol mana yang tampil utama) diturunkan dari dua nilai di state.kalibrasi.
+ * Dengan begitu tidak ada satu pun jalur kode yang bisa menyalakan dua tombol
+ * utama sekaligus, dan tampilan tidak pernah berbeda dari keadaan sebenarnya.
+ *
+ * @param {'ruangan'|'postur'} nama
+ * @param {'belum'|'mengukur'|'selesai'|'gagal'} status
+ * @param {string} keterangan - Kalimat penjelas yang tampil di bawah judul baris
+ */
+function setStatusKalibrasi(nama, status, keterangan) {
+  state.kalibrasi[nama] = status;
+
+  const elemen = (nama === 'ruangan')
+    ? { ket: DOM.statusKalibrasiRuangan, badge: DOM.badgeKalibrasiRuangan, tombol: DOM.btnUkurUlangRuangan, labelUlang: 'Ukur ulang', labelMulai: 'Ukur sekarang' }
+    : { ket: DOM.statusKalibrasiPostur, badge: DOM.badgeKalibrasiPostur, tombol: DOM.btnKalibrasiPostur, labelUlang: 'Kalibrasi ulang', labelMulai: 'Kalibrasi sekarang' };
+
+  elemen.ket.textContent = keterangan;
+  elemen.ket.style.color = (status === 'gagal') ? 'var(--bahaya)' : '';
+
+  // Penanda status memakai KATA, bukan sekadar warna, supaya keadaannya tetap
+  // terbaca tanpa bergantung pada persepsi warna.
+  const penanda = {
+    belum: { teks: 'belum', kelas: 'badge-menunggu' },
+    mengukur: { teks: 'mengukur', kelas: 'badge-menunggu' },
+    selesai: { teks: 'selesai', kelas: 'badge-sukses' },
+    gagal: { teks: 'gagal', kelas: 'badge-gagal' }
+  }[status];
+  elemen.badge.textContent = penanda.teks;
+  elemen.badge.className = `status-model-badge ${penanda.kelas}`;
+
+  // Selama belum selesai, tombolnya adalah aksi utama layar ini. Sesudah
+  // selesai ia turun jadi tombol sekunder yang tenang, karena kalibrasi ulang
+  // hanya dibutuhkan saat ada yang berubah.
+  const selesai = (status === 'selesai');
+  elemen.tombol.className = `tombol ${selesai ? 'tombol--sekunder' : 'tombol--utama'} tombol--kecil`;
+  elemen.tombol.textContent = selesai ? elemen.labelUlang : elemen.labelMulai;
+  elemen.tombol.disabled = (status === 'mengukur');
+
+  perbaruiHirarkiMulaiSesi();
+}
+
+/**
+ * Menentukan apakah "Mulai sesi" sudah layak jadi aksi utama layar.
+ *
+ * CARA KERJA:
+ * Selama masih ada kalibrasi yang belum selesai, tombol Mulai sesi ditampilkan
+ * sekunder supaya hanya ada SATU aksi utama di layar, yaitu kalibrasi yang
+ * tertinggal. Tombolnya tetap bisa ditekan: pengguna boleh melewatkan kalibrasi,
+ * dengan konsekuensi metrik terkait dilaporkan "belum aktif" di rapor, bukan
+ * diisi angka karangan.
+ */
+function perbaruiHirarkiMulaiSesi() {
+  const semuaSelesai = state.kalibrasi.ruangan === 'selesai' && state.kalibrasi.postur === 'selesai';
+  DOM.tombolMulaiSesi.className = `tombol ${semuaSelesai ? 'tombol--utama' : 'tombol--sekunder'}`;
 }
 
 /**
@@ -497,13 +565,12 @@ function tampilkanStatusKalibrasi(pesan, normal) {
  */
 async function kalibrasiPosturKepala() {
   if (!faceModule.isReady()) {
-    tampilkanStatusPostur('Model arah pandang belum siap, postur netral tidak bisa diukur.', false);
+    setStatusKalibrasi('postur', 'gagal', 'Model arah pandang belum siap, postur netral belum bisa diukur.');
     return;
   }
 
   DOM.tombolMulaiSesi.disabled = true;
-  DOM.btnKalibrasiPostur.disabled = true;
-  tampilkanStatusPostur('Tatap kamera dengan posisi duduk wajar, kami mengukur postur netralmu...', true);
+  setStatusKalibrasi('postur', 'mengukur', 'Tatap kamera dengan posisi duduk wajar, kami mengukur postur netralmu...');
 
   const hasil = await faceModule.kalibrasiPostur(DOM.videoPreviewPersiapan, CONFIG);
 
@@ -511,18 +578,12 @@ async function kalibrasiPosturKepala() {
   if (!state.streamKameraMic) return;
 
   if (hasil.berhasil) {
-    tampilkanStatusPostur(`Postur netral terukur (${hasil.pitchNetral.toFixed(1)}°). Kalibrasi ulang bila kamu memindahkan laptop.`, true);
+    setStatusKalibrasi('postur', 'selesai', `Posisi kepala netralmu terukur ${hasil.pitchNetral.toFixed(1)}°. Kalibrasi ulang bila kamu memindahkan laptop.`);
   } else {
-    tampilkanStatusPostur('Postur netral gagal diukur, wajahmu tidak terlihat kamera. Arah pandang tidak akan dinilai.', false);
+    setStatusKalibrasi('postur', 'gagal', 'Gagal diukur, wajahmu tidak terlihat kamera. Arah pandang tidak akan dinilai.');
   }
 
   DOM.tombolMulaiSesi.disabled = false;
-  DOM.btnKalibrasiPostur.disabled = false;
-}
-
-function tampilkanStatusPostur(pesan, normal) {
-  DOM.statusKalibrasiPostur.textContent = pesan;
-  DOM.statusKalibrasiPostur.style.color = normal ? '' : 'var(--bahaya)';
 }
 
 /**

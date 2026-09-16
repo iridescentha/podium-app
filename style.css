@@ -632,6 +632,71 @@ button:disabled, .tombol:disabled {
   color: var(--bahaya);
 }
 
+/* --------------------------------------------------------------------------
+   BLOK KALIBRASI (Layar Persiapan)
+   Dibuat satu blok supaya dua pengukuran wajib tidak terbaca sebagai pelengkap.
+   Tidak ada warna, radius, atau bayangan baru: permukaan --panggung-naik dan
+   border --garis yang sama dengan kartu lain, baris memakai pola yang sama
+   dengan daftar status model di bawahnya.
+   -------------------------------------------------------------------------- */
+.blok-kalibrasi {
+  margin-top: 24px;
+}
+
+.kalibrasi-daftar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.kalibrasi-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background-color: var(--panggung);
+  border: 1px solid var(--garis);
+}
+
+/* Kolom teks mengambil sisa ruang, sehingga penanda status dan tombol selalu
+   rata kanan berapa pun panjang keterangannya. */
+.kalibrasi-item__utama {
+  flex: 1;
+  min-width: 0;
+}
+
+.kalibrasi-item__judul {
+  font-size: 16px;
+  color: var(--kapur);
+  font-weight: 500;
+}
+
+.kalibrasi-item__ket {
+  font-size: 14px;
+  color: var(--redup);
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
+/* Tombol ukuran kecil untuk baris kalibrasi. Bentuk, radius, dan warnanya tetap
+   milik .tombol--utama / .tombol--sekunder; hanya paddingnya yang dikecilkan. */
+.tombol--kecil {
+  padding: 8px 20px;
+  font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  .kalibrasi-item {
+    flex-wrap: wrap;
+  }
+
+  .kalibrasi-item__utama {
+    flex-basis: 100%;
+  }
+}
+
 /* Kotak Uji Bentrok Mikrofon */
 .kotak-uji-bentrok {
   margin-top: 32px;

@@ -185,17 +185,40 @@
             </div>
           </div>
           <div class="teks-kecil">Mikrofon aktif & terhubung via Web Audio API.</div>
-          <!-- Pengukuran suara ruangan untuk ambang bicara adaptif (Tahap 3) -->
-          <div>
-            <div id="status-kalibrasi-ruangan" class="teks-kecil" aria-live="polite"></div>
-            <button id="btn-ukur-ulang-ruangan" class="tombol tombol--sekunder"
-              style="margin-top: 8px; font-size: 14px; padding: 8px 20px;" disabled>Ukur ulang suara ruangan</button>
+        </div>
+      </div>
+
+      <!-- ====================================================================
+           KALIBRASI PERANGKAT
+           Dua pengukuran yang menentukan apakah metrik jeda (Tahap 3) dan arah
+           pandang (Tahap 2) bisa dilaporkan sama sekali. Dikelompokkan jadi satu
+           blok karena keduanya langkah persiapan wajib, bukan pelengkap.
+           ==================================================================== -->
+      <div id="blok-kalibrasi" class="kartu blok-kalibrasi" style="display: none;">
+        <h3>Kalibrasi</h3>
+        <p class="teks-kecil" style="margin-top: 4px;">Dua langkah cepat supaya pengukuran akurat di perangkatmu.</p>
+
+        <div class="kalibrasi-daftar">
+          <div class="kalibrasi-item">
+            <div class="kalibrasi-item__utama">
+              <div class="kalibrasi-item__judul">Suara ruangan</div>
+              <div id="status-kalibrasi-ruangan" class="kalibrasi-item__ket" aria-live="polite">
+                Menentukan batas antara hening dan suara bicaramu.
+              </div>
+            </div>
+            <span id="badge-kalibrasi-ruangan" class="status-model-badge badge-menunggu">belum</span>
+            <button id="btn-ukur-ulang-ruangan" class="tombol tombol--utama tombol--kecil">Ukur sekarang</button>
           </div>
-          <!-- Pengukuran postur kepala netral untuk arah pandang (Tahap 2) -->
-          <div>
-            <div id="status-kalibrasi-postur" class="teks-kecil" aria-live="polite"></div>
-            <button id="btn-kalibrasi-postur" class="tombol tombol--sekunder"
-              style="margin-top: 8px; font-size: 14px; padding: 8px 20px;" disabled>Kalibrasi ulang postur</button>
+
+          <div class="kalibrasi-item">
+            <div class="kalibrasi-item__utama">
+              <div class="kalibrasi-item__judul">Postur netral</div>
+              <div id="status-kalibrasi-postur" class="kalibrasi-item__ket" aria-live="polite">
+                Menentukan posisi kepalamu saat menatap audiens.
+              </div>
+            </div>
+            <span id="badge-kalibrasi-postur" class="status-model-badge badge-menunggu">belum</span>
+            <button id="btn-kalibrasi-postur" class="tombol tombol--utama tombol--kecil">Kalibrasi sekarang</button>
           </div>
         </div>
       </div>
