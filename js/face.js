@@ -194,6 +194,15 @@ let kandidatMulaiDetik = null;     // Kapan deretan kandidat dimulai
 let menundukSegmen = [];           // [{ mulaiDetik, durasiDetik }]
 let menundukMulaiDetik = null;     // Penanda segmen menunduk yang sedang berjalan
 
+// Segmen "wajah tidak terlihat" sebagai event bertimestamp. Sampai Tahap 4B,
+// kejadian ini hanya dilaporkan sebagai persentase; baris kontak pandang di
+// timeline butuh tahu KAPAN-nya, bukan cuma berapa banyak. Yang dicatat di sini
+// hanya bagian yang benar-benar dihitung "tidak terlihat": waktu yang sudah
+// diatribusikan ke menunduk (di dalam kap) tidak masuk sini, supaya satu momen
+// tidak pernah muncul di dua baris sekaligus.
+let hilangSegmen = [];             // [{ mulaiDetik, durasiDetik }]
+let hilangTakTerlihatMulai = null;
+
 // Elemen video sumber frame, dan penjaga agar frame yang sama tidak diproses dua kali
 let videoSumber = null;
 let waktuVideoTerakhir = -1;
@@ -465,6 +474,8 @@ export function start(callbacks = {}, videoElement = null, config = {}) {
   diag.detik = -1;
   menundukSegmen = [];
   menundukMulaiDetik = null;
+  hilangSegmen = [];
+  hilangTakTerlihatMulai = null;
   waktuVideoTerakhir = -1;
   sudahCetakDaftarBlendshape = false;
   blendshapeTersedia = true;
@@ -504,6 +515,7 @@ export function pause() {
   if (status !== 'berjalan') return false;
   lepasKandidatKe(statusStabil);
   tutupSegmenMenunduk();
+  tutupSegmenHilang();
   statusStabil = null;
   hilangMulaiDetik = null;
   statusSaatHilang = null;
@@ -540,6 +552,7 @@ export function stop() {
   if (status === 'berjalan') {
     lepasKandidatKe(statusStabil);
     tutupSegmenMenunduk();
+    tutupSegmenHilang();
     statusStabil = null;
     hilangMulaiDetik = null;
     statusSaatHilang = null;
@@ -622,7 +635,8 @@ function prosesSatuFrame() {
     return;
   }
 
-  // Wajah kembali terlihat: pelacak kehilangan dikosongkan
+  // Wajah kembali terlihat: segmen "tidak terlihat" ditutup, pelacak dikosongkan
+  tutupSegmenHilang(detik);
   hilangMulaiDetik = null;
   statusSaatHilang = null;
 
@@ -705,16 +719,46 @@ function tanganiWajahHilang(detik) {
   // pada saat wajah akhirnya kembali, supaya durasinya tidak menelan waktu
   // pengguna meninggalkan meja.
   if (statusSaatHilang === 'menunduk') {
+    // Bagian menunduk berakhir tepat di batas kap; dari detik itulah waktu
+    // mulai dihitung sebagai "tidak terlihat".
     tutupSegmenMenunduk(hilangMulaiDetik + batas);
+    if (hilangTakTerlihatMulai === null) hilangTakTerlihatMulai = hilangMulaiDetik + batas;
     statusSaatHilang = null;
     statusStabil = null;
-  } else if (statusStabil !== null) {
-    tutupSegmenMenunduk();
-    statusStabil = null;
+  } else {
+    if (statusStabil !== null) {
+      tutupSegmenMenunduk();
+      statusStabil = null;
+    }
+    if (hilangTakTerlihatMulai === null) hilangTakTerlihatMulai = hilangMulaiDetik;
   }
 
   frameWajahTakTerlihat++;
   laporkanArah('tidak terlihat');
+}
+
+/**
+ * Menutup segmen "wajah tidak terlihat" yang sedang berjalan.
+ *
+ * CARA KERJA:
+ * Sama seperti segmen menunduk, hanya kejadian yang bertahan minimal
+ * CONFIG.MENUNDUK_EVENT_MIN_DETIK yang disimpan. Kehilangan sekejap terjadi
+ * wajar saat pengguna bergerak cepat dan tidak berarti apa-apa bagi pembaca
+ * timeline; menyimpannya hanya akan membuat baris kontak pandang penuh bercak.
+ */
+function tutupSegmenHilang(detikSelesai = detikSesiSekarang()) {
+  if (hilangTakTerlihatMulai === null) return;
+
+  const mulai = hilangTakTerlihatMulai;
+  const durasi = detikSelesai - mulai;
+  hilangTakTerlihatMulai = null;
+
+  if (durasi >= konfig.MENUNDUK_EVENT_MIN_DETIK) {
+    hilangSegmen.push({
+      mulaiDetik: Math.round(mulai),
+      durasiDetik: Math.round(durasi * 10) / 10
+    });
+  }
 }
 
 /**
@@ -986,6 +1030,7 @@ export function getResults() {
     frameBerkedip: frameBerkedip,
     frameHilangDihitungMenunduk: frameHilangDihitungMenunduk,
     pitchNetral: pitchNetral,
-    menundukSegmen: menundukSegmen.slice()
+    menundukSegmen: menundukSegmen.slice(),
+    hilangSegmen: hilangSegmen.slice()
   };
 }

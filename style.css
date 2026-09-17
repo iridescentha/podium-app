@@ -936,6 +936,217 @@ button:disabled, .tombol:disabled {
   box-shadow: none;
 }
 
+/* --------------------------------------------------------------------------
+   REPLAY TIMELINE (Layar Rapor)
+   Seluruh warna berasal dari token yang sudah ada. Tiga keadaan kontak pandang
+   dibedakan bentuk dan teksturnya, bukan hanya warnanya: menatap depan berupa
+   dasar bersih, menunduk blok padat --redup, wajah tidak terlihat arsiran
+   bergaris. Aksen --sorot dipakai tipis saja supaya angka skor tetap jadi
+   elemen paling menonjol di layar ini.
+   -------------------------------------------------------------------------- */
+.timeline-kartu {
+  margin: 24px 0;
+  padding: 24px;
+  border-radius: 10px;
+  background-color: var(--kartu-terang);
+  border: 1px solid var(--border-terang);
+}
+
+/* Di layar sempit lintasan tetap mendatar dan bisa digeser, tidak diubah jadi
+   daftar tegak: sumbu waktu bersama adalah inti tampilan ini. */
+.timeline-gulir {
+  overflow-x: auto;
+  margin-top: 16px;
+}
+
+.timeline {
+  min-width: 480px;
+}
+
+.timeline__baris {
+  margin-bottom: 14px;
+}
+
+.timeline__baris-judul {
+  font-size: 14px;
+  color: var(--redup);
+  margin-bottom: 4px;
+}
+
+.timeline__lintasan {
+  position: relative;
+  width: 100%;
+  border-radius: 6px;
+}
+
+/* Sumbu waktu */
+.timeline__lintasan--sumbu {
+  height: 20px;
+  border-bottom: 1px solid var(--border-terang);
+}
+
+.timeline__tanda {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--border-terang);
+}
+
+.timeline__tanda-label {
+  position: absolute;
+  top: 0;
+  left: 4px;
+  font-size: 11px;
+  color: var(--redup);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Baris kontak pandang: dasarnya "menatap depan" */
+.timeline__lintasan--pandang {
+  height: 26px;
+  background-color: rgba(232, 180, 74, 0.28);
+  overflow: hidden;
+}
+
+.timeline__segmen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.timeline__segmen--menunduk {
+  background-color: var(--redup);
+}
+
+/* Arsiran bergaris: dibedakan teksturnya, bukan warna baru */
+.timeline__segmen--hilang {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(138, 144, 153, 0.85) 0,
+    rgba(138, 144, 153, 0.85) 4px,
+    rgba(138, 144, 153, 0.35) 4px,
+    rgba(138, 144, 153, 0.35) 8px
+  );
+}
+
+/* Baris kecepatan */
+.timeline__lintasan--kecepatan {
+  height: 64px;
+}
+
+.timeline__svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.timeline__garis-wpm {
+  fill: none;
+  stroke: var(--sorot);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.timeline__batas-wpm {
+  stroke: var(--redup);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.timeline__titik-wpm {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+  margin-top: -3.5px;
+  border-radius: 999px;
+  background-color: var(--sorot);
+}
+
+/* Di luar rentang nyaman: lingkaran berlubang dan lebih besar, beda BENTUK */
+.timeline__titik-wpm--luar {
+  width: 11px;
+  height: 11px;
+  margin-left: -5.5px;
+  margin-top: -5.5px;
+  background-color: var(--kartu-terang);
+  border: 2px solid var(--tinta);
+}
+
+/* Baris masalah */
+.timeline__lintasan--masalah {
+  height: 28px;
+}
+
+.timeline__jeda {
+  position: absolute;
+  top: 2px;
+  height: 10px;
+  border-radius: 3px;
+  background-color: var(--redup);
+}
+
+.timeline__filler {
+  position: absolute;
+  bottom: 2px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 999px;
+  background-color: var(--tinta);
+}
+
+.timeline__kosong {
+  font-size: 14px;
+  color: var(--redup);
+  padding: 4px 0;
+}
+
+/* Legenda */
+.timeline__legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.timeline__legenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--redup);
+}
+
+.timeline__legenda-contoh {
+  position: static;
+  display: inline-block;
+  width: 16px;
+  height: 10px;
+  border-radius: 3px;
+  margin: 0;
+}
+
+.timeline__legenda-contoh.timeline__filler {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.timeline__legenda-contoh.timeline__titik-wpm--luar {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.timeline__catatan {
+  font-size: 14px;
+  color: var(--redup);
+  margin-top: 12px;
+}
+
 /* Kotak pilihan penyimpanan transkrip di Layar Rapor. Permukaan kartu terang
    yang sama dengan kartu metrik, tanpa aksen, supaya tidak bersaing dengan
    angka skor yang harus tetap jadi elemen paling menonjol di layar ini. */

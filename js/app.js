@@ -21,6 +21,7 @@ import * as speechModule from './speech.js';
 import * as faceModule from './face.js';
 import * as poseModule from './pose.js';
 import * as reportModule from './report.js';
+import * as timelineModule from './timeline.js';
 
 // ----------------------------------------------------------------------------
 // 1. KONFIGURASI GLOBAL (CONFIG)
@@ -162,7 +163,7 @@ export const CONFIG = {
 
   // true: cetak seluruh event bertimestamp sesi ke console saat rapor dibuka,
   // untuk mencocokkan isinya dengan apa yang benar-benar dilakukan (Tahap 4B).
-  TIMELINE_DEBUG: false
+  TIMELINE_DEBUG: true
 };
 
 // ----------------------------------------------------------------------------
@@ -290,8 +291,8 @@ const DOM = {
   raporPosturKartu: document.getElementById('rapor-postur-kartu'),
   raporPosturNilai: document.getElementById('rapor-postur-nilai'),
   raporPosturKet: document.getElementById('rapor-postur-ket'),
-  chartWpmSesi: document.getElementById('chart-wpm-sesi'),
-  grafikWpmKosong: document.getElementById('grafik-wpm-kosong'),
+  timelineRapor: document.getElementById('timeline-rapor'),
+  timelineKosong: document.getElementById('timeline-kosong'),
   raporCatatanStorage: document.getElementById('rapor-catatan-storage'),
   checkboxSimpanTranskrip: document.getElementById('checkbox-simpan-transkrip'),
   statusSimpanTranskrip: document.getElementById('status-simpan-transkrip'),
@@ -1094,9 +1095,10 @@ function prosesDanTampilkanRapor() {
     pandangTersedia: hasilFace.tersedia === true,
     pandangPersen: hasilFace.tersedia === true ? hasilFace.pandangPersen : null,
     wajahTakTerlihatPersen: hasilFace.tersedia === true ? hasilFace.wajahTakTerlihatPersen : null,
-    // Event bertimestamp untuk baris kedua timeline di Tahap 4B. Ini daftar
+    // Event bertimestamp untuk baris kontak pandang di timeline. Keduanya daftar
     // jarang (puluhan per sesi), bukan data per frame, jadi aman disimpan.
     menundukSegmen: hasilFace.tersedia === true ? hasilFace.menundukSegmen : [],
+    hilangSegmen: hasilFace.tersedia === true ? hasilFace.hilangSegmen : [],
     // Jeda dan volume hanya punya arti bila ambang bicara sempat diukur di Layar
     // Persiapan. Tanpa itu nilainya null, bukan 0, supaya "tidak diukur" tidak
     // pernah terbaca sebagai "tidak ada jeda" dan tidak mendongkrak skor.
@@ -1233,16 +1235,12 @@ function renderRaporUI(data, statusSimpan) {
     DOM.raporPosturKet.textContent = 'modul postur belum berjalan, jadi tidak ikut dihitung dalam skor';
   }
 
-  // Grafik kecepatan bicara. Sesi yang terlalu pendek untuk menghasilkan satu
-  // potongan penuh tidak digambar; kotak keterangan menggantikannya supaya
-  // tidak ada kanvas kosong yang terlihat seperti grafik rusak.
-  const adaGrafik = reportModule.gambarGrafikWpm(DOM.chartWpmSesi, data.deretWpm, CONFIG);
-  DOM.chartWpmSesi.style.display = adaGrafik ? '' : 'none';
-  DOM.grafikWpmKosong.style.display = adaGrafik ? 'none' : 'block';
-  if (!adaGrafik) {
-    DOM.grafikWpmKosong.textContent = (typeof window.Chart === 'undefined')
-      ? 'Grafik tidak bisa ditampilkan karena pustaka grafik gagal dimuat (kemungkinan sedang luring). Angka di atas tetap terukur.'
-      : 'Sesi ini terlalu singkat untuk menggambar grafik kecepatan bicara.';
+  // Lintasan sesi. Baris kecepatannya memakai deretWpm yang sama, jadi grafik
+  // WPM yang dulu berdiri sendiri sudah dihapus, bukan dibiarkan berdampingan.
+  const adaTimeline = timelineModule.render(DOM.timelineRapor, data, CONFIG);
+  DOM.timelineKosong.style.display = adaTimeline ? 'none' : 'block';
+  if (!adaTimeline) {
+    DOM.timelineKosong.textContent = 'Sesi ini terlalu singkat untuk menggambar lintasan waktu.';
   }
 
   // Catatan storage jika gagal
@@ -1342,6 +1340,9 @@ function cetakEventTimeline(data, potonganTranskrip) {
 
   console.log(`[timeline] segmen menunduk (${data.menundukSegmen.length}):`);
   console.table(data.menundukSegmen.map(s => ({ mulai: waktu(s.mulaiDetik), detik: s.mulaiDetik, durasi: s.durasiDetik })));
+
+  console.log(`[timeline] segmen wajah tidak terlihat (${data.hilangSegmen.length}):`);
+  console.table(data.hilangSegmen.map(s => ({ mulai: waktu(s.mulaiDetik), detik: s.mulaiDetik, durasi: s.durasiDetik })));
 
   console.log(`[timeline] kecepatan per potongan (${data.deretWpm.length}):`);
   console.table(data.deretWpm.map(d => ({ mulai: waktu(d.detikMulai), selesai: waktu(d.detikSelesai), wpm: d.wpm })));

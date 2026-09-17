@@ -397,13 +397,21 @@
         </div>
       </div>
 
-      <!-- Grafik Garis WPM per 30 Detik -->
-      <div id="grafik-wpm-kartu" class="grafik-kartu">
-        <h3>Kecepatan Berbicara (WPM per 30 Detik)</h3>
-        <div class="grafik-wadah">
-          <canvas id="chart-wpm-sesi"></canvas>
+      <!-- ====================================================================
+           REPLAY TIMELINE (Tahap 4B)
+           Menggantikan grafik WPM yang berdiri sendiri: baris kecepatan di sini
+           memakai data yang sama, jadi tidak digambar dua kali.
+           ==================================================================== -->
+      <div id="timeline-kartu" class="timeline-kartu">
+        <h3>Lintasan Sesi</h3>
+        <p class="teks-kecil" style="margin-top: 4px;">Di mana kata pengisi, jeda, dan menunduk terjadi sepanjang sesimu.</p>
+        <div class="timeline-gulir">
+          <div id="timeline-rapor" class="timeline"></div>
         </div>
-        <div id="grafik-wpm-kosong" class="teks-kecil" style="display: none;"></div>
+        <div class="timeline__catatan">
+          Waktu kata pengisi bersifat perkiraan — pengenal suara Chrome memfinalkan kalimat beberapa saat setelah diucapkan.
+        </div>
+        <div id="timeline-kosong" class="teks-kecil" style="display: none;"></div>
       </div>
 
       <!-- ====================================================================
