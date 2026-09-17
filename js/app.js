@@ -23,6 +23,7 @@ import * as poseModule from './pose.js';
 import * as reportModule from './report.js';
 import * as timelineModule from './timeline.js';
 import * as temaModule from './tema.js';
+import * as browserModule from './browser.js';
 
 // ----------------------------------------------------------------------------
 // 1. KONFIGURASI GLOBAL (CONFIG)
@@ -236,6 +237,7 @@ const state = {
 const DOM = {
   bannerBrowser: document.getElementById('banner-browser'),
   btnTema: document.getElementById('btn-tema'),
+  privasiLayananSuara: document.getElementById('privasi-layanan-suara'),
   layarDaftar: document.querySelectorAll('.layar'),
 
   // Layar Beranda
@@ -884,7 +886,7 @@ function selesaiUjiBentrokMikrofon(sukses = true) {
   DOM.btnMulaiUjiBentrok.disabled = false;
 
   if (sukses) {
-    tambahLogUjiBentrok('\n[HASIL UJI] Sukses sempurna! Web Speech API dan Web Audio API dapat berjalan bersamaan di Chrome desktop tanpa bentrok maupun error.');
+    tambahLogUjiBentrok('\n[HASIL UJI] Sukses sempurna! Web Speech API dan Web Audio API dapat berjalan bersamaan di browser ini tanpa bentrok maupun error.');
   }
 }
 
@@ -1604,6 +1606,11 @@ function initEventListeners() {
 
 // Jalankan saat DOM selesai dimuat
 document.addEventListener('DOMContentLoaded', () => {
+  // Kotak privasi harus menyebut penerima audio yang sebenarnya. Menyebut
+  // layanan Chrome kepada pengguna Safari adalah pernyataan palsu di tempat
+  // produk ini membuat klaim terkuatnya.
+  DOM.privasiLayananSuara.textContent = browserModule.kalimatPrivasiSuara();
+
   temaModule.init(DOM.btnTema);
   initEventListeners();
   tampilkanLayar('layar-beranda');

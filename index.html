@@ -98,9 +98,12 @@
           <!-- Kotak Privasi Wajib (Bagian 5.1 teks verbatim, Perubahan 8) -->
           <div class="kotak-privasi">
             <div class="kotak-privasi__judul">Privasi & Keamanan Data</div>
+            <!-- Penyedia layanan suara disebut sesuai browser oleh js/browser.js.
+                 Teks bawaan di bawah sengaja netral, supaya tetap benar di
+                 browser mana pun sebelum JavaScript sempat menggantinya. -->
             <div class="kotak-privasi__isi">
-              Video diproses langsung di browsermu dan tidak pernah direkam atau dikirim. Transkripsi suara menggunakan
-              layanan speech bawaan Chrome.
+              Video diproses langsung di browsermu dan tidak pernah direkam atau dikirim.
+              <span id="privasi-layanan-suara">Transkripsi suara menggunakan layanan pengenal suara bawaan browser ini, yang dikelola oleh penyedia browser tersebut.</span>
             </div>
           </div>
 
@@ -262,7 +265,7 @@
       <div class="kotak-uji-bentrok">
         <h4>Pengujian Bentrok Mikrofon (Tahap 0)</h4>
         <p class="teks-deskripsi" style="font-size: 14px; margin-top: 4px;">
-          Uji apakah Web Speech API dan AnalyserNode Web Audio dapat bekerja berdampingan di Chrome desktop tanpa error
+          Uji apakah Web Speech API dan AnalyserNode Web Audio dapat bekerja berdampingan di browser ini tanpa error
           driver audio.
         </p>
         <button id="btn-uji-bentrok" class="tombol tombol--sekunder"
@@ -421,7 +424,7 @@
       <div class="timeline-kaki">
         <div id="timeline-legenda-rapor"></div>
         <div class="timeline__catatan">
-          Waktu kata pengisi bersifat perkiraan — pengenal suara Chrome memfinalkan kalimat beberapa saat setelah diucapkan.
+          Waktu kata pengisi bersifat perkiraan — pengenal suara memfinalkan kalimat beberapa saat setelah diucapkan.
         </div>
       </div>
 
