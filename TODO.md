@@ -110,6 +110,26 @@ lalu Selesai. Ulangi juga dengan kalibrasi suara ruangan sengaja digagalkan.
   menggambar titik nol.
 - Beranda menampilkan skor terakhir dari sesi yang memang punya skor.
 
+## 8. Pemeriksaan visual setelah perapatan UI — commit `redesign kepadatan`
+
+Semua ini perlu mata, bukan uji otomatis.
+
+**Lulus bila:**
+- **Rapor:** skor 96px jelas jadi elemen paling menonjol; kartu metrik padat
+  (angka 24px, label 12px) dan tidak lagi setinggi sebelumnya; kalimat ringkasan
+  15px tidak menyaingi skor.
+- **Kartu metrik** tetap terbaca saat isinya "belum aktif" (15px) dan tidak
+  membuat tinggi kartu melompat dibanding kartu bernilai angka.
+- **Riwayat:** baris sesi padat, skor 24px, meta 12px masih terbaca.
+- **Persiapan:** tombol lebih rendah (11px/24px) tetapi masih nyaman ditekan;
+  blok kalibrasi tetap jadi aksi utama yang jelas.
+- **Beranda:** judul 88px tetap utuh; jarak antar kelompok 40px tidak membuat
+  halamannya terasa sesak.
+- **380px:** tidak ada teks yang terpotong atau tombol yang saling menimpa di
+  kelima layar.
+- Kepadatan lintasan waktu dipakai sebagai acuan: bagian lain tidak boleh
+  terasa jauh lebih longgar darinya.
+
 ---
 
 ## Keputusan yang masih menggantung

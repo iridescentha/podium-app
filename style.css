@@ -85,7 +85,7 @@ h2 {
 }
 
 h3 {
-  font-size: 20px;
+  font-size: 16px;
 }
 
 p, label, input, select, button {
@@ -100,10 +100,12 @@ p, label, input, select, button {
 }
 
 /* --redup HANYA untuk label kecil, satuan, dan keterangan sekunder */
+/* Keterangan sekunder: sengaja lebih kecil dari teks isi supaya tidak berebut
+   perhatian dengan angka dan data di sekitarnya. */
 .teks-kecil {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--redup);
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
 .angka-jumbo {
@@ -120,7 +122,7 @@ p, label, input, select, button {
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 48px 24px;
+  padding: 32px 24px 40px;
 }
 
 /* Layar SPA */
@@ -175,7 +177,7 @@ button, .tombol {
   align-items: center;
   justify-content: center;
   font-family: var(--font-isi);
-  font-size: 16px;
+  font-size: 15px;
   cursor: pointer;
   border: none;
   outline: none;
@@ -197,7 +199,7 @@ button:disabled, .tombol:disabled {
 .tombol--utama {
   background-color: var(--sorot);
   color: var(--panggung);
-  padding: 14px 32px;
+  padding: 11px 24px;
   font-weight: 600;
   border-radius: 999px;
   border: none;
@@ -222,7 +224,7 @@ button:disabled, .tombol:disabled {
   background: transparent;
   border: 1px solid var(--garis);
   color: var(--kapur);
-  padding: 14px 32px;
+  padding: 11px 24px;
   font-weight: 500;
   border-radius: 999px;
   box-shadow: none;
@@ -264,7 +266,7 @@ button:disabled, .tombol:disabled {
 /* Kartu Umum (Perubahan 1) */
 .kartu {
   border-radius: 10px;
-  padding: 24px;
+  padding: 16px 18px;
   box-shadow: none; /* Tanpa bayangan */
 }
 
@@ -307,17 +309,17 @@ button:disabled, .tombol:disabled {
 .form-grup {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 20px;
+  gap: 6px;
+  margin-top: 14px;
 }
 
 .form-label {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--redup);
 }
 
 .form-input, .form-select {
-  padding: 14px 16px;
+  padding: 10px 12px;
   border-radius: 8px;
   font-family: var(--font-isi);
   font-size: 16px;
@@ -382,9 +384,11 @@ button:disabled, .tombol:disabled {
   padding: 0;
 }
 
-/* Ritme Jarak (Perubahan 4): 64px antar kelompok, 24px di dalam kelompok */
+/* Ritme jarak dirapatkan dari 64px menjadi 40px antar kelompok. Metafora
+   panggung tetap dijaga lewat latar gelap dan sorot di judul, bukan lewat
+   ruang kosong yang lebar. */
 .beranda-kelompok {
-  margin-top: 64px;
+  margin-top: 40px;
 }
 
 .beranda-kelompok:first-child {
@@ -432,7 +436,7 @@ button:disabled, .tombol:disabled {
 .beranda-poin {
   display: flex;
   flex-direction: column;
-  gap: 24px; /* 24px di dalam kelompok */
+  gap: 16px;
 }
 
 .beranda-poin__item {
@@ -464,7 +468,7 @@ button:disabled, .tombol:disabled {
 }
 
 .beranda-poin__deskripsi {
-  font-size: 15px;
+  font-size: 14px;
   color: var(--kapur);
   opacity: 0.75;
   line-height: 1.5;
@@ -474,7 +478,7 @@ button:disabled, .tombol:disabled {
 .beranda-kelompok--kartu {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 
 /* Kartu Riwayat Mini di Beranda (Perubahan 6) */
@@ -594,8 +598,8 @@ button:disabled, .tombol:disabled {
 .daftar-status-model {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 24px;
+  gap: 6px;
+  margin-top: 16px;
 }
 
 .status-model-item {
@@ -868,11 +872,15 @@ button:disabled, .tombol:disabled {
    -------------------------------------------------------------------------- */
 .rapor-skor-wrap {
   text-align: left;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 
+/* Skor adalah satu-satunya angka yang boleh berteriak di layar ini. Ukurannya
+   dinaikkan dan seluruh elemen lain diturunkan, supaya urutan bacanya jelas
+   sejak pandangan pertama. */
 .rapor-skor-angka {
-  font-size: 72px;
+  font-size: 96px;
+  letter-spacing: -0.03em;
   font-weight: 700;
   font-family: var(--font-judul);
   font-variant-numeric: tabular-nums;
@@ -888,23 +896,25 @@ button:disabled, .tombol:disabled {
 }
 
 .rapor-ringkasan {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--tinta);
   line-height: 1.5;
 }
 
 /* Grid Kartu Metrik */
+/* Kartu metrik dirapatkan: isinya cuma satu angka dan dua baris keterangan,
+   jadi kolomnya dibuat lebih sempit dan paddingnya mengikuti isinya. */
 .grid-kartu-metrik {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin: 32px 0;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 16px 0;
 }
 
 .kartu-metrik {
-  padding: 20px;
-  border-radius: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
   background-color: var(--kartu-terang);
   border: 1px solid var(--border-terang);
   box-shadow: none;
@@ -912,7 +922,8 @@ button:disabled, .tombol:disabled {
 
 .kartu-metrik__nilai {
   font-family: var(--font-judul);
-  font-size: 28px;
+  font-size: 24px;
+  line-height: 1.1;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--tinta);
@@ -922,14 +933,22 @@ button:disabled, .tombol:disabled {
    Dibedakan ukuran dan warnanya supaya "belum aktif" tidak terbaca sebagai
    angka hasil pengukuran, tetap memakai token --redup tanpa warna aksen baru. */
 .kartu-metrik__nilai--nonaktif {
-  font-size: 20px;
+  font-size: 15px;
   color: var(--redup);
 }
 
+/* Label dan keterangan kartu jelas lebih ringan daripada angkanya, supaya
+   keduanya tidak berebut perhatian. */
 .kartu-metrik__label {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--redup);
-  margin-top: 4px;
+  margin-top: 2px;
+  line-height: 1.35;
+}
+
+.kartu-metrik .teks-kecil {
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 /* Grafik Chart.js */
@@ -1290,8 +1309,8 @@ button:disabled, .tombol:disabled {
    yang sama dengan kartu metrik, tanpa aksen, supaya tidak bersaing dengan
    angka skor yang harus tetap jadi elemen paling menonjol di layar ini. */
 .kotak-transkrip {
-  margin-top: 24px;
-  padding: 20px;
+  margin-top: 16px;
+  padding: 12px 14px;
   border-radius: 10px;
   background-color: var(--kartu-terang);
   border: 1px solid var(--border-terang);
@@ -1321,18 +1340,18 @@ button:disabled, .tombol:disabled {
 .daftar-saran {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin: 24px 0;
+  gap: 8px;
+  margin: 12px 0 0;
 }
 
 .saran-item {
   display: flex;
-  gap: 12px;
-  padding: 18px 20px;
-  border-radius: 10px;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
   background-color: var(--kartu-terang);
   border: 1px solid var(--border-terang);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.5;
   box-shadow: none;
 }
@@ -1351,22 +1370,22 @@ button:disabled, .tombol:disabled {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .daftar-sesi {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-top: 24px;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 .item-sesi {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-radius: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
   background-color: var(--kartu-terang);
   border: 1px solid var(--border-terang);
   box-shadow: none;
@@ -1384,13 +1403,14 @@ button:disabled, .tombol:disabled {
 }
 
 .item-sesi__meta {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--redup);
+  line-height: 1.4;
 }
 
 .item-sesi__skor {
   font-family: var(--font-judul);
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--sorot);
   font-variant-numeric: tabular-nums;
@@ -1403,7 +1423,7 @@ button:disabled, .tombol:disabled {
 }
 
 .pesan-kosong {
-  padding: 48px 0;
+  padding: 32px 0;
   text-align: center;
   color: var(--redup);
 }
