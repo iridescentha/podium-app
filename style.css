@@ -183,18 +183,46 @@ p, label, input, select, button {
   color: var(--tinta);
 }
 
-/* Banner Peringatan Browser */
-.banner-peringatan {
-  background-color: #2D1B1B;
-  color: #FFCFCF;
-  border-bottom: 1px solid var(--bahaya);
-  padding: 12px 24px;
-  font-size: 14px;
+/* Banner browser belum divalidasi. Sengaja tenang: ini keterangan jujur, bukan
+   peringatan bahaya, jadi tidak memakai --bahaya maupun warna merah buatan
+   sendiri. Ruang di kanan disisakan untuk tombol tema yang melayang. */
+.banner-browser {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background-color: var(--panggung-naik);
+  color: var(--redup);
+  border-bottom: 1px solid var(--garis);
+  padding: 8px 140px 8px 16px;
+  font-size: 13px;
+  line-height: 1.4;
   text-align: center;
 }
 
-.banner-peringatan.tersembunyi {
+.banner-browser.tersembunyi {
   display: none;
+}
+
+.banner-browser__tutup {
+  background: transparent;
+  color: var(--kapur);
+  border: 1px solid var(--garis);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+}
+
+.banner-browser__tutup:hover {
+  border-color: var(--redup);
+}
+
+@media (max-width: 600px) {
+  .banner-browser {
+    padding: 8px 16px 8px 16px;
+    margin-top: 48px;
+  }
 }
 
 /* --------------------------------------------------------------------------

@@ -45,13 +45,20 @@ export const CONFIG = {
   //
   // Daftar ini sengaja hanya berisi KATA ASLI, bukan bunyi ragu.
   //
-  // Dasarnya pengujian lapangan 12 September 2026 di Chrome desktop: bunyi
-  // "eee" dan "emm" yang diucapkan sengaja, ditahan sekitar satu detik,
-  // sebanyak lima kali masing-masing, TIDAK MUNCUL SAMA SEKALI di transkrip
-  // id-ID, baik pada hasil sementara maupun hasil final. Pengenal suara Chrome
-  // dilatih menghasilkan teks yang enak dibaca, jadi ia membuang disfluensi
-  // non-leksikal sebelum teksnya sampai ke aplikasi. Menyimpan bunyi itu di
-  // daftar ini hanya akan menciptakan ilusi bahwa ia sedang dipantau.
+  // Dasarnya pengujian lapangan 12 September 2026 di SAFARI desktop (bukan
+  // Chrome, seperti yang sempat tertulis di sini): bunyi "eee" dan "emm" yang
+  // diucapkan sengaja, ditahan sekitar satu detik, sebanyak lima kali
+  // masing-masing, TIDAK MUNCUL SAMA SEKALI di transkrip id-ID, baik pada hasil
+  // sementara maupun hasil final. Pengenal suara Safari membuang disfluensi
+  // non-leksikal sebelum teksnya sampai ke aplikasi.
+  //
+  // BELUM DIUJI ULANG DI CHROME, satu-satunya browser yang divalidasi. Lihat
+  // TODO.md butir prioritas tinggi. Apa pun hasilnya, keputusan memakai jeda
+  // panjang sebagai pengganti deteksi bunyi ragu TIDAK dibatalkan; uji ulang
+  // itu hanya untuk membuat komentar ini benar.
+  //
+  // Menyimpan bunyi itu di daftar ini hanya akan menciptakan ilusi bahwa ia
+  // sedang dipantau.
   //
   // Entri satu kata dicocokkan dengan PENCOCOKAN AWALAN, sehingga "kayak" sudah
   // mencakup "kayaknya" dan "gitu" mencakup "gitulah". Tidak perlu mendaftarkan
@@ -236,6 +243,8 @@ const state = {
 // ----------------------------------------------------------------------------
 const DOM = {
   bannerBrowser: document.getElementById('banner-browser'),
+  bannerBrowserTeks: document.getElementById('banner-browser-teks'),
+  btnTutupBannerBrowser: document.getElementById('btn-tutup-banner-browser'),
   btnTema: document.getElementById('btn-tema'),
   privasiLayananSuara: document.getElementById('privasi-layanan-suara'),
   layarDaftar: document.querySelectorAll('.layar'),
@@ -1537,15 +1546,59 @@ function muatTampilanRiwayat() {
 }
 
 // ----------------------------------------------------------------------------
+// BANNER BROWSER BELUM DIVALIDASI
+// ----------------------------------------------------------------------------
+const KUNCI_BANNER_BROWSER = 'podium_banner_browser_ditutup';
+
+/**
+ * Menampilkan keterangan jujur di browser selain Chrome, tanpa memblokir apa pun.
+ *
+ * CARA KERJA:
+ * Dulu browser tanpa pengenal suara diblokir: banner merah dan tombol "Mulai
+ * latihan" dimatikan. Safari lolos dari blokir itu karena juga menyediakan
+ * webkitSpeechRecognition, tetapi Firefox tidak. Blokir keras semacam itu
+ * merugikan justru pada saat paling penting: juri yang membuka tautan di Safari
+ * tidak akan memasang browser baru, ia akan menilai aplikasinya rusak.
+ *
+ * Sekarang Chrome adalah target yang DIVALIDASI, dan browser lain tetap
+ * berjalan dengan satu baris keterangan yang bisa ditutup. Browser tanpa
+ * pengenal suara sama sekali diberi tahu metrik apa yang tidak akan dinilai;
+ * rapornya sendiri sudah menandai metrik itu "belum aktif" alih-alih mengisinya
+ * dengan nol.
+ *
+ * Penutupan banner diingat dengan kunci localStorage tersendiri, supaya juri
+ * tidak diminta menutupnya lagi setiap kali halaman dimuat ulang.
+ */
+function tampilkanBannerBrowser() {
+  if (browserModule.deteksiBrowser() === 'chrome') return;
+
+  try {
+    if (localStorage.getItem(KUNCI_BANNER_BROWSER) === '1') return;
+  } catch (error) {
+    // localStorage diblokir: banner tetap ditampilkan, itu pilihan yang aman
+  }
+
+  DOM.bannerBrowserTeks.textContent = browserModule.adaPengenalSuara()
+    ? 'Diuji di Chrome. Di browser lain sebagian fitur mungkin berbeda.'
+    : 'Diuji di Chrome. Browser ini tidak menyediakan pengenal suara, jadi kecepatan bicara dan kata pengisi tidak akan dinilai.';
+
+  DOM.bannerBrowser.classList.remove('tersembunyi');
+
+  DOM.btnTutupBannerBrowser.addEventListener('click', () => {
+    DOM.bannerBrowser.classList.add('tersembunyi');
+    try {
+      localStorage.setItem(KUNCI_BANNER_BROWSER, '1');
+    } catch (error) {
+      // Tidak bisa diingat: banner muncul lagi saat dimuat ulang, dan itu wajar
+    }
+  });
+}
+
+// ----------------------------------------------------------------------------
 // 9. INISIALISASI EVENT LISTENERS
 // ----------------------------------------------------------------------------
 function initEventListeners() {
-  // Peringatan jika bukan Chrome / tidak mendukung webkitSpeechRecognition
-  if (!speechModule.isSupported()) {
-    DOM.bannerBrowser.classList.remove('tersembunyi');
-    DOM.tombolKePersiapan.disabled = true;
-    DOM.tombolKePersiapan.title = 'Browser tidak didukung';
-  }
+  tampilkanBannerBrowser();
 
   // Beranda
   DOM.tombolKePersiapan.addEventListener('click', () => {

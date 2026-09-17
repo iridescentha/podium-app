@@ -10,7 +10,8 @@
  * 3. Menghitung jumlah kata dan estimasi kecepatan berbicara (WPM - Words Per Minute).
  * 4. Mendeteksi kata pengisi berupa KATA ASLI seperti "kayak", "gitu", "anu".
  *    Bunyi ragu non-leksikal ("eee", "emm") berada di luar jangkauan modul ini
- *    karena pengenal suara Chrome membuangnya sebelum teks sampai ke aplikasi.
+ *    karena pengenal suara membuangnya sebelum teks sampai ke aplikasi
+ *    (terbukti di Safari, 12 September 2026; belum diuji ulang di Chrome).
  *    Deteksi akustiknya dibatalkan; lihat keputusan desain di kepala js/audio.js.
  * 5. Menangani auto-restart otomatis saat event onend terpicu oleh browser.
  *
@@ -127,7 +128,8 @@ function tutupSegmenWaktu() {
 // CONFIG.FILLER_WORDS saat start(). Isinya harus tetap sama dengan CONFIG.
 //
 // Hanya kata asli yang didaftarkan di sini. Bunyi ragu seperti "eee" dan "emm"
-// terbukti tidak pernah muncul di transkrip id-ID (uji 12 September 2026), jadi
+// terbukti tidak pernah muncul di transkrip id-ID (uji di Safari, 12 September 2026;
+// belum diuji ulang di Chrome), jadi
 // mencarinya di sini hanya menghasilkan nol selamanya. Deteksi akustiknya
 // dibatalkan di Tahap 3; jeda hening panjang di js/audio.js menjadi penggantinya.
 const DAFTAR_FILLER_DEFAULT = [

@@ -24,10 +24,13 @@
    - *Dilarang menambahkan library lain tanpa persetujuan eksplisit.*
 4. **Privasi Mutlak**:
    - Tidak ada satu frame video atau rekaman audio pun yang disimpan ke disk atau dikirim ke server luar.
-   - Pengecualian jujur di UI: Web Speech API menggunakan layanan speech engine bawaan Chrome.
+   - Pengecualian jujur di UI: Web Speech API meneruskan audio ke layanan pengenal suara milik browser. Kotak privasi menyebut penyedianya sesuai browser: Chrome → "layanan speech bawaan Chrome", Safari → "layanan speech Apple", browser lain → kalimat netral tanpa nama penyedia (lihat `js/browser.js`).
    - Kamera dan mikrofon **hanya aktif selama sesi**, memiliki indikator live kuning `--sorot`, dan **mati total (`track.stop()`)** saat sesi berakhir.
 5. **Target Peramban**:
-   - **Google Chrome desktop terbaru**. Browser tanpa `webkitSpeechRecognition` otomatis terdeteksi, menampilkan banner peringatan informatif, dan tombol mulai dinonaktifkan.
+   - **Google Chrome desktop terbaru adalah satu-satunya target yang divalidasi.**
+   - *Revisi 17 September 2026:* browser lain **tidak lagi diblokir**. Ketentuan lama menonaktifkan tombol mulai di browser tanpa `webkitSpeechRecognition`; ketentuan itu dicabut karena juri yang membuka tautan di browser lain akan menilai aplikasi rusak alih-alih memasang Chrome.
+   - Di browser selain Chrome, aplikasi tetap berjalan dengan banner tenang yang bisa ditutup: *"Diuji di Chrome. Di browser lain sebagian fitur mungkin berbeda."* Browser tanpa pengenal suara sama sekali (misalnya Firefox) diberi tahu bahwa kecepatan bicara dan kata pengisi tidak akan dinilai, dan rapornya menandai kedua metrik itu "belum aktif".
+   - Ini **bukan dukungan multi-browser**. Perilaku di browser lain belum diuji, dan hasil uji dari browser lain tidak berlaku untuk Chrome.
 6. **Bahasa & Nada**:
    - Seluruh antarmuka berbahasa Indonesia dengan nada pelatih suportif, bukan menghakimi.
 7. **Standar Komentar Kode**:

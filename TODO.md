@@ -4,6 +4,59 @@ Daftar periksa, bukan dokumentasi. Tambahkan entri baru tiap kali ada uji yang
 ditunda. Format tiap entri: **apa yang dijalankan**, **lulus itu seperti apa**,
 dan **commit** asalnya.
 
+> **Semua uji di bawah dijalankan di CHROME desktop.** Sampai 17 September 2026
+> seluruh pengujian ternyata dilakukan di Safari. Chrome adalah satu-satunya
+> browser yang divalidasi; hasil dari Safari tidak otomatis berlaku.
+
+---
+
+## 0. PRIORITAS TINGGI — Uji ulang "eee" di Chrome — commit `5417122`
+
+**Jalankan:** di Chrome, jalankan alat "Uji Bentrok Mikrofon" di Layar Persiapan.
+Ucapkan "eee" lima kali dan "emm" lima kali, masing-masing ditahan sekitar satu
+detik dengan jeda di antaranya. Perhatikan log hasil sementara dan final.
+
+**Lulus bila:** jumlah kemunculan "eee"/"emm" di transkrip tercatat (berapa pun,
+termasuk nol).
+
+**Apa yang sebenarnya dipertaruhkan:**
+- Uji asli tanggal 12 September dijalankan di **Safari**, tetapi komentar di kode
+  sempat menulisnya sebagai Chrome. Komentar itu sudah dikoreksi sementara.
+- **Apa pun hasilnya, keputusan memakai jeda panjang sebagai pengganti deteksi
+  bunyi ragu TIDAK dibatalkan.** Terlalu dekat tenggat untuk membangun ulang itu.
+- Yang dibeli uji ulang ini hanya dua hal: komentar di `CONFIG.FILLER_BUNYI_NONLEKSIKAL`
+  (`js/app.js`), `js/speech.js`, `js/audio.js`, dan `TAHAP-3.md` bisa ditulis benar
+  untuk Chrome, dan jawaban yang bisa dipertahankan bila juri bertanya.
+- Bila Chrome ternyata MENTRANSKRIPSIKAN "eee": catat angkanya di komentar, dan
+  jelaskan bahwa jeda panjang dipilih karena alasan tenggat, bukan karena mustahil.
+
+## 0b. Angka yang diukur di Safari dan belum tentu berlaku di Chrome
+
+Ulangi pengukurannya di Chrome sebelum dipercaya:
+- **Selisih waktu transkrip** (lag antara ucapan dan `detikMulai` potongan). Pengenal
+  suara Safari memfinalkan kalimat dengan jadwal berbeda; label "sekitar" bergantung
+  pada angka Chrome. → butir 1.
+- **Kalibrasi suara ruangan dan volume** (`ambangBicaraMaks`, `ambangVolumePelan`,
+  `minDurasiSuaraMs`). Pemrosesan audio dan kontrol penguatan mikrofon bisa berbeda
+  antar browser. → butir 3 dan 4.
+- **Sudut kepala (pitch)** — kemungkinan besar TETAP berlaku, karena angkanya berasal
+  dari model MediaPipe dan kamera, bukan dari browser. Cukup dipastikan sekilas. → butir 5.
+
+## 0c. Banner browser dan teks privasi — commit `2a60e12` dan commit banner
+
+**Jalankan:** buka Beranda di Chrome, Safari, dan (bila ada) Firefox.
+
+**Lulus bila:**
+- **Chrome:** tidak ada banner; kotak privasi berbunyi "…layanan speech bawaan Chrome."
+- **Safari:** banner tenang "Diuji di Chrome. Di browser lain sebagian fitur mungkin
+  berbeda." dengan tombol Tutup; kotak privasi berbunyi "…layanan speech Apple."
+  Tidak ada kata "Chrome" di kotak privasi.
+- **Firefox:** banner menyebut kecepatan bicara dan kata pengisi tidak akan dinilai;
+  tombol "Mulai latihan" TETAP bisa ditekan; sesi berjalan dan rapor menandai kedua
+  metrik itu "belum aktif".
+- Tutup banner lalu muat ulang: banner tidak muncul lagi.
+- Banner tidak tertimpa tombol Tema di pojok kanan atas, termasuk di lebar 380px.
+
 ---
 
 ## 1. Verifikasi event timeline — commit `2121123`

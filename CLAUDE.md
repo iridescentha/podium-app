@@ -18,8 +18,9 @@ Aplikasi web pelatih presentasi berbahasa Indonesia. Vanilla HTML/CSS/JS, jalan 
 - Tanpa backend, server, database, atau API eksternal. Penyimpanan hanya `localStorage`.
 - Tanpa build tools: tidak ada npm, webpack, vite, React, Tailwind, TypeScript.
 - **Tanpa LLM atau API AI generatif dalam bentuk apa pun.** API key di aplikasi klien-saja tidak mungkin dirahasiakan, dan menyembunyikannya butuh backend yang membatalkan klaim privasi produk. Jangan tawarkan.
-- Tidak ada frame video, audio, transkrip, atau teks slide yang disimpan maupun dikirim. Pengecualian yang sudah diakui jujur di UI: Web Speech API mengirim audio ke layanan speech Chrome.
-- Target Chrome desktop. Browser lain harus dideteksi dan diberi pesan jelas.
+- Tidak ada frame video, audio, transkrip, atau teks slide yang disimpan maupun dikirim. Pengecualian yang sudah diakui jujur di UI: Web Speech API mengirim audio ke layanan pengenal suara **milik browser** — Chrome ke layanan Google, Safari ke layanan Apple. Kotak privasi harus menyebut penyedia yang benar sesuai browser (`js/browser.js`); untuk browser yang tidak bisa dipastikan, pakai kalimat netral tanpa menebak nama penyedia.
+- **Chrome desktop adalah satu-satunya target yang divalidasi.** Browser lain (Safari, Firefox, Edge, dan lainnya) **tidak diblokir**: aplikasi tetap berjalan, dengan banner tenang yang bisa ditutup bahwa browser itu belum diuji. Ini bukan dukungan multi-browser — jangan menuliskannya begitu, dan jangan menganggap hasil uji di browser lain berlaku untuk Chrome.
+- Seluruh angka hasil uji harus mencatat **di browser apa** diukur. Hasil dari Safari tidak otomatis berlaku untuk Chrome.
 
 ## Kejujuran metrik — tidak bisa dinegosiasi
 - **Modul tidak boleh mengembalikan angka karangan.** Kalau sebuah modul belum diimplementasikan, `getResults()` mengembalikan `{ tersedia: false }` dan rapor menandai metriknya "belum aktif" serta mengalihkan bobot skornya. Rapor jujur tanpa satu metrik jauh lebih baik daripada rapor lengkap yang bohong.
