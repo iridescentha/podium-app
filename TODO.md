@@ -10,25 +10,23 @@ dan **commit** asalnya.
 
 ---
 
-## 0. PRIORITAS TINGGI — Uji ulang "eee" di Chrome — commit `5417122`
+## 0. ~~Uji ulang "eee" di Chrome~~ — SELESAI 17 September 2026
 
-**Jalankan:** di Chrome, jalankan alat "Uji Bentrok Mikrofon" di Layar Persiapan.
-Ucapkan "eee" lima kali dan "emm" lima kali, masing-masing ditahan sekitar satu
-detik dengan jeda di antaranya. Perhatikan log hasil sementara dan final.
+**Hasil (Chrome desktop):** 0 dari 10 bunyi "eee"/"emm" berdiri sendiri, dan 0 dari
+2 bunyi "eee" di dalam kalimat, muncul di transkrip final. "Jadi eee saya mau eee
+menjelaskan sesuatu" difinalkan sebagai `jadi` dan `saya mau menjelaskan sesuatu`.
+Sama dengan hasil Safari 12 September. Komentar di `js/app.js`, `js/speech.js`,
+`js/audio.js`, `index.html`, dan `TAHAP-3.md` sudah diperbarui.
 
-**Lulus bila:** jumlah kemunculan "eee"/"emm" di transkrip tercatat (berapa pun,
-termasuk nol).
+Batas uji: dijalankan sebagai sesi latihan, bukan lewat alat Uji Bentrok, jadi hasil
+sementara (interim) tidak diamati. Yang dihitung aplikasi memang hanya hasil final.
 
-**Apa yang sebenarnya dipertaruhkan:**
-- Uji asli tanggal 12 September dijalankan di **Safari**, tetapi komentar di kode
-  sempat menulisnya sebagai Chrome. Komentar itu sudah dikoreksi sementara.
-- **Apa pun hasilnya, keputusan memakai jeda panjang sebagai pengganti deteksi
-  bunyi ragu TIDAK dibatalkan.** Terlalu dekat tenggat untuk membangun ulang itu.
-- Yang dibeli uji ulang ini hanya dua hal: komentar di `CONFIG.FILLER_BUNYI_NONLEKSIKAL`
-  (`js/app.js`), `js/speech.js`, `js/audio.js`, dan `TAHAP-3.md` bisa ditulis benar
-  untuk Chrome, dan jawaban yang bisa dipertahankan bila juri bertanya.
-- Bila Chrome ternyata MENTRANSKRIPSIKAN "eee": catat angkanya di komentar, dan
-  jelaskan bahwa jeda panjang dipilih karena alasan tenggat, bukan karena mustahil.
+**Temuan sampingan, belum divalidasi (satu kali uji, satu mikrofon, satu ruangan):**
+lima bunyi "emm" (bibir tertutup) di detik 0:30–0:45 terbaca modul audio sebagai
+SATU jeda panjang 15,5 detik, sedangkan lima bunyi "eee" (mulut terbuka) di detik
+0:08–0:20 terbaca sebagai suara bicara. Artinya metrik jeda panjang kemungkinan
+ikut menangkap hesitasi "emm", tetapi tidak menangkap "eee". Jangan dijadikan klaim
+di UI sebelum diulang minimal di satu ruangan lain.
 
 ## 0b. Angka yang diukur di Safari dan belum tentu berlaku di Chrome
 

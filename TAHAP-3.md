@@ -48,7 +48,7 @@ Jangan implementasikan. Jangan tawarkan. Jangan tambahkan Meyda, Pitchfinder, at
 
 Alasan, untuk dicatat sebagai komentar di kepala modul:
 
-- Uji Tahap 1 (commit `5417122`) membuktikan Web Speech API tidak pernah mentranskripsikan bunyi ragu — 0 dari 10 percobaan. **Catatan 17 September 2026: uji ini dijalankan di Safari, bukan Chrome.** Uji ulang di Chrome tercatat di TODO.md, tetapi keputusan di bagian ini tidak bergantung pada hasilnya. Ini perilaku sengaja pada ASR komersial, bukan bug.
+- Uji Tahap 1 (commit `5417122`) membuktikan Web Speech API tidak pernah mentranskripsikan bunyi ragu — 0 dari 10 percobaan. **Catatan 17 September 2026: uji ini dijalankan di Safari, bukan Chrome. Uji ulang di Chrome pada hari yang sama memberi hasil yang sama: 0 dari 10 bunyi berdiri sendiri dan 0 dari 2 bunyi di dalam kalimat muncul di transkrip final.** Ini perilaku sengaja pada ASR komersial, bukan bug.
 - Deteksi akustik langsung (kestabilan F0 + kestabilan spektrum, metode Goto dkk. 1999) secara teknis mungkin, tapi butuh kalibrasi per pengguna dan per ruangan, dengan risiko nyata gagal mencapai akurasi yang layak. Biaya waktunya tidak sepadan dengan sisa tenggat.
 - Sebagai gantinya, **jeda hening panjang** dipakai sebagai indikator hesitasi. Ini lebih murah, lebih andal, dan tetap bermakna: berhenti lama di tengah presentasi adalah gejala yang sama dengan mengisi jeda pakai "eee".
 - Filler berupa **kata asli** tetap terdeteksi lewat transkrip di `speech.js` — "kayak", "gitu", "anu", "apa", "seperti", "maksudnya", "jadi". Pastikan daftar ini lengkap.

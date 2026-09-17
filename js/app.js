@@ -45,17 +45,21 @@ export const CONFIG = {
   //
   // Daftar ini sengaja hanya berisi KATA ASLI, bukan bunyi ragu.
   //
-  // Dasarnya pengujian lapangan 12 September 2026 di SAFARI desktop (bukan
-  // Chrome, seperti yang sempat tertulis di sini): bunyi "eee" dan "emm" yang
-  // diucapkan sengaja, ditahan sekitar satu detik, sebanyak lima kali
-  // masing-masing, TIDAK MUNCUL SAMA SEKALI di transkrip id-ID, baik pada hasil
-  // sementara maupun hasil final. Pengenal suara Safari membuang disfluensi
-  // non-leksikal sebelum teksnya sampai ke aplikasi.
+  // Dasarnya dua uji lapangan dengan hasil yang sama:
   //
-  // BELUM DIUJI ULANG DI CHROME, satu-satunya browser yang divalidasi. Lihat
-  // TODO.md butir prioritas tinggi. Apa pun hasilnya, keputusan memakai jeda
-  // panjang sebagai pengganti deteksi bunyi ragu TIDAK dibatalkan; uji ulang
-  // itu hanya untuk membuat komentar ini benar.
+  // 1. 12 September 2026 di SAFARI desktop (sempat keliru tertulis Chrome):
+  //    "eee" dan "emm" ditahan sekitar satu detik, lima kali masing-masing,
+  //    tidak muncul di transkrip id-ID, baik hasil sementara maupun final.
+  // 2. 17 September 2026 di CHROME desktop, browser yang divalidasi: 0 dari 10
+  //    bunyi berdiri sendiri, dan 0 dari 2 bunyi di dalam kalimat, muncul di
+  //    transkrip final. Kalimat "Jadi eee saya mau eee menjelaskan sesuatu"
+  //    difinalkan sebagai "jadi" dan "saya mau menjelaskan sesuatu"; kedua
+  //    "eee" dibuang. Hasil sementara tidak diamati pada uji ini, tetapi yang
+  //    dihitung aplikasi memang hanya hasil final.
+  //
+  // Pengenal suara kedua browser dilatih menghasilkan teks yang enak dibaca,
+  // jadi keduanya membuang disfluensi non-leksikal sebelum teksnya sampai ke
+  // aplikasi.
   //
   // Menyimpan bunyi itu di daftar ini hanya akan menciptakan ilusi bahwa ia
   // sedang dipantau.

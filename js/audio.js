@@ -29,9 +29,11 @@
  * KEPUTUSAN DESAIN: DETEKSI BUNYI RAGU ("eee", "emm") DIBATALKAN
  * (dicatat 14 September 2026, Tahap 3)
  * ----------------------------------------------------------------------------
- * - Uji Tahap 1 (commit 5417122, 12 September 2026, DI SAFARI) membuktikan Web
- *   Speech API id-ID tidak mentranskripsikan bunyi ragu: 0 dari 10 percobaan yang
- *   disengaja. Ini perilaku sengaja pada pengenal suara komersial, bukan bug.
+ * - Web Speech API id-ID tidak mentranskripsikan bunyi ragu. Terbukti dua kali:
+ *   di Safari 12 September 2026 (commit 5417122, 0 dari 10 percobaan), lalu di
+ *   Chrome 17 September 2026 (0 dari 10 bunyi berdiri sendiri, 0 dari 2 di dalam
+ *   kalimat, pada transkrip final). Ini perilaku sengaja pada pengenal suara
+ *   komersial, bukan bug.
  * - Deteksi akustik langsung (kestabilan nada dasar F0 + kestabilan spektrum,
  *   metode Goto dkk. 1999) secara teknis mungkin, tetapi butuh kalibrasi per
  *   pengguna dan per ruangan, dengan risiko nyata gagal mencapai akurasi layak.
