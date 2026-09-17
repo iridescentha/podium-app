@@ -109,7 +109,10 @@ function elemen(tag, kelas, teks) {
 function buatBaris(judul, namaBaris) {
   const baris = elemen('div', 'timeline__baris');
   baris.dataset.baris = namaBaris;
-  baris.appendChild(elemen('div', 'timeline__baris-judul', judul));
+  // Label baris sengaja dibuat kecil dan rapat ke lintasannya. Ini alat ukur
+  // yang dibaca sekilas, bukan bagian laporan: yang harus menonjol adalah
+  // datanya, bukan namanya.
+  if (judul) baris.appendChild(elemen('div', 'timeline__baris-judul', judul));
   const lintasan = elemen('div', 'timeline__lintasan');
   baris.appendChild(lintasan);
   return { baris, lintasan };
@@ -119,7 +122,8 @@ function buatBaris(judul, namaBaris) {
  * Menggambar sumbu waktu berisi penanda menit.
  */
 function gambarSumbu(durasi) {
-  const { baris, lintasan } = buatBaris('Waktu', 'sumbu');
+  // Tanpa label baris: penanda waktunya sudah menerangkan dirinya sendiri.
+  const { baris, lintasan } = buatBaris('', 'sumbu');
   lintasan.classList.add('timeline__lintasan--sumbu');
 
   const langkah = langkahSumbu(durasi);
@@ -164,6 +168,14 @@ function gambarBarisPandang(sesi, durasi) {
   tambahSegmen(sesi.menundukSegmen, 'timeline__segmen--menunduk', 'Menunduk');
   tambahSegmen(sesi.hilangSegmen, 'timeline__segmen--hilang', 'Wajah tidak terlihat');
 
+  // Lintasan yang bersih sepenuhnya adalah hasil yang bagus, bukan baris yang
+  // gagal dimuat. Perbedaannya dijelaskan lewat label baris, bukan dibiarkan
+  // ditebak sendiri oleh pembaca.
+  const bersih = (sesi.menundukSegmen || []).length === 0 && (sesi.hilangSegmen || []).length === 0;
+  if (bersih) {
+    baris.querySelector('.timeline__baris-judul').textContent = 'Kontak pandang — menatap depan sepanjang sesi';
+  }
+
   return baris;
 }
 
@@ -187,6 +199,14 @@ function gambarBarisKecepatan(deret, durasi, konfig) {
   if (!Array.isArray(deret) || deret.length === 0) {
     lintasan.appendChild(elemen('div', 'timeline__kosong', 'Sesi terlalu singkat untuk mengukur perubahan kecepatan.'));
     return baris;
+  }
+
+  // Satu potongan berarti tidak ada perubahan yang bisa digambar sebagai garis.
+  // Titiknya tetap ditampilkan, dan label barisnya yang menjelaskan kenapa
+  // garisnya tidak ada, supaya tidak terbaca sebagai grafik yang gagal.
+  if (deret.length === 1) {
+    baris.querySelector('.timeline__baris-judul').textContent =
+      `Kecepatan bicara — ${deret[0].wpm} WPM, sesi terlalu pendek untuk melihat perubahan`;
   }
 
   const tinggiSvg = 100;
@@ -263,7 +283,9 @@ function gambarBarisMasalah(sesi, durasi) {
   });
 
   if (jeda.length === 0 && filler.length === 0) {
-    lintasan.appendChild(elemen('div', 'timeline__kosong', 'Tidak ada kata pengisi maupun jeda panjang di sesi ini.'));
+    baris.querySelector('.timeline__baris-judul').textContent =
+      'Masalah — tidak ada kata pengisi maupun jeda panjang';
+    lintasan.classList.add('timeline__lintasan--kosong');
   }
 
   return baris;
@@ -315,12 +337,13 @@ function gambarLegenda(adaBarisPandang) {
  * @param {Object} config - CONFIG dari app.js
  * @returns {boolean} False bila lintasan tidak bisa digambar
  */
-export function render(wadah, sesi, config = {}) {
+export function render(wadah, sesi, config = {}, opsi = {}) {
   if (!wadah || !sesi) return false;
 
   const konfig = { ...KONFIG_BAWAAN, ...config };
   const durasi = Number(sesi.durasiDetik);
   wadah.innerHTML = '';
+  if (opsi.wadahLegenda) opsi.wadahLegenda.innerHTML = '';
 
   if (!(durasi > 0)) return false;
 
@@ -330,7 +353,11 @@ export function render(wadah, sesi, config = {}) {
   if (adaBarisPandang) wadah.appendChild(gambarBarisPandang(sesi, durasi));
   wadah.appendChild(gambarBarisKecepatan(sesi.deretWpm, durasi, konfig));
   wadah.appendChild(gambarBarisMasalah(sesi, durasi));
-  wadah.appendChild(gambarLegenda(adaBarisPandang));
+
+  // Legenda diletakkan di luar blok lintasan bila pemanggil menyediakan
+  // wadahnya: ia keterangan, bukan bagian alat ukurnya.
+  const legenda = gambarLegenda(adaBarisPandang);
+  (opsi.wadahLegenda || wadah).appendChild(legenda);
 
   return true;
 }

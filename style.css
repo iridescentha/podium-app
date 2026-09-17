@@ -945,43 +945,50 @@ button:disabled, .tombol:disabled {
    elemen paling menonjol di layar ini.
    -------------------------------------------------------------------------- */
 .timeline-kartu {
-  margin: 24px 0;
-  padding: 24px;
+  margin: 24px 0 0;
+  padding: 16px 20px;
   border-radius: 10px;
   background-color: var(--kartu-terang);
   border: 1px solid var(--border-terang);
+}
+
+.timeline-kartu__judul {
+  font-size: 16px;
+  margin-bottom: 4px;
 }
 
 /* Di layar sempit lintasan tetap mendatar dan bisa digeser, tidak diubah jadi
    daftar tegak: sumbu waktu bersama adalah inti tampilan ini. */
 .timeline-gulir {
   overflow-x: auto;
-  margin-top: 16px;
 }
 
 .timeline {
   min-width: 480px;
 }
 
+/* Baris dirapatkan supaya keempatnya terbaca sebagai SATU alat ukur yang
+   berbagi sumbu waktu, bukan empat bagian laporan yang ditumpuk. */
 .timeline__baris {
-  margin-bottom: 14px;
+  margin-bottom: 4px;
 }
 
 .timeline__baris-judul {
-  font-size: 14px;
+  font-size: 11px;
   color: var(--redup);
-  margin-bottom: 4px;
+  line-height: 1.3;
+  margin-bottom: 1px;
 }
 
 .timeline__lintasan {
   position: relative;
   width: 100%;
-  border-radius: 6px;
+  border-radius: 3px;
 }
 
 /* Sumbu waktu */
 .timeline__lintasan--sumbu {
-  height: 20px;
+  height: 14px;
   border-bottom: 1px solid var(--border-terang);
 }
 
@@ -995,8 +1002,8 @@ button:disabled, .tombol:disabled {
 .timeline__tanda-label {
   position: absolute;
   top: 0;
-  left: 4px;
-  font-size: 11px;
+  left: 3px;
+  font-size: 10px;
   color: var(--redup);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -1004,7 +1011,7 @@ button:disabled, .tombol:disabled {
 
 /* Baris kontak pandang: dasarnya "menatap depan" */
 .timeline__lintasan--pandang {
-  height: 26px;
+  height: 14px;
   background-color: rgba(232, 180, 74, 0.28);
   overflow: hidden;
 }
@@ -1024,15 +1031,15 @@ button:disabled, .tombol:disabled {
   background-image: repeating-linear-gradient(
     45deg,
     rgba(138, 144, 153, 0.85) 0,
-    rgba(138, 144, 153, 0.85) 4px,
-    rgba(138, 144, 153, 0.35) 4px,
-    rgba(138, 144, 153, 0.35) 8px
+    rgba(138, 144, 153, 0.85) 3px,
+    rgba(138, 144, 153, 0.3) 3px,
+    rgba(138, 144, 153, 0.3) 6px
   );
 }
 
 /* Baris kecepatan */
 .timeline__lintasan--kecepatan {
-  height: 64px;
+  height: 40px;
 }
 
 .timeline__svg {
@@ -1048,103 +1055,115 @@ button:disabled, .tombol:disabled {
   vector-effect: non-scaling-stroke;
 }
 
+/* Garis batas hanya penanda rujukan, jadi dibuat jauh lebih samar daripada
+   garis kecepatannya sendiri. */
 .timeline__batas-wpm {
   stroke: var(--redup);
   stroke-width: 1;
-  stroke-dasharray: 4 4;
+  stroke-opacity: 0.35;
+  stroke-dasharray: 3 5;
   vector-effect: non-scaling-stroke;
 }
 
 .timeline__titik-wpm {
   position: absolute;
-  width: 7px;
-  height: 7px;
-  margin-left: -3.5px;
-  margin-top: -3.5px;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  margin-top: -2.5px;
   border-radius: 999px;
   background-color: var(--sorot);
 }
 
 /* Di luar rentang nyaman: lingkaran berlubang dan lebih besar, beda BENTUK */
 .timeline__titik-wpm--luar {
-  width: 11px;
-  height: 11px;
-  margin-left: -5.5px;
-  margin-top: -5.5px;
+  width: 9px;
+  height: 9px;
+  margin-left: -4.5px;
+  margin-top: -4.5px;
   background-color: var(--kartu-terang);
   border: 2px solid var(--tinta);
 }
 
 /* Baris masalah */
 .timeline__lintasan--masalah {
-  height: 28px;
+  height: 18px;
+}
+
+.timeline__lintasan--kosong {
+  height: 6px;
+  background-color: var(--border-terang);
 }
 
 .timeline__jeda {
   position: absolute;
-  top: 2px;
-  height: 10px;
-  border-radius: 3px;
+  top: 1px;
+  height: 7px;
+  border-radius: 2px;
   background-color: var(--redup);
 }
 
 .timeline__filler {
   position: absolute;
-  bottom: 2px;
-  width: 8px;
-  height: 8px;
-  margin-left: -4px;
+  bottom: 1px;
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
   border-radius: 999px;
   background-color: var(--tinta);
 }
 
 .timeline__kosong {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--redup);
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
-/* Legenda */
+/* Keterangan di bawah lintasan, di luar bloknya */
+.timeline-kaki {
+  margin: 8px 0 24px;
+}
+
 .timeline__legenda {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  margin-top: 16px;
+  gap: 12px;
 }
 
 .timeline__legenda-item {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 14px;
+  gap: 5px;
+  font-size: 12px;
   color: var(--redup);
 }
 
 .timeline__legenda-contoh {
   position: static;
   display: inline-block;
-  width: 16px;
-  height: 10px;
-  border-radius: 3px;
+  width: 14px;
+  height: 8px;
+  border-radius: 2px;
   margin: 0;
 }
 
 .timeline__legenda-contoh.timeline__filler {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
 }
 
 .timeline__legenda-contoh.timeline__titik-wpm--luar {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 999px;
 }
 
 .timeline__catatan {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--redup);
-  margin-top: 12px;
+  margin-top: 6px;
+  line-height: 1.4;
 }
 
 /* Kotak pilihan penyimpanan transkrip di Layar Rapor. Permukaan kartu terang

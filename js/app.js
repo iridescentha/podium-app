@@ -292,6 +292,7 @@ const DOM = {
   raporPosturNilai: document.getElementById('rapor-postur-nilai'),
   raporPosturKet: document.getElementById('rapor-postur-ket'),
   timelineRapor: document.getElementById('timeline-rapor'),
+  timelineLegendaRapor: document.getElementById('timeline-legenda-rapor'),
   timelineKosong: document.getElementById('timeline-kosong'),
   raporCatatanStorage: document.getElementById('rapor-catatan-storage'),
   checkboxSimpanTranskrip: document.getElementById('checkbox-simpan-transkrip'),
@@ -1237,7 +1238,9 @@ function renderRaporUI(data, statusSimpan) {
 
   // Lintasan sesi. Baris kecepatannya memakai deretWpm yang sama, jadi grafik
   // WPM yang dulu berdiri sendiri sudah dihapus, bukan dibiarkan berdampingan.
-  const adaTimeline = timelineModule.render(DOM.timelineRapor, data, CONFIG);
+  const adaTimeline = timelineModule.render(DOM.timelineRapor, data, CONFIG, {
+    wadahLegenda: DOM.timelineLegendaRapor
+  });
   DOM.timelineKosong.style.display = adaTimeline ? 'none' : 'block';
   if (!adaTimeline) {
     DOM.timelineKosong.textContent = 'Sesi ini terlalu singkat untuk menggambar lintasan waktu.';

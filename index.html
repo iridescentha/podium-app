@@ -403,15 +403,19 @@
            memakai data yang sama, jadi tidak digambar dua kali.
            ==================================================================== -->
       <div id="timeline-kartu" class="timeline-kartu">
-        <h3>Lintasan Sesi</h3>
-        <p class="teks-kecil" style="margin-top: 4px;">Di mana kata pengisi, jeda, dan menunduk terjadi sepanjang sesimu.</p>
+        <h3 class="timeline-kartu__judul">Lintasan sesi</h3>
         <div class="timeline-gulir">
           <div id="timeline-rapor" class="timeline"></div>
         </div>
+        <div id="timeline-kosong" class="teks-kecil" style="display: none;"></div>
+      </div>
+
+      <!-- Keterangan lintasan: di luar bloknya, lebih kecil -->
+      <div class="timeline-kaki">
+        <div id="timeline-legenda-rapor"></div>
         <div class="timeline__catatan">
           Waktu kata pengisi bersifat perkiraan — pengenal suara Chrome memfinalkan kalimat beberapa saat setelah diucapkan.
         </div>
-        <div id="timeline-kosong" class="teks-kecil" style="display: none;"></div>
       </div>
 
       <!-- ====================================================================
