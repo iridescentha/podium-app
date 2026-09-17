@@ -1119,6 +1119,120 @@ button:disabled, .tombol:disabled {
   padding: 2px 0;
 }
 
+/* Panggung: seluruh baris ditumpuk di sini supaya kepala pemutar melintasi
+   semuanya dengan satu sumbu waktu yang sama. */
+.timeline__panggung {
+  position: relative;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.timeline__panggung:focus-visible {
+  outline: 2px solid var(--sorot);
+  outline-offset: 3px;
+}
+
+/* Kepala pemutar: garis tipis melintasi semua baris, dengan pegangan kecil di
+   atasnya supaya jelas bahwa ia bisa diseret. */
+.timeline__kepala {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: var(--tinta);
+  pointer-events: none;
+}
+
+.timeline__kepala-pegangan {
+  position: absolute;
+  top: -3px;
+  left: -4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background-color: var(--tinta);
+}
+
+/* Panel keterangan */
+.timeline__panel {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background-color: var(--kartu-terang);
+  border: 1px solid var(--border-terang);
+}
+
+.timeline__panel-kepala {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.timeline__panel-waktu {
+  font-family: var(--font-judul);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta);
+}
+
+.timeline__panel-navigasi {
+  display: flex;
+  gap: 8px;
+}
+
+.timeline__panel-ringkasan {
+  font-size: 14px;
+  color: var(--redup);
+  margin-top: 4px;
+}
+
+.timeline__panel-transkrip {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-terang);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* Potongan di luar posisi kepala pemutar diredupkan, bukan disembunyikan:
+   konteks sebelum dan sesudahnya ikut membantu membaca. */
+.timeline__transkrip-potongan {
+  color: var(--redup);
+  margin-bottom: 4px;
+  transition: color 150ms ease;
+}
+
+.timeline__transkrip-potongan--aktif {
+  color: var(--tinta);
+}
+
+.timeline__kata-filler {
+  font-weight: 600;
+  color: var(--tinta);
+}
+
+/* Kata pengisi pada potongan aktif diberi aksen --sorot sesuai TAHAP-4b.md
+   Bagian 5. Tebalnya dipertahankan supaya penandanya tidak bergantung pada
+   warna saja, karena --sorot di latar terang kontrasnya terbatas. */
+.timeline__transkrip-potongan--aktif .timeline__kata-filler {
+  color: var(--sorot);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.timeline__transkrip-kosong {
+  font-size: 14px;
+  color: var(--redup);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline__transkrip-potongan {
+    transition: none;
+  }
+}
+
 /* Keterangan di bawah lintasan, di luar bloknya */
 .timeline-kaki {
   margin: 8px 0 24px;

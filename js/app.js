@@ -163,7 +163,12 @@ export const CONFIG = {
 
   // true: cetak seluruh event bertimestamp sesi ke console saat rapor dibuka,
   // untuk mencocokkan isinya dengan apa yang benar-benar dilakukan (Tahap 4B).
-  TIMELINE_DEBUG: true
+  TIMELINE_DEBUG: true,
+
+  // Lebar jendela yang diringkas panel lintasan, berpusat di kepala pemutar.
+  // Delapan detik kira-kira selebar satu-dua kalimat, cukup untuk menjelaskan
+  // satu kejadian tanpa ikut menyeret kejadian tetangganya.
+  TIMELINE_JENDELA_DETIK: 8
 };
 
 // ----------------------------------------------------------------------------
@@ -188,6 +193,9 @@ const state = {
   // mematikan penyimpanan transkrip setelah sesinya tersimpan.
   sesiTerakhir: null,
   sesiTerakhirTersimpan: false,
+
+  // Kendali lintasan waktu yang sedang tampil (kepala pemutar dan panelnya)
+  kendaliTimeline: null,
 
   // Status Sesi
   sesiBerjalan: false,
@@ -293,6 +301,7 @@ const DOM = {
   raporPosturKet: document.getElementById('rapor-postur-ket'),
   timelineRapor: document.getElementById('timeline-rapor'),
   timelineLegendaRapor: document.getElementById('timeline-legenda-rapor'),
+  timelinePanelRapor: document.getElementById('timeline-panel-rapor'),
   timelineKosong: document.getElementById('timeline-kosong'),
   raporCatatanStorage: document.getElementById('rapor-catatan-storage'),
   checkboxSimpanTranskrip: document.getElementById('checkbox-simpan-transkrip'),
@@ -1238,9 +1247,14 @@ function renderRaporUI(data, statusSimpan) {
 
   // Lintasan sesi. Baris kecepatannya memakai deretWpm yang sama, jadi grafik
   // WPM yang dulu berdiri sendiri sudah dihapus, bukan dibiarkan berdampingan.
-  const adaTimeline = timelineModule.render(DOM.timelineRapor, data, CONFIG, {
-    wadahLegenda: DOM.timelineLegendaRapor
+  // Transkrip dioper dari memori, bukan dari objek sesi: di Layar Rapor ia
+  // selalu ada, terlepas dari apakah pengguna memilih menyimpannya ke riwayat.
+  state.kendaliTimeline = timelineModule.render(DOM.timelineRapor, data, CONFIG, {
+    wadahLegenda: DOM.timelineLegendaRapor,
+    wadahPanel: DOM.timelinePanelRapor,
+    transkrip: state.transkripSesi
   });
+  const adaTimeline = Boolean(state.kendaliTimeline);
   DOM.timelineKosong.style.display = adaTimeline ? 'none' : 'block';
   if (!adaTimeline) {
     DOM.timelineKosong.textContent = 'Sesi ini terlalu singkat untuk menggambar lintasan waktu.';

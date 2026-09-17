@@ -48,7 +48,10 @@
 // Ambang bawaan, hanya dipakai bila CONFIG tidak dioper dari app.js
 const KONFIG_BAWAAN = {
   WPM_SLOW: 100,
-  WPM_FAST: 150
+  WPM_FAST: 150,
+  TIMELINE_JENDELA_DETIK: 8,
+  FILLER_WORDS: [],
+  FILLER_PREFIX_MIN: 4
 };
 
 /**
@@ -337,27 +340,383 @@ function gambarLegenda(adaBarisPandang) {
  * @param {Object} config - CONFIG dari app.js
  * @returns {boolean} False bila lintasan tidak bisa digambar
  */
+/**
+ * Mengumpulkan seluruh "masalah" sebagai satu daftar waktu yang terurut.
+ *
+ * CARA KERJA:
+ * Tiga jenis kejadian yang berbeda (kata pengisi, jeda panjang, menunduk)
+ * disatukan menjadi satu daftar cap waktu, lalu diurutkan. Daftar inilah yang
+ * dipakai tombol "masalah sebelumnya/berikutnya" untuk melompat, sehingga
+ * pengguna bisa menelusuri sesi dari satu titik bermasalah ke titik berikutnya
+ * tanpa harus mencarinya sendiri di lintasan.
+ */
+function kumpulkanMasalah(sesi) {
+  const daftar = [];
+
+  ((sesi.filler && sesi.filler.events) || []).forEach(f => daftar.push(f.detik));
+  if (sesi.jedaTersedia && sesi.jeda && sesi.jeda.daftar) {
+    sesi.jeda.daftar.forEach(j => daftar.push(j.mulaiDetik));
+  }
+  (sesi.menundukSegmen || []).forEach(s => daftar.push(s.mulaiDetik));
+
+  return daftar.sort((a, b) => a - b);
+}
+
+/**
+ * Mencari rentang waktu terpadat dalam sesi.
+ *
+ * CARA KERJA:
+ * Tiap kejadian dicoba sebagai titik tengah sebuah jendela selebar
+ * CONFIG.TIMELINE_JENDELA_DETIK, lalu dihitung berapa kejadian lain yang jatuh
+ * di dalamnya. Titik dengan tetangga terbanyak yang dipakai sebagai posisi awal
+ * kepala pemutar, supaya rapor langsung membuka bagian yang paling perlu
+ * diperbaiki, bukan menyuruh pengguna mencarinya sendiri.
+ *
+ * Sesi tanpa satu pun kejadian membuka di detik nol.
+ */
+function cariRentangTerpadat(masalah, jendela) {
+  if (masalah.length === 0) return 0;
+
+  let terbaik = masalah[0];
+  let terbanyak = 0;
+
+  for (const titik of masalah) {
+    const jumlah = masalah.filter(m => Math.abs(m - titik) <= jendela / 2).length;
+    if (jumlah > terbanyak) {
+      terbanyak = jumlah;
+      terbaik = titik;
+    }
+  }
+
+  return terbaik;
+}
+
+/**
+ * Menandai kata pengisi di dalam sebuah potongan transkrip.
+ *
+ * CARA KERJA:
+ * Aturan pencocokannya sengaja mengikuti js/speech.js: entri berisi spasi
+ * dicocokkan sebagai frasa utuh, entri satu kata dicocokkan sebagai awalan
+ * selama panjangnya minimal CONFIG.FILLER_PREFIX_MIN. Penandaan di sini murni
+ * untuk tampilan dan tidak pernah mengubah hitungan apa pun; hitungan tetap
+ * milik speech.js yang melihat transkrip lebih dulu.
+ *
+ * Teks disusun sebagai simpul DOM satu per satu, bukan lewat innerHTML, supaya
+ * apa pun yang keluar dari pengenal suara tidak pernah ditafsirkan sebagai
+ * markup.
+ */
+function tandaiFiller(teks, konfig) {
+  const wadah = document.createDocumentFragment();
+  const entri = (konfig.FILLER_WORDS || []).map(f => String(f).toLowerCase());
+  const frasa = entri.filter(f => /\s/.test(f)).map(f => f.split(/\s+/));
+  const tunggal = entri.filter(f => !/\s/.test(f));
+  const token = String(teks).split(/\s+/).filter(Boolean);
+
+  const bersih = (t) => t.toLowerCase().replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, '');
+
+  let i = 0;
+  while (i < token.length) {
+    // Frasa lebih dulu, supaya "apa ya" tidak terpecah jadi dua kata biasa
+    const cocokFrasa = frasa.find(f => f.every((kata, k) => bersih(token[i + k] || '') === kata));
+
+    if (cocokFrasa) {
+      const potong = token.slice(i, i + cocokFrasa.length).join(' ');
+      wadah.appendChild(elemen('strong', 'timeline__kata-filler', potong));
+      wadah.appendChild(document.createTextNode(' '));
+      i += cocokFrasa.length;
+      continue;
+    }
+
+    const kata = bersih(token[i]);
+    const cocokTunggal = tunggal.some(f => (f.length >= konfig.FILLER_PREFIX_MIN)
+      ? kata.startsWith(f)
+      : kata === f);
+
+    if (cocokTunggal) {
+      wadah.appendChild(elemen('strong', 'timeline__kata-filler', token[i]));
+    } else {
+      wadah.appendChild(document.createTextNode(token[i]));
+    }
+    wadah.appendChild(document.createTextNode(' '));
+    i++;
+  }
+
+  return wadah;
+}
+
+/**
+ * Menyusun kalimat ringkasan kejadian pada satu rentang waktu.
+ *
+ * CARA KERJA:
+ * Tiap jenis kejadian diperiksa apakah beririsan dengan rentang yang dipilih,
+ * lalu disebut dengan angkanya. Kecepatan selalu ikut disebut karena ia berlaku
+ * sepanjang potongan, bukan kejadian sesaat, dan diberi keterangan bila berada
+ * di luar rentang nyaman.
+ */
+function ringkasRentang(sesi, awal, akhir, konfig) {
+  const bagian = [];
+  const beririsan = (mulai, durasi) => mulai < akhir && (mulai + durasi) > awal;
+
+  const filler = ((sesi.filler && sesi.filler.events) || []).filter(f => f.detik >= awal && f.detik <= akhir);
+  if (filler.length > 0) {
+    const kata = [...new Set(filler.map(f => `"${f.kata}"`))].join(', ');
+    bagian.push(`${filler.length} kata pengisi (${kata})`);
+  }
+
+  const jeda = (sesi.jedaTersedia && sesi.jeda && sesi.jeda.daftar ? sesi.jeda.daftar : [])
+    .filter(j => beririsan(j.mulaiDetik, j.durasiDetik));
+  jeda.forEach(j => bagian.push(`jeda ${j.durasiDetik} detik`));
+
+  (sesi.menundukSegmen || []).filter(s => beririsan(s.mulaiDetik, s.durasiDetik))
+    .forEach(s => bagian.push(`menunduk ${s.durasiDetik} detik`));
+
+  (sesi.hilangSegmen || []).filter(s => beririsan(s.mulaiDetik, s.durasiDetik))
+    .forEach(s => bagian.push(`wajah tidak terlihat ${s.durasiDetik} detik`));
+
+  const potongan = (sesi.deretWpm || []).find(d => d.detikMulai <= awal && d.detikSelesai > awal)
+    || (sesi.deretWpm || [])[0];
+  if (potongan) {
+    const luar = potongan.wpm < konfig.WPM_SLOW ? ' (di bawah rentang nyaman)'
+      : potongan.wpm > konfig.WPM_FAST ? ' (di atas rentang nyaman)'
+      : '';
+    bagian.push(`kecepatan ${potongan.wpm} WPM${luar}`);
+  }
+
+  return bagian.length > 0 ? bagian.join(' · ') : 'Tidak ada kejadian yang tercatat di rentang ini.';
+}
+
+/**
+ * Mengisi panel keterangan sesuai posisi kepala pemutar.
+ *
+ * CARA KERJA:
+ * 1. Rentang dihitung sebagai jendela selebar CONFIG.TIMELINE_JENDELA_DETIK
+ *    yang berpusat di posisi kepala pemutar.
+ * 2. Waktunya selalu ditulis dengan kata "sekitar". Cap waktu kata pengisi dan
+ *    transkrip berasal dari pengenal suara yang memfinalkan kalimat beberapa
+ *    saat setelah diucapkan, jadi menuliskannya seolah presisi akan berbohong.
+ * 3. Potongan transkrip yang beririsan dengan rentang ditampilkan; potongan
+ *    yang benar-benar memuat posisi kepala pemutar ditebalkan sebagai penanda
+ *    "di sinilah kamu sekarang".
+ * 4. Bila transkrip tidak tersedia (sesi riwayat yang tidak menyimpannya),
+ *    panel mengatakannya apa adanya alih-alih tampil kosong.
+ */
+function isiPanel(panel, sesi, detik, transkrip, konfig) {
+  const jendela = konfig.TIMELINE_JENDELA_DETIK;
+  const awal = Math.max(0, detik - jendela / 2);
+  const akhir = Math.min(sesi.durasiDetik, awal + jendela);
+
+  panel.waktu.textContent = `sekitar ${waktuMmSs(awal)} — ${waktuMmSs(akhir)}`;
+  panel.ringkasan.textContent = ringkasRentang(sesi, awal, akhir, konfig);
+
+  panel.transkrip.innerHTML = '';
+
+  if (transkrip === null || transkrip === undefined) {
+    panel.transkrip.appendChild(elemen('p', 'timeline__transkrip-kosong',
+      'Transkrip tidak disimpan untuk sesi ini.'));
+    return;
+  }
+
+  const potongan = transkrip.filter(p => p.detikMulai < akhir && p.detikSelesai > awal);
+  if (potongan.length === 0) {
+    panel.transkrip.appendChild(elemen('p', 'timeline__transkrip-kosong',
+      'Tidak ada ucapan yang tertangkap di rentang ini.'));
+    return;
+  }
+
+  potongan.forEach(p => {
+    const aktif = p.detikMulai <= detik && p.detikSelesai >= detik;
+    const baris = elemen('p', `timeline__transkrip-potongan${aktif ? ' timeline__transkrip-potongan--aktif' : ''}`);
+    baris.appendChild(tandaiFiller(p.teks, konfig));
+    panel.transkrip.appendChild(baris);
+  });
+}
+
+/**
+ * Membangun panel keterangan beserta tombol lompat antar masalah.
+ */
+function buatPanel() {
+  const panel = elemen('div', 'timeline__panel');
+
+  const kepala = elemen('div', 'timeline__panel-kepala');
+  const waktu = elemen('div', 'timeline__panel-waktu');
+  const navigasi = elemen('div', 'timeline__panel-navigasi');
+
+  const tombolSebelum = elemen('button', 'tombol tombol--sekunder tombol--kecil', 'Masalah sebelumnya');
+  const tombolSesudah = elemen('button', 'tombol tombol--sekunder tombol--kecil', 'Masalah berikutnya');
+  tombolSebelum.type = 'button';
+  tombolSesudah.type = 'button';
+
+  navigasi.appendChild(tombolSebelum);
+  navigasi.appendChild(tombolSesudah);
+  kepala.appendChild(waktu);
+  kepala.appendChild(navigasi);
+
+  const ringkasan = elemen('div', 'timeline__panel-ringkasan');
+  const transkrip = elemen('div', 'timeline__panel-transkrip');
+
+  panel.appendChild(kepala);
+  panel.appendChild(ringkasan);
+  panel.appendChild(transkrip);
+
+  return { panel, waktu, ringkasan, transkrip, tombolSebelum, tombolSesudah };
+}
+
+/**
+ * Menggambar seluruh lintasan waktu sesi ke dalam sebuah wadah.
+ *
+ * CARA KERJA:
+ * 1. Wadah dikosongkan lebih dulu, sehingga membuka rapor sesi kedua tidak
+ *    menumpuk lintasan baru di atas lintasan lama.
+ * 2. Baris kontak pandang hanya dibuat bila sesinya memang mengukur arah
+ *    pandang. Pada mode suara saja, lintasan berisi sumbu waktu, kecepatan, dan
+ *    masalah, dan legendanya ikut menyesuaikan sehingga tampak memang dirancang
+ *    begitu, bukan seperti baris yang gagal dimuat.
+ * 3. Seluruh baris dibungkus satu panggung agar kepala pemutar bisa melintasi
+ *    semuanya sekaligus, dan panggung itulah yang menerima klik, seretan, serta
+ *    tombol papan ketik.
+ * 4. Posisi awal kepala pemutar adalah rentang terpadat sesi ini.
+ *
+ * @param {HTMLElement} wadah - Elemen tempat lintasan digambar
+ * @param {Object} sesi - Objek sesi lengkap (rapor atau riwayat)
+ * @param {Object} config - CONFIG dari app.js
+ * @param {Object} opsi - { wadahLegenda, wadahPanel, transkrip }
+ * @returns {Object|null} Kendali lintasan, atau null bila tidak bisa digambar
+ */
 export function render(wadah, sesi, config = {}, opsi = {}) {
-  if (!wadah || !sesi) return false;
+  if (!wadah || !sesi) return null;
 
   const konfig = { ...KONFIG_BAWAAN, ...config };
   const durasi = Number(sesi.durasiDetik);
   wadah.innerHTML = '';
   if (opsi.wadahLegenda) opsi.wadahLegenda.innerHTML = '';
+  if (opsi.wadahPanel) opsi.wadahPanel.innerHTML = '';
 
-  if (!(durasi > 0)) return false;
+  if (!(durasi > 0)) return null;
 
   const adaBarisPandang = sesi.pandangTersedia === true;
+  const transkrip = (opsi.transkrip === undefined) ? null : opsi.transkrip;
 
-  wadah.appendChild(gambarSumbu(durasi));
-  if (adaBarisPandang) wadah.appendChild(gambarBarisPandang(sesi, durasi));
-  wadah.appendChild(gambarBarisKecepatan(sesi.deretWpm, durasi, konfig));
-  wadah.appendChild(gambarBarisMasalah(sesi, durasi));
+  // Panggung: seluruh baris ditumpuk di sini supaya kepala pemutar melintasinya
+  const panggung = elemen('div', 'timeline__panggung');
+  panggung.appendChild(gambarSumbu(durasi));
+  if (adaBarisPandang) panggung.appendChild(gambarBarisPandang(sesi, durasi));
+  panggung.appendChild(gambarBarisKecepatan(sesi.deretWpm, durasi, konfig));
+  panggung.appendChild(gambarBarisMasalah(sesi, durasi));
 
-  // Legenda diletakkan di luar blok lintasan bila pemanggil menyediakan
-  // wadahnya: ia keterangan, bukan bagian alat ukurnya.
+  const kepala = elemen('div', 'timeline__kepala');
+  kepala.appendChild(elemen('div', 'timeline__kepala-pegangan'));
+  panggung.appendChild(kepala);
+
+  panggung.tabIndex = 0;
+  panggung.setAttribute('role', 'slider');
+  panggung.setAttribute('aria-label', 'Posisi waktu pada lintasan sesi');
+  panggung.setAttribute('aria-valuemin', '0');
+  panggung.setAttribute('aria-valuemax', String(Math.round(durasi)));
+
+  wadah.appendChild(panggung);
+
   const legenda = gambarLegenda(adaBarisPandang);
   (opsi.wadahLegenda || wadah).appendChild(legenda);
 
-  return true;
+  const panel = buatPanel();
+  (opsi.wadahPanel || wadah).appendChild(panel.panel);
+
+  const masalah = kumpulkanMasalah(sesi);
+  let detikSekarang = 0;
+
+  /**
+   * Memindahkan kepala pemutar ke satu posisi waktu.
+   * Posisi dijepit ke dalam durasi sesi, lalu seluruh tampilan yang bergantung
+   * padanya (kepala, atribut aria, isi panel) diperbarui dari satu tempat ini.
+   */
+  function keDetik(detik) {
+    detikSekarang = Math.min(durasi, Math.max(0, detik));
+    kepala.style.left = `${persen(detikSekarang, durasi)}%`;
+    panggung.setAttribute('aria-valuenow', String(Math.round(detikSekarang)));
+    panggung.setAttribute('aria-valuetext', `sekitar ${waktuMmSs(detikSekarang)}`);
+    isiPanel(panel, sesi, detikSekarang, transkrip, konfig);
+  }
+
+  /**
+   * Mengubah posisi kursor menjadi posisi waktu.
+   * Lebar lintasan diukur saat itu juga, bukan disimpan, supaya perubahan lebar
+   * jendela atau penggeseran lintasan tidak pernah membuat perhitungannya meleset.
+   */
+  function dariPointer(event) {
+    const kotak = panggung.getBoundingClientRect();
+    if (!kotak.width) return;
+    keDetik(((event.clientX - kotak.left) / kotak.width) * durasi);
+  }
+
+  let sedangSeret = false;
+
+  panggung.addEventListener('pointerdown', (event) => {
+    sedangSeret = true;
+    panggung.setPointerCapture(event.pointerId);
+    panggung.focus();
+    dariPointer(event);
+    event.preventDefault();
+  });
+
+  panggung.addEventListener('pointermove', (event) => {
+    if (sedangSeret) dariPointer(event);
+  });
+
+  const lepasSeret = (event) => {
+    if (!sedangSeret) return;
+    sedangSeret = false;
+    if (panggung.hasPointerCapture && panggung.hasPointerCapture(event.pointerId)) {
+      panggung.releasePointerCapture(event.pointerId);
+    }
+  };
+  panggung.addEventListener('pointerup', lepasSeret);
+  panggung.addEventListener('pointercancel', lepasSeret);
+
+  // Papan ketik: anak panah menggeser satu detik, dengan Shift lima detik.
+  panggung.addEventListener('keydown', (event) => {
+    const langkah = event.shiftKey ? 5 : 1;
+    const aksi = {
+      ArrowRight: () => keDetik(detikSekarang + langkah),
+      ArrowLeft: () => keDetik(detikSekarang - langkah),
+      ArrowUp: () => keDetik(detikSekarang + langkah),
+      ArrowDown: () => keDetik(detikSekarang - langkah),
+      Home: () => keDetik(0),
+      End: () => keDetik(durasi),
+      PageUp: () => keDetik(detikSekarang + 10),
+      PageDown: () => keDetik(detikSekarang - 10)
+    }[event.key];
+
+    if (aksi) {
+      aksi();
+      event.preventDefault();
+    }
+  });
+
+  /**
+   * Melompat ke masalah terdekat ke arah tertentu.
+   * Ambang 0.2 detik mencegah tombol tersangkut di kejadian yang sedang dipilih
+   * akibat pembulatan posisi.
+   */
+  function lompatMasalah(arah) {
+    const berikut = (arah > 0)
+      ? masalah.find(m => m > detikSekarang + 0.2)
+      : [...masalah].reverse().find(m => m < detikSekarang - 0.2);
+
+    if (berikut !== undefined) keDetik(berikut);
+  }
+
+  panel.tombolSebelum.addEventListener('click', () => lompatMasalah(-1));
+  panel.tombolSesudah.addEventListener('click', () => lompatMasalah(1));
+  panel.tombolSebelum.disabled = masalah.length === 0;
+  panel.tombolSesudah.disabled = masalah.length === 0;
+
+  // Buka di rentang terpadat: bagian yang paling perlu diperbaiki
+  keDetik(cariRentangTerpadat(masalah, konfig.TIMELINE_JENDELA_DETIK));
+
+  return {
+    keDetik,
+    posisi: () => detikSekarang,
+    durasi,
+    masalah: masalah.slice()
+  };
 }
