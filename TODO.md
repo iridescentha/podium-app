@@ -130,6 +130,23 @@ Semua ini perlu mata, bukan uji otomatis.
 - Kepadatan lintasan waktu dipakai sebagai acuan: bagian lain tidak boleh
   terasa jauh lebih longgar darinya.
 
+## 9. Tema gelap/terang — commit `toggle tema`
+
+**Jalankan:** klik tombol "Tema" di pojok kanan atas, putar ketiga keadaannya, di
+Beranda, Rapor, dan Riwayat.
+
+**Lulus bila:**
+- Rapor dan Riwayat berubah gelap/terang; Beranda, Persiapan, dan Sesi TETAP gelap.
+- Tombol tema tidak muncul sama sekali di Layar Sesi.
+- Pada tema gelap, kartu metrik, kartu saran, panel lintasan, dan baris riwayat
+  semuanya terbaca; tidak ada teks gelap di atas latar gelap.
+- **Grafik tren Chart.js** ikut terbaca di tema gelap. Warnanya dibaca saat
+  digambar, jadi periksa juga: ganti tema sambil berada di Riwayat, lalu pindah
+  layar dan kembali — grafiknya harus mengikuti tema.
+- Muat ulang halaman: pilihan bertahan. Ganti tema sistem operasi saat pilihan
+  masih "otomatis": aplikasi ikut berubah.
+- Hapus seluruh riwayat: pilihan tema TIDAK ikut hilang.
+
 ---
 
 ## Keputusan yang masih menggantung

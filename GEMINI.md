@@ -62,8 +62,18 @@ Setiap modul mengekspor kontrak fungsi konsisten:
 ## 3. Desain Sistem: Metafora Panggung & Ruang Evaluasi
 
 Aplikasi menerapkan konsep pencahayaan teater:
-- **Layar Panggung** (Beranda, Persiapan, Sesi): Gelap (`--panggung: #14181D`), tenang, fokus, minim distraksi.
-- **Layar Ruang Evaluasi** (Rapor, Riwayat): Terang (`--bg-terang: #F7F5F0`), jernih, informatif.
+- **Layar Panggung** (Beranda, Persiapan, Sesi): Gelap (`--panggung: #14181D`), tenang, fokus, minim distraksi. **Selalu gelap, tidak terpengaruh pilihan tema.**
+- **Layar Ruang Evaluasi** (Rapor, Riwayat): Terang (`--bg-terang: #F7F5F0`) secara bawaan, jernih, informatif.
+
+### Pilihan Tema (revisi 17 September 2026)
+
+Spesifikasi ini semula menetapkan Rapor dan Riwayat **selalu** berlatar terang. Ketentuan itu **dilonggarkan**: kedua layar evaluasi kini mengikuti pilihan tema pengguna.
+
+- Tombol tema memutar tiga keadaan: `otomatis` (mengikuti `prefers-color-scheme`), `terang`, dan `gelap`. Bawaannya `otomatis`.
+- Pilihan disimpan di `localStorage` dengan kunci tersendiri, `podium_tema`, terpisah dari `podium_sessions`, supaya menghapus riwayat tidak ikut menghapus preferensi tampilan.
+- Tema gelap **hanya menimpa token permukaan terang** (`--bg-terang`, `--kartu-terang`, `--tinta`, `--border-terang`) dengan nilai token panggung yang sudah ada. Tidak ada warna baru, dan aturan aksen tunggal tetap berlaku.
+- **Layar Sesi dikecualikan dan tetap gelap dalam kondisi apa pun.** Gelapnya adalah metafora panggung, bukan preferensi: layar itu satu-satunya yang tidak dibaca pengguna, dan menerangkannya hanya menambah cahaya ke wajah serta mengalihkan perhatian. Tombol tema tidak ditampilkan di sana.
+- Implementasi: [js/tema.js](js/tema.js), atribut `data-tema` pada elemen `<html>`.
 
 ### Token Desain (CSS Custom Properties)
 
@@ -111,8 +121,8 @@ Aplikasi menerapkan konsep pencahayaan teater:
 | **1. Beranda** | `#layar-beranda` | Judul "Podium" 88px dengan efek sorot panggung, tagline, 3 poin cara kerja berurutan (1, 2, 3), widget mini riwayat (jika ada data), kotak privasi dengan garis aksen kiri `--sorot`, tombol "Mulai latihan" & "Riwayat". Terpusat vertikal (`min-height: 100vh`). |
 | **2. Persiapan** | `#layar-persiapan` | Input judul latihan (wajib), pilihan target durasi (3/5/10 menit/bebas), checkbox postur (default nonaktif), kartu edukasi izin sebelum memicu browser prompt, preview kamera cermin, meter sensitivitas volume Web Audio, daftar status modul, dan alat uji bentrok mikrofon 60 detik. |
 | **3. Sesi** | `#layar-sesi` | Desain paling tenang. Timer besar 72px tabular di tengah (dengan progres target jika disetel), preview kamera kecil (±180px) di pojok bawah dengan titik status live `--sorot` dan label "live, tidak direkam", 3 indikator tenang (WPM, filler, arah pandang), tombol Jeda & Selesai. Tanpa transkrip berjalan atau notifikasi suara mengganggu. |
-| **4. Rapor** | `#layar-rapor` | Latar terang evaluasi. Skor total 0–100 (count-up animasi), kalimat evaluasi suportif otomatis, grid kartu metrik terukur (WPM, filler, arah pandang, jeda, volume, postur), 2 canvas Chart.js, daftar 3 saran konkret, tombol "Latihan lagi" & "Ke beranda". |
-| **5. Riwayat** | `#layar-riwayat` | Latar terang evaluasi. Daftar sesi tersimpan (tanggal, judul, durasi, skor, WPM, filler), grafik tren skor Chart.js, tombol hapus per sesi, tombol "Hapus semua" (dengan konfirmasi). |
+| **4. Rapor** | `#layar-rapor` | Ruang evaluasi (terang atau gelap sesuai pilihan tema). Skor total 0–100 (count-up animasi; menampilkan "—" bila metrik yang terukur terlalu sedikit), kalimat evaluasi suportif otomatis, grid kartu metrik terukur (WPM, filler, arah pandang, jeda, volume, postur), lintasan waktu sesi dengan kepala pemutar dan panel keterangan, daftar 3 saran konkret, tombol "Latihan lagi" & "Ke beranda". |
+| **5. Riwayat** | `#layar-riwayat` | Ruang evaluasi (terang atau gelap sesuai pilihan tema). Daftar sesi tersimpan (tanggal, judul, durasi, skor, WPM, filler), grafik tren skor Chart.js, tombol hapus per sesi, tombol "Hapus semua" (dengan konfirmasi). |
 
 ---
 

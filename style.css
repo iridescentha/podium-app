@@ -42,6 +42,41 @@
 }
 
 /* --------------------------------------------------------------------------
+   TEMA LAYAR EVALUASI (Rapor & Riwayat)
+
+   Hanya token PERMUKAAN TERANG yang ditimpa, dan nilai penggantinya diambil
+   dari token panggung yang sudah ada: tidak ada satu pun warna baru. Layar
+   Beranda, Persiapan, dan Sesi tidak terpengaruh sama sekali, karena gelapnya
+   adalah metafora panggung, bukan preferensi tampilan.
+   -------------------------------------------------------------------------- */
+:root[data-tema="gelap"] {
+  --bg-terang:      #14181D;                    /* sama dengan --panggung */
+  --kartu-terang:   #1B2128;                    /* sama dengan --panggung-naik */
+  --tinta:          #EDEFF2;                    /* sama dengan --kapur */
+  --border-terang:  rgba(237, 239, 242, 0.14);  /* --kapur dengan alfa rendah */
+}
+
+/* Tombol pengganti tema: kecil dan tenang di pojok kanan atas, tidak pernah
+   menutupi isi layar, dan tidak tampil sama sekali di Layar Sesi. */
+.tombol-tema {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+  background-color: var(--panggung-naik);
+}
+
+.layar--terang-aktif .tombol-tema {
+  background-color: var(--kartu-terang);
+  color: var(--tinta);
+  border-color: var(--border-terang);
+}
+
+body.sesi-berjalan .tombol-tema {
+  display: none;
+}
+
+/* --------------------------------------------------------------------------
    2. RESET & DASAR
    -------------------------------------------------------------------------- */
 *, *::before, *::after {

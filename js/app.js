@@ -22,6 +22,7 @@ import * as faceModule from './face.js';
 import * as poseModule from './pose.js';
 import * as reportModule from './report.js';
 import * as timelineModule from './timeline.js';
+import * as temaModule from './tema.js';
 
 // ----------------------------------------------------------------------------
 // 1. KONFIGURASI GLOBAL (CONFIG)
@@ -234,6 +235,7 @@ const state = {
 // ----------------------------------------------------------------------------
 const DOM = {
   bannerBrowser: document.getElementById('banner-browser'),
+  btnTema: document.getElementById('btn-tema'),
   layarDaftar: document.querySelectorAll('.layar'),
 
   // Layar Beranda
@@ -360,10 +362,14 @@ export function tampilkanLayar(idLayar) {
     }
   });
 
-  // Tentukan apakah layar ini bertema panggung (gelap) atau ruang evaluasi (terang)
+  // Tentukan apakah layar ini bertema panggung (gelap) atau ruang evaluasi.
+  // Warna ruang evaluasi sendiri mengikuti pilihan tema pengguna lewat token,
+  // sedangkan layar panggung selalu gelap apa pun temanya.
   const layarTarget = document.getElementById(idLayar);
   if (layarTarget) {
-    if (layarTarget.classList.contains('layar--terang')) {
+    const ruangEvaluasi = layarTarget.classList.contains('layar--terang');
+    document.body.classList.toggle('layar--terang-aktif', ruangEvaluasi);
+    if (ruangEvaluasi) {
       document.body.style.backgroundColor = 'var(--bg-terang)';
       document.body.style.color = 'var(--tinta)';
     } else {
@@ -371,6 +377,10 @@ export function tampilkanLayar(idLayar) {
       document.body.style.color = 'var(--kapur)';
     }
   }
+
+  // Tombol tema disembunyikan selama Layar Sesi: layar itu sengaja tenang, dan
+  // temanya memang tidak bisa diubah.
+  document.body.classList.toggle('sesi-berjalan', idLayar === 'layar-sesi');
 
   // Aksi kontekstual saat membuka layar tertentu
   if (idLayar === 'layar-beranda') {
@@ -1594,6 +1604,7 @@ function initEventListeners() {
 
 // Jalankan saat DOM selesai dimuat
 document.addEventListener('DOMContentLoaded', () => {
+  temaModule.init(DOM.btnTema);
   initEventListeners();
   tampilkanLayar('layar-beranda');
 });
