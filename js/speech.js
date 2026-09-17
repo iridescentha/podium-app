@@ -84,6 +84,12 @@ let fillerEvents = [];
 let potonganTranskrip = [];
 let detikAkhirPotonganTerakhir = 0;
 
+// Apakah pengenal suara benar-benar pernah mengirimkan hasil final selama sesi.
+// Tanpa penanda ini, sesi yang pengenal suaranya gagal total tidak bisa
+// dibedakan dari sesi yang pengguna memang tidak bicara, dan keduanya sama-sama
+// menghasilkan "0 kata, 0 kata pengisi" yang terbaca sebagai prestasi.
+let pernahAdaHasilFinal = false;
+
 // ----------------------------------------------------------------------------
 // JAM SESI: waktu berjalan yang MENGABAIKAN durasi jeda.
 //
@@ -200,6 +206,7 @@ export function start(callbacks = {}, config = {}) {
   fillerEvents = [];
   potonganTranskrip = [];
   detikAkhirPotonganTerakhir = 0;
+  pernahAdaHasilFinal = false;
 
   // Jam sesi dimulai dari nol
   detikSegmenSelesai = 0;
@@ -305,6 +312,7 @@ function inisialisasiRecognition() {
         const teks = item[0].transcript;
 
         if (item.isFinal) {
+          pernahAdaHasilFinal = true;
           transkripFinalGabungan += ' ' + teks;
           prosesPotonganFinal(teks);
           if (typeof eventCallbacks.onFinal === 'function') {
@@ -621,6 +629,9 @@ function hitungDeretWpm(totalDetik) {
  * Mengambil ringkasan hasil analisis ucapan untuk rapor.
  *
  * CARA KERJA:
+ * 0. Melaporkan diri TIDAK TERSEDIA bila tidak ada satu pun hasil final yang
+ *    pernah diterima. Dalam keadaan itu modul tidak mengembalikan angka apa pun,
+ *    dan report.js mengeluarkan bobot kecepatan serta kata pengisi dari skor.
  * 1. Kecepatan rata-rata dihitung dari seluruh kata dibagi durasi sesi.
  * 2. Deret kecepatan per potongan waktu disusun DI SINI, di dalam modul yang
  *    memegang cap waktu tiap kata. report.js tidak boleh menyusunnya sendiri
@@ -637,11 +648,32 @@ export function getResults(durasiDetik = null) {
     : detikSesiSekarang();
 
   const totalSemuaKata = kataPerWaktu.length;
+
+  // Tidak ada satu pun kata yang tertangkap berarti TIDAK ADA PENGUKURAN, bukan
+  // pengukuran yang hasilnya nol. Mikrofon bisa saja salah pilih, izin dicabut
+  // di tengah jalan, atau pengenal suara Chrome gagal diam-diam. Melaporkan
+  // "0 kata per menit" dan "0 kata pengisi" untuk keadaan itu membuat sesi yang
+  // gagal total terbaca sebagai sesi tanpa kata pengisi sama sekali, dan itulah
+  // yang dulu menghasilkan skor 53 lengkap dengan pujian yang tidak berdasar.
+  if (!pernahAdaHasilFinal || totalSemuaKata === 0) {
+    return {
+      tersedia: false,
+      totalKata: 0,
+      wpmRata: null,
+      durasiBicaraDetik: Math.round(durasi),
+      deretWpm: [],
+      wpmSeri: [],
+      filler: { total: null, rincian: {}, events: [] },
+      potonganTranskrip: [],
+      transkripRingkas: ''
+    };
+  }
   const durasiMenit = Math.max(durasi / 60, 0.1);
   const wpmRataRata = Math.round(totalSemuaKata / durasiMenit);
   const deret = hitungDeretWpm(durasi);
 
   return {
+    tersedia: true,
     totalKata: totalSemuaKata,
     wpmRata: wpmRataRata,
     durasiBicaraDetik: Math.round(durasi),

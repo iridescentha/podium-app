@@ -95,6 +95,21 @@ Sekalian putuskan: setelah pindah ke pitch, apakah saringan kedipan
 sesi < 30 detik ditolak dan tidak masuk riwayat, mode luring mengganti grafik dengan
 keterangan, dan lebar 380px tidak menimbulkan scroll mendatar.
 
+## 7. Rapor saat metrik hilang — commit `bugfix metrik jujur`
+
+**Jalankan:** paksa sesi tanpa transkrip (matikan izin mikrofon dari ikon gembok
+setelah sesi dimulai, atau pilih perangkat mikrofon yang salah), bicara 40 detik,
+lalu Selesai. Ulangi juga dengan kalibrasi suara ruangan sengaja digagalkan.
+
+**Lulus bila:**
+- Kartu WPM dan kata pengisi berbunyi "belum aktif", bukan 0.
+- Skor total menampilkan "—" berwarna redup, bukan angka, dengan alasan di
+  bawahnya menyebut metrik mana yang tidak terukur.
+- Tidak ada kalimat pujian tentang metrik yang tidak diukur.
+- Riwayat menampilkan "—" untuk sesi itu, dan grafik tren melewatinya tanpa
+  menggambar titik nol.
+- Beranda menampilkan skor terakhir dari sesi yang memang punya skor.
+
 ---
 
 ## Keputusan yang masih menggantung

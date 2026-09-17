@@ -881,6 +881,12 @@ button:disabled, .tombol:disabled {
   margin-bottom: 8px;
 }
 
+/* Sesi yang metriknya terlalu sedikit untuk dinilai: tanda hubung memakai warna
+   keterangan, bukan aksen, supaya tidak terbaca seperti skor yang bagus. */
+.rapor-skor-angka--kosong {
+  color: var(--redup);
+}
+
 .rapor-ringkasan {
   font-size: 18px;
   font-weight: 500;

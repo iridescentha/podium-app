@@ -35,7 +35,8 @@ const AMBANG_BAWAAN = {
   JEDA_PENALTI_PER_JEDA: 0.25,
   JEDA_SARAN_JUMLAH: 3,
   PANDANG_SARAN_MIN: 0.6,
-  SUBSKOR_KUAT: 0.8
+  SUBSKOR_KUAT: 0.8,
+  SKOR_MIN_BOBOT_TERUKUR: 50
 };
 
 /**
@@ -54,7 +55,10 @@ function ambang(config) {
  */
 export const ATURAN_SARAN = [
   {
-    kondisi: (data, a) => data.filler.total > a.FILLER_SARAN_TOTAL,
+    // Tiap aturan wajib memeriksa ketersediaan metriknya lebih dulu. Metrik yang
+    // tidak terukur bernilai null, dan perbandingan apa pun dengan null di
+    // JavaScript menghasilkan jawaban yang menyesatkan.
+    kondisi: (data, a) => data.fillerTersedia === true && data.filler.total > a.FILLER_SARAN_TOTAL,
     saran: "Gunakan teknik jeda sadar: daripada mengisi keheningan dengan 'kayak' atau 'gitu', tarik napas lembut dan biarkan hening sejenak sebelum kalimat berikutnya."
   },
   {
@@ -65,11 +69,11 @@ export const ATURAN_SARAN = [
     saran: "Gunakan teknik segitiga pandang: jaga tatapan ke arah kamera/audiens secara bergantian agar pendengar merasa diajak berinteraksi langsung."
   },
   {
-    kondisi: (data, a) => data.wpmRata > a.WPM_SARAN_CEPAT,
+    kondisi: (data, a) => data.wpmTersedia === true && data.wpmRata > a.WPM_SARAN_CEPAT,
     saran: "Tempo bicaramu cukup tinggi. Biasakan memberi jeda satu detik di setiap titik akhir kalimat untuk memberi audiens waktu mencerna argumenmu."
   },
   {
-    kondisi: (data, a) => data.wpmRata < a.WPM_SARAN_PELAN && data.wpmRata > 0,
+    kondisi: (data, a) => data.wpmTersedia === true && data.wpmRata < a.WPM_SARAN_PELAN && data.wpmRata > 0,
     saran: "Tempo bicaramu tergolong pelan. Coba naikkan sedikit ketukan dan tekankan kata kuncinya agar pesan presentasi terasa lebih bertenaga."
   },
   {
@@ -199,24 +203,63 @@ export function hitungSkorJeda(jumlahJeda, config) {
  */
 export function hitungSkorTotal(metrik, posturAktif = false, config) {
   const a = ambang(config);
+  const hasil = hitungSkorRinci(metrik, posturAktif, config);
+  return hasil.skor;
+}
+
+/**
+ * Versi rinci dari hitungSkorTotal: selain skor, mengembalikan metrik mana yang
+ * ikut dihitung dan mana yang tidak.
+ *
+ * CARA KERJA:
+ * 1. Tabel bobot dipilih sesuai mode, lalu tiap komponen diperiksa apakah
+ *    modulnya BENAR-BENAR menghasilkan data. Yang tidak, bobotnya dibuang.
+ * 2. Sisa bobot dinormalkan ulang ke 100, persis mekanisme yang sudah dipakai
+ *    untuk modul postur yang belum aktif.
+ * 3. Bila sisa bobot yang benar-benar terukur lebih kecil dari
+ *    CONFIG.SKOR_MIN_BOBOT_TERUKUR, skornya TIDAK DIHITUNG SAMA SEKALI dan
+ *    fungsi mengembalikan null. Angka yang disusun dari satu-dua metrik sisa
+ *    akan terlihat sama meyakinkannya dengan skor penuh padahal tidak, dan itu
+ *    menyesatkan pembacanya. Rapor lebih baik mengatakan "tidak bisa dinilai".
+ *
+ * @returns {{skor: number|null, terukur: string[], hilang: string[], bobotTerukur: number}}
+ */
+export function hitungSkorRinci(metrik, posturAktif = false, config) {
+  const a = ambang(config);
 
   // Postur hanya ikut dihitung bila pengguna memintanya DAN modulnya benar-benar
   // melaporkan diri aktif. Checkbox yang dicentang di atas modul stub tidak cukup.
   const posturTerukur = Boolean(posturAktif && metrik.postur && metrik.postur.aktif);
   const bobot = pilihTabelBobot(metrik.mode, posturTerukur, config);
+  const totalBobotPenuh = Object.values(bobot).reduce((x, y) => x + y, 0);
+  const subSkor = {};
+  const hilang = [];
 
-  const subSkor = {
-    wpm: hitungSkorWpm(metrik.wpmRata, a),
-    filler: hitungSkorFiller(metrik.filler.total, metrik.durasiDetik, a)
-  };
+  // Kecepatan bicara dan kata pengisi sama-sama bersumber dari transkrip. Bila
+  // pengenal suara tidak pernah menghasilkan apa pun, keduanya tidak terukur:
+  // "0 kata per menit" dan "0 kata pengisi" bukan hasil pengukuran, dan yang
+  // kedua bahkan akan memberi nilai sempurna gratis.
+  if (metrik.wpmTersedia === true) {
+    subSkor.wpm = hitungSkorWpm(metrik.wpmRata, a);
+  } else {
+    delete bobot.wpm;
+    hilang.push('kecepatan bicara');
+  }
+
+  if (metrik.fillerTersedia === true) {
+    subSkor.filler = hitungSkorFiller(metrik.filler.total, metrik.durasiDetik, a);
+  } else {
+    delete bobot.filler;
+    hilang.push('kata pengisi');
+  }
 
   // Jeda panjang: hanya masuk hitungan bila suara ruangan sempat diukur. Tanpa
-  // ambang bicara, "0 jeda" berarti tidak diukur, bukan lancar, dan dulu justru
-  // memberi sub-skor penuh gratis.
+  // ambang bicara, "0 jeda" berarti tidak diukur, bukan lancar.
   if (metrik.jedaTersedia === true) {
     subSkor.jeda = hitungSkorJeda(metrik.jeda.jumlah, a);
   } else {
     delete bobot.jeda;
+    hilang.push('jeda panjang');
   }
 
   // Arah pandang: hanya masuk hitungan bila modulnya melaporkan data terukur.
@@ -224,6 +267,7 @@ export function hitungSkorTotal(metrik, posturAktif = false, config) {
   if (metrik.pandangTersedia === true) {
     subSkor.pandang = klem01(metrik.pandangPersen);
   } else {
+    if (bobot.pandang !== undefined) hilang.push('arah pandang');
     delete bobot.pandang;
   }
 
@@ -234,7 +278,12 @@ export function hitungSkorTotal(metrik, posturAktif = false, config) {
   }
 
   const totalBobot = Object.values(bobot).reduce((x, y) => x + y, 0);
-  if (totalBobot <= 0) return 0;
+  const bobotTerukur = totalBobotPenuh > 0 ? (totalBobot / totalBobotPenuh) * 100 : 0;
+  const terukur = Object.keys(bobot);
+
+  if (totalBobot <= 0 || bobotTerukur < a.SKOR_MIN_BOBOT_TERUKUR) {
+    return { skor: null, terukur, hilang, bobotTerukur: Math.round(bobotTerukur) };
+  }
 
   let skorAkhir = 0;
   for (const [nama, nilaiBobot] of Object.entries(bobot)) {
@@ -242,7 +291,12 @@ export function hitungSkorTotal(metrik, posturAktif = false, config) {
     skorAkhir += bobotTernormalisasi * (subSkor[nama] || 0);
   }
 
-  return Math.round(Math.min(Math.max(skorAkhir, 0), 100));
+  return {
+    skor: Math.round(Math.min(Math.max(skorAkhir, 0), 100)),
+    terukur,
+    hilang,
+    bobotTerukur: Math.round(bobotTerukur)
+  };
 }
 
 /**
@@ -255,29 +309,42 @@ export function hitungSkorTotal(metrik, posturAktif = false, config) {
  */
 export function buatKalimatRingkasan(metrik, skorTotal, config) {
   const a = ambang(config);
-  const sWpm = hitungSkorWpm(metrik.wpmRata, a);
-  const sFiller = hitungSkorFiller(metrik.filler.total, metrik.durasiDetik, a);
 
-  // Arah pandang hanya boleh disebut dalam kalimat evaluasi bila benar-benar diukur.
-  const pandangTersedia = metrik.pandangTersedia === true;
-  const sPandang = pandangTersedia ? klem01(metrik.pandangPersen) : 0;
+  // ATURAN MUTLAK: kalimat ini hanya boleh menyebut metrik yang BENAR-BENAR
+  // diukur. Sebelum aturan ini ada, sesi yang pengenal suaranya gagal total
+  // memuji "pilihan katamu sangat bersih dari kata pengisi", padahal tidak ada
+  // satu kata pun yang pernah terdengar. Pujian untuk sesuatu yang tidak diukur
+  // jauh lebih merusak kepercayaan daripada rapor yang mengaku tidak tahu.
+  const adaWpm = metrik.wpmTersedia === true;
+  const adaFiller = metrik.fillerTersedia === true;
+  const adaPandang = metrik.pandangTersedia === true;
 
-  let kekuatan = "Kecepatan bicaramu sangat teratur";
-  if (pandangTersedia && sPandang > a.SUBSKOR_KUAT) {
-    kekuatan = "Kontak pandangmu ke depan sangat konsisten";
-  } else if (sFiller > a.SUBSKOR_KUAT) {
-    kekuatan = "Pilihan katamu sangat bersih dari kata pengisi";
-  } else if (sWpm > a.SUBSKOR_KUAT) {
-    kekuatan = "Ketukan dan tempo bicaramu sudah ideal";
+  if (!adaWpm && !adaFiller && !adaPandang) {
+    return 'Sesi ini tidak menghasilkan metrik yang bisa dinilai. Periksa izin mikrofon dan kamera, lalu coba lagi.';
   }
 
-  let perbaikan = "pertahankan ketenangan ini untuk sesi berikutnya.";
-  if (metrik.filler.total > a.FILLER_RINGKASAN_TOTAL) {
+  const sWpm = adaWpm ? hitungSkorWpm(metrik.wpmRata, a) : 0;
+  const sFiller = adaFiller ? hitungSkorFiller(metrik.filler.total, metrik.durasiDetik, a) : 0;
+  const sPandang = adaPandang ? klem01(metrik.pandangPersen) : 0;
+
+  let kekuatan = null;
+  if (adaPandang && sPandang > a.SUBSKOR_KUAT) {
+    kekuatan = 'Kontak pandangmu ke depan sangat konsisten';
+  } else if (adaFiller && sFiller > a.SUBSKOR_KUAT) {
+    kekuatan = 'Pilihan katamu sangat bersih dari kata pengisi';
+  } else if (adaWpm && sWpm > a.SUBSKOR_KUAT) {
+    kekuatan = 'Ketukan dan tempo bicaramu sudah ideal';
+  } else {
+    kekuatan = 'Latihan ini sudah tercatat';
+  }
+
+  let perbaikan = 'pertahankan ketenangan ini untuk sesi berikutnya.';
+  if (adaFiller && metrik.filler.total > a.FILLER_RINGKASAN_TOTAL) {
     perbaikan = `fokus berikutnya: kurangi kata pengisi (${metrik.filler.total}× terdeteksi).`;
-  } else if (pandangTersedia && sPandang < a.PANDANG_SARAN_MIN) {
-    perbaikan = "fokus berikutnya: lebih sering menatap lurus ke arah audiens.";
-  } else if (metrik.wpmRata > a.WPM_RINGKASAN_CEPAT) {
-    perbaikan = "fokus berikutnya: beri jeda sejenak di tiap jeda kalimat.";
+  } else if (adaPandang && sPandang < a.PANDANG_SARAN_MIN) {
+    perbaikan = 'fokus berikutnya: lebih sering menatap lurus ke arah audiens.';
+  } else if (adaWpm && metrik.wpmRata > a.WPM_RINGKASAN_CEPAT) {
+    perbaikan = 'fokus berikutnya: beri jeda sejenak di tiap jeda kalimat.';
   }
 
   return `${kekuatan} — ${perbaikan}`;
@@ -359,7 +426,14 @@ export function gambarGrafikTrenSkor(kanvas, daftarSesi, maksSesi = 10) {
   if (!siapkanKanvas(kanvas)) return false;
   if (!Array.isArray(daftarSesi) || daftarSesi.length === 0) return false;
 
-  const urutLama = daftarSesi.slice(0, maksSesi).reverse();
+
+  // Sesi tanpa skor (metriknya terlalu sedikit untuk dinilai) tidak bisa jadi
+  // titik pada garis tren: menggambarnya sebagai nol akan terbaca sebagai
+  // penurunan tajam yang tidak pernah terjadi.
+  const berskor = daftarSesi.filter(s => typeof s.skor === 'number');
+  if (berskor.length < 2) return false;
+
+  const urutLama = berskor.slice(0, maksSesi).reverse();
   const warnaAksen = token('--sorot');
   const warnaTeks = token('--redup');
   const warnaGaris = token('--border-terang');
@@ -437,7 +511,16 @@ export function pilihSaran(dataSesi, config) {
   }
 
   if (saranTerpilih.length === 0) {
-    saranTerpilih.push("Struktur bicaramu sudah sangat baik! Pertahankan kontak mata dan artikulasi jelas ini saat tampil di hadapan audiens.");
+    // Tidak ada aturan yang menyala bisa berarti dua hal yang sangat berbeda:
+    // semuanya sudah baik, atau tidak ada yang sempat diukur. Keduanya tidak
+    // boleh memakai kalimat yang sama.
+    const adaYangTerukur = dataSesi.wpmTersedia === true
+      || dataSesi.fillerTersedia === true
+      || dataSesi.pandangTersedia === true;
+
+    saranTerpilih.push(adaYangTerukur
+      ? 'Struktur bicaramu sudah sangat baik! Pertahankan kontak mata dan artikulasi jelas ini saat tampil di hadapan audiens.'
+      : 'Belum ada metrik yang bisa dinilai dari sesi ini, jadi belum ada saran yang bisa diberikan. Pastikan mikrofon dan kamera bekerja, lalu ulangi latihannya.');
   }
 
   return saranTerpilih;

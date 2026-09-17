@@ -187,9 +187,14 @@ export function ambilRingkasanMini() {
   if (daftar.length === 0) {
     return { adaRiwayat: false, totalSesi: 0, skorTerakhir: null };
   }
+  // Sesi yang metriknya terlalu sedikit untuk dinilai menyimpan skor null.
+  // Ringkasan beranda mencari sesi terakhir yang PUNYA skor, dan menampilkan
+  // tanda hubung bila memang belum ada satu pun.
+  const sesiBerskor = daftar.find(s => typeof s.skor === 'number');
+
   return {
     adaRiwayat: true,
     totalSesi: daftar.length,
-    skorTerakhir: Math.round(daftar[0].skor)
+    skorTerakhir: sesiBerskor ? Math.round(sesiBerskor.skor) : null
   };
 }

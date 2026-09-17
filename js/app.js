@@ -112,6 +112,12 @@ export const CONFIG = {
   PANDANG_SARAN_MIN: 0.6,
   SUBSKOR_KUAT: 0.8,            // Sub-skor di atas ini layak disebut kekuatan
 
+  // Porsi bobot minimal yang harus benar-benar terukur agar skor total boleh
+  // ditampilkan. Di bawah ini rapor menampilkan tanda hubung beserta alasannya:
+  // angka yang disusun dari satu-dua metrik sisa terlihat sama meyakinkannya
+  // dengan skor penuh, padahal tidak.
+  SKOR_MIN_BOBOT_TERUKUR: 50,
+
   // Analisis Audio (jeda panjang & volume), dipakai js/audio.js
   audio: {
     // Ambang bicara = suara ruangan (median RMS saat diam) × pengali ini
@@ -289,6 +295,7 @@ const DOM = {
   raporWpmLabel: document.getElementById('rapor-wpm-label'),
   raporFillerNilai: document.getElementById('rapor-filler-nilai'),
   raporFillerRincian: document.getElementById('rapor-filler-rincian'),
+  raporFillerCatatan: document.getElementById('rapor-filler-catatan'),
   raporPandangNilai: document.getElementById('rapor-pandang-nilai'),
   raporPandangKet: document.getElementById('rapor-pandang-ket'),
   raporPandangCatatan: document.getElementById('rapor-pandang-catatan'),
@@ -1085,6 +1092,11 @@ function prosesDanTampilkanRapor() {
     mode: state.modeSesi,
     durasiDetik: state.durasiBerjalanDetik,
     skor: 0, // Dihitung di bawah
+    // Kecepatan dan kata pengisi sama-sama bersumber dari transkrip: bila
+    // pengenal suara tidak pernah menghasilkan apa pun, keduanya null dan
+    // ditandai tidak tersedia, bukan diisi nol.
+    wpmTersedia: hasilSpeech.tersedia === true,
+    fillerTersedia: hasilSpeech.tersedia === true,
     wpmRata: hasilSpeech.wpmRata,
     // Deret kecepatan bicara per 30 detik, disusun oleh speech.js yang memegang
     // cap waktu tiap kata. Ini sumber data grafik pertama di rapor (Tahap 4).
@@ -1130,9 +1142,11 @@ function prosesDanTampilkanRapor() {
     }
   };
 
-  // Hitung Skor Total (0-100)
-  const skorTotal = reportModule.hitungSkorTotal(dataSesiLengkap, state.analisisPosturAktif, CONFIG);
-  dataSesiLengkap.skor = skorTotal;
+  // Hitung Skor Total (0-100). Bernilai null bila metrik yang benar-benar
+  // terukur terlalu sedikit untuk menghasilkan angka yang berarti.
+  const rincianSkor = reportModule.hitungSkorRinci(dataSesiLengkap, state.analisisPosturAktif, CONFIG);
+  dataSesiLengkap.skor = rincianSkor.skor;
+  dataSesiLengkap.metrikHilang = rincianSkor.hilang;
 
   // TRANSKRIP: disimpan di memori saja, khusus untuk timeline Tahap 4B selama
   // Layar Rapor terbuka. Sengaja TIDAK dimasukkan ke dataSesiLengkap, kecuali
@@ -1162,29 +1176,61 @@ function prosesDanTampilkanRapor() {
  * Merender konten DOM Layar Rapor.
  */
 function renderRaporUI(data, statusSimpan) {
-  // Count-up animasi skor 72px sekali saat dibuka
-  animasiCountUp(DOM.raporSkorAngka, data.skor);
+  // Skor hanya ditampilkan bila benar-benar dihitung. Sesi yang kehilangan
+  // terlalu banyak metrik menampilkan tanda hubung beserta alasannya, bukan
+  // angka yang terlihat sama meyakinkannya dengan skor penuh.
+  if (data.skor === null) {
+    DOM.raporSkorAngka.textContent = '—';
+    DOM.raporSkorAngka.classList.add('rapor-skor-angka--kosong');
+    DOM.raporModeLabel.textContent = `Skor tidak ditampilkan — ${data.metrikHilang.join(', ')} tidak terukur di sesi ini`;
+  } else {
+    DOM.raporSkorAngka.classList.remove('rapor-skor-angka--kosong');
+    animasiCountUp(DOM.raporSkorAngka, data.skor);
+  }
 
-  // Label mode, netral: menerangkan dari berapa metrik skor ini disusun
-  DOM.raporModeLabel.textContent = (data.mode === 'suara-saja')
-    ? 'Mode suara saja — dinilai dari kecepatan, kata pengisi, dan jeda'
-    : 'Mode lengkap — dinilai dari kecepatan, kata pengisi, jeda, dan arah pandang';
+  // Label mode, netral: menerangkan dari berapa metrik skor ini disusun.
+  // Saat skornya tidak ada, label ini sudah diisi alasannya di atas.
+  if (data.skor !== null) {
+    const dasar = (data.metrikHilang && data.metrikHilang.length > 0)
+      ? ` (tanpa ${data.metrikHilang.join(', ')})`
+      : '';
+    DOM.raporModeLabel.textContent = (data.mode === 'suara-saja')
+      ? `Mode suara saja — dinilai dari kecepatan, kata pengisi, dan jeda${dasar}`
+      : `Mode lengkap — dinilai dari kecepatan, kata pengisi, jeda, dan arah pandang${dasar}`;
+  }
 
   // Kalimat ringkasan
   DOM.raporRingkasanTeks.textContent = reportModule.buatKalimatRingkasan(data, data.skor, CONFIG);
 
   // Kartu metrik
-  DOM.raporWpmNilai.textContent = data.wpmRata;
-  let labelWpm = 'ideal';
-  if (data.wpmRata < CONFIG.WPM_SLOW) labelWpm = 'pelan';
-  else if (data.wpmRata > CONFIG.WPM_FAST) labelWpm = 'terlalu cepat';
-  DOM.raporWpmLabel.textContent = `kecepatan ${labelWpm}`;
+  // Kartu kecepatan bicara
+  if (data.wpmTersedia) {
+    DOM.raporWpmNilai.classList.remove('kartu-metrik__nilai--nonaktif');
+    DOM.raporWpmNilai.textContent = data.wpmRata;
+    let labelWpm = 'ideal';
+    if (data.wpmRata < CONFIG.WPM_SLOW) labelWpm = 'pelan';
+    else if (data.wpmRata > CONFIG.WPM_FAST) labelWpm = 'terlalu cepat';
+    DOM.raporWpmLabel.textContent = `kecepatan ${labelWpm}`;
+  } else {
+    DOM.raporWpmNilai.classList.add('kartu-metrik__nilai--nonaktif');
+    DOM.raporWpmNilai.textContent = 'belum aktif';
+    DOM.raporWpmLabel.textContent = 'tidak ada ucapan yang tertangkap, jadi tidak ikut dihitung dalam skor';
+  }
 
-  DOM.raporFillerNilai.textContent = `${data.filler.total}×`;
-  const rincianStr = Object.entries(data.filler.rincian)
-    .map(([k, v]) => `${k} (${v})`)
-    .join(', ') || 'tidak ada kata pengisi dominan';
-  DOM.raporFillerRincian.textContent = rincianStr;
+  // Kartu kata pengisi
+  if (data.fillerTersedia) {
+    DOM.raporFillerNilai.classList.remove('kartu-metrik__nilai--nonaktif');
+    DOM.raporFillerNilai.textContent = `${data.filler.total}×`;
+    DOM.raporFillerRincian.textContent = Object.entries(data.filler.rincian)
+      .map(([k, v]) => `${k} (${v})`)
+      .join(', ') || 'tidak ada kata pengisi dominan';
+    DOM.raporFillerCatatan.style.display = '';
+  } else {
+    DOM.raporFillerNilai.classList.add('kartu-metrik__nilai--nonaktif');
+    DOM.raporFillerNilai.textContent = 'belum aktif';
+    DOM.raporFillerRincian.textContent = 'tidak ada ucapan yang tertangkap, jadi tidak ikut dihitung dalam skor';
+    DOM.raporFillerCatatan.style.display = 'none';
+  }
 
   // Kartu arah pandang punya dua wajah: angka terukur, atau penanda jujur
   // "belum aktif" lengkap dengan keterangan bahwa metrik ini tidak ikut dihitung.
@@ -1397,7 +1443,7 @@ function muatRingkasanBeranda() {
   if (info.adaRiwayat) {
     DOM.ringkasanMiniWrap.style.display = 'block';
     DOM.ringkasanTotalSesi.textContent = info.totalSesi;
-    DOM.ringkasanSkorTerakhir.textContent = info.skorTerakhir;
+    DOM.ringkasanSkorTerakhir.textContent = (info.skorTerakhir === null) ? '—' : info.skorTerakhir;
   } else {
     DOM.ringkasanMiniWrap.style.display = 'none';
   }
@@ -1455,10 +1501,10 @@ function muatTampilanRiwayat() {
     el.innerHTML = `
       <div class="item-sesi__info">
         <div class="item-sesi__judul">${sesi.judul}</div>
-        <div class="item-sesi__meta">${tanggalFormat} • Durasi ${durasiStr} • WPM ${sesi.wpmRata} • Filler ${sesi.filler.total}×${labelMode}</div>
+        <div class="item-sesi__meta">${tanggalFormat} • Durasi ${durasiStr} • WPM ${(typeof sesi.wpmRata === 'number') ? sesi.wpmRata : '—'} • Filler ${(typeof sesi.filler.total === 'number') ? sesi.filler.total + '×' : '—'}${labelMode}</div>
       </div>
       <div class="item-sesi__aksi">
-        <div class="item-sesi__skor">${sesi.skor}</div>
+        <div class="item-sesi__skor">${(typeof sesi.skor === 'number') ? sesi.skor : '—'}</div>
         <button class="tombol tombol--bahaya" data-hapus-id="${sesi.id}" style="padding: 6px 14px; font-size: 13px;">Hapus</button>
       </div>
     `;
