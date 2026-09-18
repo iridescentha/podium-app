@@ -216,6 +216,9 @@ const state = {
   // Kendali lintasan waktu yang sedang tampil (kepala pemutar dan panelnya)
   kendaliTimeline: null,
 
+  // Dari mana Layar Rapor dibuka: 'sesi' (baru selesai) atau 'riwayat' (sesi lama)
+  sumberRapor: 'sesi',
+
   // Status Sesi
   sesiBerjalan: false,
   sesiDijeda: false,
@@ -331,7 +334,9 @@ const DOM = {
   checkboxSimpanTranskrip: document.getElementById('checkbox-simpan-transkrip'),
   statusSimpanTranskrip: document.getElementById('status-simpan-transkrip'),
   daftarSaranRapor: document.getElementById('daftar-saran-rapor'),
+  kotakTranskrip: document.getElementById('kotak-transkrip'),
   btnRaporLatihanLagi: document.getElementById('btn-rapor-latihan-lagi'),
+  btnRaporKeRiwayat: document.getElementById('btn-rapor-ke-riwayat'),
   btnRaporKeBeranda: document.getElementById('btn-rapor-ke-beranda'),
 
   // Layar Riwayat
@@ -1178,6 +1183,7 @@ function prosesDanTampilkanRapor() {
   // pengguna mencentang kotak penyimpanan transkrip di Layar Rapor.
   state.transkripSesi = hasilSpeech.potonganTranskrip;
   state.sesiTerakhir = dataSesiLengkap;
+  state.sumberRapor = 'sesi';
 
   // Kotak penyimpanan transkrip selalu kembali ke keadaan mati tiap sesi baru.
   // Tidak ada setelan "selalu simpan": menyimpan transkrip harus jadi keputusan
@@ -1201,6 +1207,12 @@ function prosesDanTampilkanRapor() {
  * Merender konten DOM Layar Rapor.
  */
 function renderRaporUI(data, statusSimpan) {
+  // Rapor sesi baru dan rapor sesi lama memakai perender yang sama; yang
+  // membedakan hanya tiga kendali di bawah ini.
+  const dariRiwayat = (state.sumberRapor === 'riwayat');
+  DOM.kotakTranskrip.style.display = dariRiwayat ? 'none' : '';
+  DOM.btnRaporKeRiwayat.style.display = dariRiwayat ? '' : 'none';
+
   // Skor hanya ditampilkan bila benar-benar dihitung. Sesi yang kehilangan
   // terlalu banyak metrik menampilkan tanda hubung beserta alasannya, bukan
   // angka yang terlihat sama meyakinkannya dengan skor penuh.
@@ -1522,7 +1534,14 @@ function muatTampilanRiwayat() {
       : '';
 
     const el = document.createElement('div');
-    el.className = 'item-sesi';
+    el.className = 'item-sesi item-sesi--dapat-dibuka';
+    // Seluruh baris berfungsi sebagai tombol pembuka rapor sesi itu, termasuk
+    // lewat papan ketik. Tombol Hapus di dalamnya menghentikan perambatan klik
+    // supaya menghapus tidak sekaligus membuka rapor yang baru saja dihapus.
+    el.dataset.bukaId = sesi.id;
+    el.tabIndex = 0;
+    el.setAttribute('role', 'button');
+    el.setAttribute('aria-label', `Buka rapor ${sesi.judul}, ${tanggalFormat}`);
     el.innerHTML = `
       <div class="item-sesi__info">
         <div class="item-sesi__judul">${sesi.judul}</div>
@@ -1539,6 +1558,7 @@ function muatTampilanRiwayat() {
   // Pasang listener hapus per sesi
   DOM.daftarSesiRiwayat.querySelectorAll('[data-hapus-id]').forEach(btn => {
     btn.addEventListener('click', (e) => {
+      e.stopPropagation();
       const id = e.target.getAttribute('data-hapus-id');
       if (confirm('Hapus sesi ini dari riwayat?')) {
         storage.hapusSesi(id);
@@ -1547,6 +1567,53 @@ function muatTampilanRiwayat() {
       }
     });
   });
+
+  // Membuka rapor sesi lama, lewat klik maupun papan ketik
+  DOM.daftarSesiRiwayat.querySelectorAll('[data-buka-id]').forEach(baris => {
+    baris.addEventListener('click', () => bukaRaporRiwayat(baris.dataset.bukaId));
+    baris.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        bukaRaporRiwayat(baris.dataset.bukaId);
+      }
+    });
+  });
+}
+
+/**
+ * Membuka kembali rapor lengkap sebuah sesi dari Riwayat.
+ *
+ * CARA KERJA:
+ * Seluruh angka yang dibutuhkan rapor sudah tersimpan di localStorage sejak
+ * sesinya selesai: skor, kartu metrik, daftar kata pengisi, jeda, segmen
+ * menunduk, dan deret kecepatan. Karena itu berkas ini TIDAK membuat layar
+ * kedua yang isinya mirip rapor, melainkan memakai ulang Layar Rapor dan
+ * perendernya yang sama. Satu perender berarti tampilan sesi lama mustahil
+ * menyimpang dari tampilan sesi yang baru selesai.
+ *
+ * Tiga hal dibedakan saat rapor dibuka dari riwayat:
+ * 1. TRANSKRIP hanya ada bila pengguna dulu mencentang kotak penyimpanannya.
+ *    Bila tidak, panel lintasan mengatakannya apa adanya.
+ * 2. Kotak "Simpan transkrip" disembunyikan. Transkrip sesi lama sudah tidak ada
+ *    di memori, jadi mencentangnya tidak akan menyimpan apa pun.
+ * 3. Tombol "Kembali ke riwayat" ditampilkan, supaya pengguna kembali ke tempat
+ *    ia berangkat, bukan terlempar ke Beranda.
+ *
+ * @param {string} idSesi
+ */
+function bukaRaporRiwayat(idSesi) {
+  const tersimpan = storage.ambilDaftarSesi().find(s => s.id === idSesi);
+  if (!tersimpan) return;
+
+  const sesi = storage.lengkapiSesiLama(tersimpan);
+
+  state.sumberRapor = 'riwayat';
+  state.sesiTerakhir = null;          // rapor lama tidak boleh ikut disunting
+  state.sesiTerakhirTersimpan = false;
+  state.transkripSesi = Array.isArray(sesi.potonganTranskrip) ? sesi.potonganTranskrip : null;
+
+  renderRaporUI(sesi, { sukses: true });
+  tampilkanLayar('layar-rapor');
 }
 
 // ----------------------------------------------------------------------------
@@ -1645,6 +1712,10 @@ function initEventListeners() {
 
   DOM.btnRaporKeBeranda.addEventListener('click', () => {
     tampilkanLayar('layar-beranda');
+  });
+
+  DOM.btnRaporKeRiwayat.addEventListener('click', () => {
+    tampilkanLayar('layar-riwayat');
   });
 
   // Riwayat

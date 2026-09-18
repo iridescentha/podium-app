@@ -214,7 +214,7 @@ transkripnya disimpan dan yang tidak.
 **Kalau gagal:** sesi lama tidak bisa dibuka sama sekali → periksa apakah
 `skor`, `deretWpm`, dan `filler.events` benar-benar ada di `localStorage`.
 
-**Commit:** *(diisi saat commit Riwayat detail)*
+**Commit:** `bd7b83e`
 
 ## B7. Mode putar lintasan · ~5 menit
 
@@ -370,5 +370,11 @@ Dicatat supaya tidak terlihat seperti kelalaian:
 - **Bunyi "emm" terbaca sebagai jeda panjang, "eee" terbaca sebagai bicara**
   (uji Chrome 17 September 2026, satu ruangan satu mikrofon). Tidak dijadikan
   klaim di UI karena baru satu kali diuji.
+- **Rapor sesi lama memakai ulang Layar Rapor**, bukan layar baru yang isinya
+  mirip. Alasannya satu perender berarti tampilan sesi lama mustahil menyimpang
+  dari sesi baru; risikonya, apa pun yang salah di rapor akan salah di keduanya.
+- **Sesi lama tanpa penanda ketersediaan metrik** (tersimpan sebelum `144a9e2`)
+  disimpulkan dari ada tidaknya angka di data tersimpan. Pilihan aman: bila
+  angkanya tidak ada sama sekali, metriknya dianggap TIDAK tersedia.
 - **Selisih waktu transkrip belum diukur di Chrome.** Label "sekitar" dipakai di
   seluruh UI sebagai pilihan aman.

@@ -1454,6 +1454,22 @@ button:disabled, .tombol:disabled {
   box-shadow: none;
 }
 
+/* Baris riwayat berfungsi sebagai tombol pembuka rapor sesi itu. Penandanya
+   kursor dan border yang menegas, bukan warna baru. */
+.item-sesi--dapat-dibuka {
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+
+.item-sesi--dapat-dibuka:hover {
+  border-color: var(--redup);
+}
+
+.item-sesi--dapat-dibuka:focus-visible {
+  outline: 2px solid var(--sorot);
+  outline-offset: 2px;
+}
+
 .item-sesi__info {
   display: flex;
   flex-direction: column;

@@ -436,7 +436,7 @@
            Default MATI. Transkrip hanya ikut tersimpan bila kotak ini dicentang,
            dan hanya untuk sesi ini. Tidak ada setelan "selalu simpan".
            ==================================================================== -->
-      <div class="kotak-transkrip">
+      <div id="kotak-transkrip" class="kotak-transkrip">
         <label class="form-checkbox-grup">
           <input type="checkbox" id="checkbox-simpan-transkrip" class="form-checkbox">
           <span>Simpan transkrip sesi ini ke riwayat</span>
@@ -457,9 +457,11 @@
       <div id="rapor-catatan-storage" class="teks-kecil" style="color: var(--bahaya); display: none; margin-top: 16px;">
       </div>
 
-      <!-- Tombol Aksi Rapor -->
+      <!-- Tombol Aksi Rapor. Tombol "Kembali ke riwayat" hanya tampil bila rapor
+           ini dibuka dari daftar riwayat, bukan dari sesi yang baru selesai. -->
       <div class="tombol-grup" style="margin-top: 40px;">
         <button id="btn-rapor-latihan-lagi" class="tombol tombol--utama">Latihan lagi</button>
+        <button id="btn-rapor-ke-riwayat" class="tombol tombol--sekunder" style="display: none;">Kembali ke riwayat</button>
         <button id="btn-rapor-ke-beranda" class="tombol tombol--sekunder">Ke beranda</button>
       </div>
     </div>

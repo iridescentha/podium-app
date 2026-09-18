@@ -132,6 +132,53 @@ export function perkiraanUkuranKb() {
 }
 
 /**
+ * Melengkapi sesi lama dengan penanda ketersediaan metrik.
+ *
+ * Dipakai saat membuka rapor sebuah sesi dari Layar Riwayat.
+ *
+ * CARA KERJA:
+ * Sesi yang tersimpan sebelum commit 144a9e2 tidak punya wpmTersedia,
+ * fillerTersedia, maupun metrikHilang, karena penanda itu memang belum ada saat
+ * sesi tersebut direkam. Tanpa dilengkapi, rapornya akan menampilkan "belum
+ * aktif" untuk metrik yang sebenarnya dulu terukur.
+ *
+ * Penyimpulannya hanya dari SATU pertanyaan: apakah angkanya benar-benar ada di
+ * data tersimpan. Tidak ada angka yang dikarang di sini — bila sesi lama memang
+ * menyimpan 0 kata, ia akan tetap ditampilkan sebagai 0 seperti dulu, karena
+ * itulah yang benar-benar tercatat saat itu.
+ */
+export function lengkapiSesiLama(sesi) {
+  const punyaAngka = (nilai) => typeof nilai === 'number';
+
+  return {
+    ...sesi,
+    wpmTersedia: (sesi.wpmTersedia !== undefined) ? sesi.wpmTersedia : punyaAngka(sesi.wpmRata),
+    fillerTersedia: (sesi.fillerTersedia !== undefined)
+      ? sesi.fillerTersedia
+      : punyaAngka(sesi.filler && sesi.filler.total),
+    jedaTersedia: (sesi.jedaTersedia !== undefined)
+      ? sesi.jedaTersedia
+      : punyaAngka(sesi.jeda && sesi.jeda.jumlah),
+    pandangTersedia: sesi.pandangTersedia === true,
+    metrikHilang: Array.isArray(sesi.metrikHilang) ? sesi.metrikHilang : [],
+    menundukSegmen: Array.isArray(sesi.menundukSegmen) ? sesi.menundukSegmen : [],
+    hilangSegmen: Array.isArray(sesi.hilangSegmen) ? sesi.hilangSegmen : [],
+    deretWpm: Array.isArray(sesi.deretWpm) ? sesi.deretWpm : [],
+    filler: {
+      total: sesi.filler ? sesi.filler.total : null,
+      rincian: (sesi.filler && sesi.filler.rincian) ? sesi.filler.rincian : {},
+      events: (sesi.filler && Array.isArray(sesi.filler.events)) ? sesi.filler.events : []
+    },
+    jeda: {
+      jumlah: sesi.jeda ? sesi.jeda.jumlah : null,
+      terlamaDetik: sesi.jeda ? sesi.jeda.terlamaDetik : null,
+      daftar: (sesi.jeda && Array.isArray(sesi.jeda.daftar)) ? sesi.jeda.daftar : []
+    },
+    postur: sesi.postur || { aktif: false, distribusi: {} }
+  };
+}
+
+/**
  * Menghapus satu sesi tertentu berdasarkan ID uniknya.
  * 
  * CARA KERJA:
