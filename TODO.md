@@ -227,10 +227,13 @@ kepala pemutar saat sedang berjalan.
 - Menyeret saat berjalan **menghentikan** pemutaran, tidak berebut kendali.
 - Sampai di ujung, pemutaran berhenti sendiri.
 
-**Kalau gagal:** catat apakah masalahnya di kecepatan, di seretan, atau di
-gulir transkrip.
+Periksa juga: tinggalkan Layar Rapor saat pemutaran sedang berjalan, lalu buka
+lagi. Tidak boleh ada pemutaran yang masih berjalan di latar.
 
-**Commit:** *(diisi saat commit mode putar)*
+**Kalau gagal:** catat apakah masalahnya di kecepatan, di seretan, di gulir
+transkrip, atau di pemutaran yang tidak berhenti saat layar ditinggalkan.
+
+**Commit:** `e1bb581`
 
 ## B8. Simpan transkrip opt-in dan kuota penyimpanan · ~5 menit
 

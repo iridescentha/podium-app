@@ -370,6 +370,10 @@ export function tampilkanLayar(idLayar) {
   // pernah ditulis ke localStorage, jadi ini titik terakhir keberadaannya.
   if (state.layarSaatIni === 'layar-rapor' && idLayar !== 'layar-rapor') {
     state.transkripSesi = null;
+
+    // Mode putar lintasan harus ikut berhenti. Tanpa ini, perulangan animasinya
+    // terus berjalan di layar yang sudah tidak terlihat.
+    if (state.kendaliTimeline) state.kendaliTimeline.hentikanPutar();
   }
 
   state.layarSaatIni = idLayar;

@@ -1276,12 +1276,16 @@ button:disabled, .tombol:disabled {
   margin-top: 4px;
 }
 
+/* Tinggi dibatasi supaya panel tidak memanjang mengikuti transkrip, dan supaya
+   mode putar punya area tetap untuk menggulirkan potongan yang sedang aktif. */
 .timeline__panel-transkrip {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--border-terang);
   font-size: 15px;
   line-height: 1.6;
+  max-height: 150px;
+  overflow-y: auto;
 }
 
 /* Potongan di luar posisi kepala pemutar diredupkan, bukan disembunyikan:

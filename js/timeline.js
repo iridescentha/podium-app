@@ -16,9 +16,14 @@
  * diagram: satu sumbu waktu, satu posisi yang bisa dipilih, dan panel yang
  * menerangkan apa yang terjadi di posisi itu.
  *
- * Langkah 2 (berkas ini, versi sekarang) menggambar lintasannya saja, tanpa
- * interaksi. Kepala pemutar, panel keterangan, dan mode putar menyusul di
- * langkah 3 dan 4 sesuai urutan di TAHAP-4b.md.
+ * Isinya lengkap sesuai TAHAP-4b.md: lintasan statis, kepala pemutar yang bisa
+ * diklik, diseret, dan digeser papan ketik, panel keterangan berisi ringkasan
+ * kejadian dan potongan transkrip, navigasi antar masalah, serta mode putar
+ * dengan pilihan kecepatan.
+ *
+ * MODE PUTAR MEMUTAR DATA, BUKAN REKAMAN. Tidak ada audio maupun video yang
+ * pernah disimpan; yang berjalan hanyalah kepala pemutar di sumbu waktu beserta
+ * angka dan teks yang sudah ada di memori.
  *
  * ----------------------------------------------------------------------------
  * CARA KERJA PENEMPATAN
@@ -541,11 +546,15 @@ function buatPanel() {
   const waktu = elemen('div', 'timeline__panel-waktu');
   const navigasi = elemen('div', 'timeline__panel-navigasi');
 
+  const tombolPutar = elemen('button', 'tombol tombol--utama tombol--kecil', 'Putar');
+  const tombolKecepatan = elemen('button', 'tombol tombol--sekunder tombol--kecil', '1×');
   const tombolSebelum = elemen('button', 'tombol tombol--sekunder tombol--kecil', 'Masalah sebelumnya');
   const tombolSesudah = elemen('button', 'tombol tombol--sekunder tombol--kecil', 'Masalah berikutnya');
-  tombolSebelum.type = 'button';
-  tombolSesudah.type = 'button';
+  [tombolPutar, tombolKecepatan, tombolSebelum, tombolSesudah].forEach(t => { t.type = 'button'; });
+  tombolKecepatan.setAttribute('aria-label', 'Kecepatan pemutaran, sekarang 1 kali');
 
+  navigasi.appendChild(tombolPutar);
+  navigasi.appendChild(tombolKecepatan);
   navigasi.appendChild(tombolSebelum);
   navigasi.appendChild(tombolSesudah);
   kepala.appendChild(waktu);
@@ -558,7 +567,7 @@ function buatPanel() {
   panel.appendChild(ringkasan);
   panel.appendChild(transkrip);
 
-  return { panel, waktu, ringkasan, transkrip, tombolSebelum, tombolSesudah };
+  return { panel, waktu, ringkasan, transkrip, tombolPutar, tombolKecepatan, tombolSebelum, tombolSesudah };
 }
 
 /**
@@ -624,17 +633,48 @@ export function render(wadah, sesi, config = {}, opsi = {}) {
   const masalah = kumpulkanMasalah(sesi);
   let detikSekarang = 0;
 
+  let detikPanelTerakhir = null;
+
   /**
    * Memindahkan kepala pemutar ke satu posisi waktu.
+   *
+   * CARA KERJA:
    * Posisi dijepit ke dalam durasi sesi, lalu seluruh tampilan yang bergantung
-   * padanya (kepala, atribut aria, isi panel) diperbarui dari satu tempat ini.
+   * padanya diperbarui dari satu tempat ini.
+   *
+   * Kepala pemutar digeser tiap kali dipanggil karena itu murni satu properti
+   * CSS, sedangkan PANEL hanya disusun ulang saat detiknya benar-benar berganti.
+   * Pembedaan ini yang membuat mode putar tetap ringan: tanpa itu, seluruh isi
+   * panel dan potongan transkrip akan dibangun ulang enam puluh kali per detik.
    */
   function keDetik(detik) {
     detikSekarang = Math.min(durasi, Math.max(0, detik));
     kepala.style.left = `${persen(detikSekarang, durasi)}%`;
     panggung.setAttribute('aria-valuenow', String(Math.round(detikSekarang)));
     panggung.setAttribute('aria-valuetext', `sekitar ${waktuMmSs(detikSekarang)}`);
+
+    const detikBulat = Math.floor(detikSekarang);
+    if (detikBulat === detikPanelTerakhir) return;
+    detikPanelTerakhir = detikBulat;
+
     isiPanel(panel, sesi, detikSekarang, transkrip, konfig);
+    gulirKePotonganAktif();
+  }
+
+  /**
+   * Menggulirkan panel transkrip supaya potongan yang sedang aktif tetap terlihat.
+   *
+   * CARA KERJA:
+   * Saat mode putar berjalan, potongan aktif berpindah ke bawah dan akan keluar
+   * dari area panel. scrollIntoView dengan block 'nearest' menggulirkan HANYA
+   * bila potongannya memang sudah tidak terlihat, sehingga panel tidak
+   * bergoyang setiap detik saat potongannya masih di tempat.
+   */
+  function gulirKePotonganAktif() {
+    const aktif = panel.transkrip.querySelector('.timeline__transkrip-potongan--aktif');
+    if (aktif && typeof aktif.scrollIntoView === 'function') {
+      aktif.scrollIntoView({ block: 'nearest' });
+    }
   }
 
   /**
@@ -648,9 +688,76 @@ export function render(wadah, sesi, config = {}, opsi = {}) {
     keDetik(((event.clientX - kotak.left) / kotak.width) * durasi);
   }
 
+  // --------------------------------------------------------------------------
+  // MODE PUTAR
+  //
+  // Memutar ulang sesi tanpa suara: kepala pemutar berjalan di sumbu waktu, dan
+  // panel beserta transkrip mengikutinya. Yang diputar adalah DATA, bukan
+  // rekaman — tidak ada audio maupun video yang pernah disimpan.
+  //
+  // Posisi dihitung dari selisih waktu nyata antar frame, bukan dari jumlah
+  // frame, sehingga kecepatannya tetap benar pada layar 60Hz maupun 120Hz dan
+  // tidak melambat saat perangkat sibuk.
+  // --------------------------------------------------------------------------
+  const KECEPATAN = [1, 2];
+  let indeksKecepatan = 0;
+  let sedangPutar = false;
+  let idFrame = null;
+  let waktuFrameTerakhir = 0;
+
+  function langkahPutar(sekarang) {
+    if (!sedangPutar) return;
+
+    const selisihDetik = (sekarang - waktuFrameTerakhir) / 1000;
+    waktuFrameTerakhir = sekarang;
+    keDetik(detikSekarang + selisihDetik * KECEPATAN[indeksKecepatan]);
+
+    // Berhenti sendiri di ujung sesi, bukan diam-diam menempel di 100%
+    if (detikSekarang >= durasi) {
+      hentikanPutar();
+      return;
+    }
+    idFrame = requestAnimationFrame(langkahPutar);
+  }
+
+  function mulaiPutar() {
+    if (sedangPutar) return;
+    // Menekan Putar di ujung sesi berarti memutar dari awal lagi
+    if (detikSekarang >= durasi) keDetik(0);
+    sedangPutar = true;
+    waktuFrameTerakhir = performance.now();
+    panel.tombolPutar.textContent = 'Jeda';
+    idFrame = requestAnimationFrame(langkahPutar);
+  }
+
+  function hentikanPutar() {
+    if (!sedangPutar) return;
+    sedangPutar = false;
+    panel.tombolPutar.textContent = 'Putar';
+    if (idFrame !== null) {
+      cancelAnimationFrame(idFrame);
+      idFrame = null;
+    }
+  }
+
+  panel.tombolPutar.addEventListener('click', () => {
+    if (sedangPutar) hentikanPutar();
+    else mulaiPutar();
+  });
+
+  panel.tombolKecepatan.addEventListener('click', () => {
+    indeksKecepatan = (indeksKecepatan + 1) % KECEPATAN.length;
+    const kecepatan = KECEPATAN[indeksKecepatan];
+    panel.tombolKecepatan.textContent = `${kecepatan}×`;
+    panel.tombolKecepatan.setAttribute('aria-label', `Kecepatan pemutaran, sekarang ${kecepatan} kali`);
+  });
+
   let sedangSeret = false;
 
   panggung.addEventListener('pointerdown', (event) => {
+    // Menyeret selalu mengambil alih: pemutaran dihentikan lebih dulu supaya
+    // kepala pemutar tidak ditarik dua arah sekaligus.
+    hentikanPutar();
     sedangSeret = true;
     panggung.setPointerCapture(event.pointerId);
     panggung.focus();
@@ -675,6 +782,10 @@ export function render(wadah, sesi, config = {}, opsi = {}) {
   // Papan ketik: anak panah menggeser satu detik, dengan Shift lima detik.
   panggung.addEventListener('keydown', (event) => {
     const langkah = event.shiftKey ? 5 : 1;
+    // Sama seperti menyeret: menggeser manual mengambil alih dari pemutaran
+    if (event.key.startsWith('Arrow') || ['Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) {
+      hentikanPutar();
+    }
     const aksi = {
       ArrowRight: () => keDetik(detikSekarang + langkah),
       ArrowLeft: () => keDetik(detikSekarang - langkah),
@@ -698,6 +809,7 @@ export function render(wadah, sesi, config = {}, opsi = {}) {
    * akibat pembulatan posisi.
    */
   function lompatMasalah(arah) {
+    hentikanPutar();
     const berikut = (arah > 0)
       ? masalah.find(m => m > detikSekarang + 0.2)
       : [...masalah].reverse().find(m => m < detikSekarang - 0.2);
@@ -716,6 +828,8 @@ export function render(wadah, sesi, config = {}, opsi = {}) {
   return {
     keDetik,
     posisi: () => detikSekarang,
+    sedangPutar: () => sedangPutar,
+    hentikanPutar,
     durasi,
     masalah: masalah.slice()
   };
