@@ -361,6 +361,29 @@ lintasan waktu bisa digeser dengan panah kiri/kanan, Home, dan End, serta tombol
 
 ---
 
+## C5. Hasil audit kepatuhan — periksa mata sekali · ~4 menit
+
+Audit Tahap 6 dijalankan terhadap larangan nyata di `GEMINI.md` Bagian 1 dan 3.
+(Bagian 9 yang disebut peta jalan tidak pernah ada di berkas itu.) Tiga temuan
+sudah diperbaiki; yang perlu dipastikan hanya tampilannya.
+
+**Lulus bila:**
+- Segmen **"wajah tidak terlihat"** di lintasan waktu masih jelas berbeda dari
+  segmen **menunduk**: sekarang isian pudar bergaris tepi putus-putus, bukan
+  arsiran diagonal. Arsiran lama memakai gradien kedua, dan `GEMINI.md` Bagian 3
+  hanya mengizinkan satu gradien di seluruh aplikasi.
+- Kedua bentuk itu masih terbedakan **tanpa bergantung warna** di tema gelap
+  maupun terang, dan contoh di legenda cocok dengan yang tergambar di lintasan.
+- Pesan izin kamera yang ditolak tidak lagi memakai tanda panah.
+
+**Kalau gagal** (segmen hilang jadi sulit dibedakan): pilihan lain adalah
+mengembalikan arsiran dan mengubah aturan gradien di `GEMINI.md` secara sadar.
+Jangan diam-diam menambah gradien kedua.
+
+**Commit:** `66b75ba`
+
+---
+
 # Keputusan yang diambil tanpa pengujian
 
 Dicatat supaya tidak terlihat seperti kelalaian:
@@ -379,5 +402,10 @@ Dicatat supaya tidak terlihat seperti kelalaian:
 - **Sesi lama tanpa penanda ketersediaan metrik** (tersimpan sebelum `144a9e2`)
   disimpulkan dari ada tidaknya angka di data tersimpan. Pilihan aman: bila
   angkanya tidak ada sama sekali, metriknya dianggap TIDAK tersedia.
+- **Arsiran "wajah tidak terlihat" diganti garis tepi putus-putus** demi
+  mematuhi aturan gradien tunggal, tanpa bisa menilai tampilannya lebih dulu.
+  Lihat butir C5.
+- **Turunan alfa dari token** (misalnya `rgba(232,180,74,0.28)`) dianggap bukan
+  warna baru, karena nilainya persis token yang sudah ada dengan transparansi.
 - **Selisih waktu transkrip belum diukur di Chrome.** Label "sekitar" dipakai di
   seluruh UI sebagai pilihan aman.

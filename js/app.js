@@ -182,7 +182,7 @@ export const CONFIG = {
 
   // true: cetak seluruh event bertimestamp sesi ke console saat rapor dibuka,
   // untuk mencocokkan isinya dengan apa yang benar-benar dilakukan (Tahap 4B).
-  TIMELINE_DEBUG: true,
+  TIMELINE_DEBUG: false,
 
   // Lebar jendela yang diringkas panel lintasan, berpusat di kepala pemutar.
   // Delapan detik kira-kira selebar satu-dua kalimat, cukup untuk menjelaskan
@@ -516,7 +516,7 @@ async function mintaIzinMedia() {
     console.error('Izin kamera/mikrofon ditolak:', error);
     alert(
       'Podium tidak bisa berjalan tanpa kamera dan mikrofon.\n\n' +
-      'Cara mengatasi: Klik ikon gembok (atau setelan situs) di sebelah kiri address bar perambanmu → Izinkan Kamera & Mikrofon → Muat ulang halaman.'
+      'Cara mengatasi: klik ikon gembok (atau setelan situs) di sebelah kiri address bar perambanmu, izinkan Kamera dan Mikrofon, lalu muat ulang halaman.'
     );
     DOM.tombolMintaIzin.disabled = false;
     DOM.tombolMintaIzin.textContent = 'Izinkan & lanjut';

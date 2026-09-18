@@ -29,6 +29,11 @@
   --redup:          #8A9099;   /* Khusus label kecil, satuan, keterangan sekunder */
   --bahaya:         #C4543D;   /* Hanya untuk hapus & error */
 
+  /* Turunan alfa dari token di atas (misalnya rgba(232,180,74,0.28)) dipakai di
+     beberapa tempat sebagai permukaan redup. Itu BUKAN warna baru: nilainya
+     persis --sorot, --redup, atau --bahaya dengan transparansi. Aturan aksen
+     tunggal di GEMINI.md Bagian 3 tetap berlaku. */
+
   /* Kartu & Border di Latar Terang */
   --border-terang:  rgba(30, 36, 43, 0.12);
   --kartu-terang:   #FFFFFF;
@@ -1114,15 +1119,14 @@ button:disabled, .tombol:disabled {
   background-color: var(--redup);
 }
 
-/* Arsiran bergaris: dibedakan teksturnya, bukan warna baru */
+/* "Wajah tidak terlihat" dibedakan dari "menunduk" lewat BENTUK: isian pudar
+   dengan garis tepi putus-putus, melawan blok padat milik menunduk.
+   Versi pertama memakai arsiran repeating-linear-gradient, tetapi GEMINI.md
+   Bagian 3 hanya mengizinkan SATU gradien di seluruh aplikasi, yaitu sorot
+   lampu di belakang judul Beranda. Aturan itu dipatuhi apa adanya. */
 .timeline__segmen--hilang {
-  background-image: repeating-linear-gradient(
-    45deg,
-    rgba(138, 144, 153, 0.85) 0,
-    rgba(138, 144, 153, 0.85) 3px,
-    rgba(138, 144, 153, 0.3) 3px,
-    rgba(138, 144, 153, 0.3) 6px
-  );
+  background-color: rgba(138, 144, 153, 0.25);
+  border: 1px dashed var(--redup);
 }
 
 /* Baris kecepatan */
