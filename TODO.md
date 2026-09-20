@@ -100,6 +100,18 @@ kejujuran metrik di `CLAUDE.md`, bukan cacat tampilan.
 
 **Commit:** `144a9e2`
 
+**Hasil 20 September 2026 (Chrome):** LULUS untuk seluruh aturan kejujuran —
+WPM, kata pengisi, arah pandang, volume, dan postur semuanya "belum aktif";
+skor ditahan beserta alasannya; tidak ada kalimat pujian. Dua cacat tampilan
+yang ditemukan sudah diperbaiki: skor yang ditahan dulu tampil sebagai "—"
+setinggi 96px yang terbaca seperti palang memuat (kini kata "Tidak dinilai"
+berukuran 28px), dan baris kecepatan yang kosong dulu menyisakan ruang menganga
+setinggi 40px (kini mengikuti tinggi keterangannya).
+
+**Sisa yang belum diperiksa di butir ini:** tampilan sesi itu di Riwayat (harus
+"—") dan angka di Beranda (harus mengambil skor dari sesi yang memang punya
+skor). Keduanya belum terlihat pada tangkapan layar.
+
 ## B2. Ambang arah pandang dan kap wajah hilang · ~10 menit
 
 Tiga konstanta di bawah ditetapkan dari **satu** sesi uji di Safari. Angkanya

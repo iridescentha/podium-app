@@ -957,9 +957,12 @@ button:disabled, .tombol:disabled {
   margin-bottom: 8px;
 }
 
-/* Sesi yang metriknya terlalu sedikit untuk dinilai: tanda hubung memakai warna
-   keterangan, bukan aksen, supaya tidak terbaca seperti skor yang bagus. */
+/* Sesi yang metriknya terlalu sedikit untuk dinilai. Ukurannya diturunkan jauh
+   dari 96px: angka skor berhak berteriak, ketiadaan skor tidak. Warnanya
+   memakai keterangan, bukan aksen, supaya tidak terbaca seperti skor bagus. */
 .rapor-skor-angka--kosong {
+  font-size: 28px;
+  letter-spacing: 0;
   color: var(--redup);
 }
 
@@ -1182,7 +1185,15 @@ button:disabled, .tombol:disabled {
   height: 18px;
 }
 
+/* Lintasan tanpa isi: tinggi mengikuti keterangannya, atau menyusut jadi garis
+   tipis bila memang tidak ada keterangan apa pun. */
 .timeline__lintasan--kosong {
+  height: auto;
+  min-height: 6px;
+  background-color: transparent;
+}
+
+.timeline__lintasan--masalah.timeline__lintasan--kosong {
   height: 6px;
   background-color: var(--border-terang);
 }

@@ -1221,7 +1221,9 @@ function renderRaporUI(data, statusSimpan) {
   // terlalu banyak metrik menampilkan tanda hubung beserta alasannya, bukan
   // angka yang terlihat sama meyakinkannya dengan skor penuh.
   if (data.skor === null) {
-    DOM.raporSkorAngka.textContent = '—';
+    // Bukan tanda hubung: pada ukuran 96px, "—" terbaca seperti palang abu-abu
+    // yang sedang memuat, bukan sebagai "tidak ada skor".
+    DOM.raporSkorAngka.textContent = 'Tidak dinilai';
     DOM.raporSkorAngka.classList.add('rapor-skor-angka--kosong');
     DOM.raporModeLabel.textContent = `Skor tidak ditampilkan — ${data.metrikHilang.join(', ')} tidak terukur di sesi ini`;
   } else {

@@ -205,6 +205,10 @@ function gambarBarisKecepatan(deret, durasi, konfig) {
   lintasan.classList.add('timeline__lintasan--kecepatan');
 
   if (!Array.isArray(deret) || deret.length === 0) {
+    // Tinggi tetap 40px hanya masuk akal bila ada garis yang digambar. Saat
+    // kosong, tingginya mengikuti keterangannya supaya tidak ada ruang menganga
+    // yang membuat barisnya terlihat rusak.
+    lintasan.classList.add('timeline__lintasan--kosong');
     lintasan.appendChild(elemen('div', 'timeline__kosong', 'Sesi terlalu singkat untuk mengukur perubahan kecepatan.'));
     return baris;
   }
