@@ -27,14 +27,19 @@ Tiap butir berisi: **jalankan**, **lulus bila**, **kalau gagal**, **commit**, da
 Bukan pemeriksaan. Selama butir ini belum dikerjakan, ada metrik yang **tidak
 menghasilkan angka apa pun** di setiap sesi.
 
-## A1. Kalibrasi volume — metrik mati sampai ini dijalankan · ~3 menit
+## A1. Kalibrasi volume — metrik mati sampai ini dijalankan · ~4 menit
 
-**Status:** `CONFIG.audio.ambangVolumePelan` masih `null`. Akibatnya kartu volume
-di rapor **selalu** berbunyi "belum aktif", di semua sesi, selamanya. Ini bukan
-uji yang tertunda; ini metrik yang dijanjikan tetapi belum hidup.
+**Status:** `CONFIG.audio.pengaliVolumePelan` masih `null`. Akibatnya kartu volume
+di rapor **selalu** berbunyi "belum aktif". Ini bukan uji yang tertunda; ini
+metrik yang dijanjikan tetapi belum hidup.
 
-**Jalankan:** setel `CONFIG.audio.debug: true`. Dua sesi, masing-masing 1 menit,
-bacakan paragraf yang sama:
+**Yang dikalibrasi adalah KELIPATAN, bukan angka RMS.** Volume dinilai sebagai
+rasio: rata-rata energi suara saat bicara dibagi suara ruangan hasil kalibrasi.
+Angka RMS mentah berbeda jauh antar mikrofon, sedangkan rasio bisa dipakai di
+perangkat mana pun.
+
+**Jalankan:** setel `CONFIG.audio.debug: true`. Tiga sesi, masing-masing sekitar
+45 detik, **kalibrasi suara ruangan setiap kali** lalu bacakan paragraf ini:
 
 > "Selamat siang. Hari ini saya ingin membahas bagaimana teknologi bisa membantu
 > orang berlatih presentasi secara mandiri. Banyak orang merasa gugup saat
@@ -42,20 +47,24 @@ bacakan paragraf yang sama:
 > berlatih berulang kali. Aplikasi ini mengukur kecepatan bicara, jeda, dan arah
 > pandang, lalu memberikan rapor setelah latihan selesai."
 
-- Sesi 1: volume bicara normal.
-- Sesi 2: hampir berbisik.
+- **Sesi 1:** volume presentasi yang wajar.
+- **Sesi 2:** hampir berbisik.
+- **Sesi 3:** volume wajar lagi, tetapi **duduk dua kali lebih jauh** dari laptop.
 
-Catat `volumeRataRms` dari baris `[audio] hasil:` pada kedua sesi.
+Catat angka `RASIO=...× suara ruangan` dari baris `[audio] hasil:` pada ketiganya.
 
-**Lulus bila:** kedua angka terpisah cukup jauh untuk menaruh satu batas di
-antaranya. Isikan batas itu ke `CONFIG.audio.ambangVolumePelan`, lalu jalankan
-satu sesi lagi dan pastikan kartu volume menampilkan "pelan" atau "ideal".
+**Lulus bila:** rasio sesi 1 dan 3 berdekatan (keduanya "cukup keras"), dan rasio
+sesi 2 jelas lebih kecil. Isikan angka di antara sesi 2 dan sesi 1 ke
+`CONFIG.audio.pengaliVolumePelan`. Contoh: bila sesi 1 dan 3 sekitar 8× dan sesi
+2 sekitar 3×, isi 5. Jalankan satu sesi lagi: kartu volume harus berbunyi
+"ideal" atau "pelan", dengan keterangan "N× lebih keras daripada suara ruanganmu".
 
-**Kalau gagal** (kedua angka berdekatan): berarti kontrol penguatan mikrofon
-meratakan volume, dan label volume tidak bisa dipercaya. Jangan dipaksakan —
-biarkan `null` dan biarkan kartunya "belum aktif". Itu tetap jujur.
+**Kalau gagal** (ketiga rasio berdekatan): `autoGainControl` meratakan volume
+sampai metriknya tidak bisa dipercaya. Jangan dipaksakan — biarkan `null` dan
+biarkan kartunya "belum aktif". Itu tetap jujur, dan sudah ditulis sebagai
+keterbatasan di kepala `js/audio.js`.
 
-**Commit:** `f6918e4`
+**Commit:** `f6918e4`, commit volume relatif
 
 ## A2. Matikan seluruh flag debug sebelum dikumpulkan · ~1 menit
 

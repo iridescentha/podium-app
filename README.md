@@ -49,7 +49,7 @@ data, dan tidak ada berkas yang dikirim ke mana pun. Riwayat latihan disimpan di
 | Kata pengisi | Aktif | Pencocokan kata dari transkrip ("kayak", "gitu", "anu") |
 | Arah pandang | Aktif | Sudut kepala dari MediaPipe Face Landmarker, dibandingkan postur netral |
 | Jeda panjang | Aktif | Hening lebih dari 3 detik yang diapit suara bicara |
-| Volume | **Belum dikalibrasi** | Rata-rata energi suara; batasnya belum ditetapkan |
+| Volume | **Belum dikalibrasi** | Rasio energi suara saat bicara terhadap suara ruangan; pengalinya belum ditetapkan |
 | Postur tubuh | **Tidak aktif** | Dibatalkan; modulnya stub dan bobotnya dialihkan |
 
 Metrik yang tidak menghasilkan data **tidak pernah diisi angka nol**. Rapor

@@ -148,9 +148,13 @@ export const CONFIG = {
     // menyimpan acuan yang pasti salah.
     // NILAI AWAL, BELUM DIVALIDASI: tetapkan dari RMS bicara sungguhan lewat debug.
     ambangBicaraMaks: 0.08,
-    // Rata-rata RMS saat bicara di bawah ini dilabeli "pelan", selain itu "ideal".
-    // null = belum ditetapkan dari uji; selama null, label volume tidak ditampilkan.
-    ambangVolumePelan: null,
+    // Volume dinilai sebagai KELIPATAN suara ruangan, bukan angka RMS mutlak:
+    // rasio = rata-rata RMS saat bicara dibagi suara ruangan hasil kalibrasi.
+    // Rasio di bawah angka ini dilabeli "pelan", selain itu "ideal".
+    // Angka mutlak tidak dipakai karena RMS yang sama berarti hal berbeda di
+    // mikrofon berbeda; rasio bisa dibandingkan antar perangkat.
+    // null = belum ditetapkan dari uji; selama null, label volume tidak muncul.
+    pengaliVolumePelan: null,
     // true: cetak noise floor, RMS per detik, tiap jeda, dan hasil akhir ke console
     debug: false
   },
@@ -1168,6 +1172,9 @@ function prosesDanTampilkanRapor() {
         }
       : { jumlah: null, terlamaDetik: null, daftar: [] },
     volumeLabel: hasilAudio.tersedia === true ? hasilAudio.volumeLabel : null,
+    // Rasio terhadap suara ruangan ikut disimpan: inilah angka di balik
+    // labelnya, dan satu-satunya bentuk yang bisa dibandingkan antar perangkat.
+    volumeRasio: hasilAudio.tersedia === true ? hasilAudio.rasioVolume : null,
     postur: {
       // Diambil dari laporan modulnya, bukan dari centang checkbox. Dengan begitu
       // modul stub tidak bisa menyumbang bobot skor untuk sesuatu yang tidak diukur.
@@ -1308,7 +1315,12 @@ function renderRaporUI(data, statusSimpan) {
   if (data.jedaTersedia && data.volumeLabel) {
     DOM.raporVolumeNilai.classList.remove('kartu-metrik__nilai--nonaktif');
     DOM.raporVolumeNilai.textContent = data.volumeLabel;
-    DOM.raporVolumeKet.textContent = 'dihitung dari saat kamu berbicara saja';
+    // Angka di balik labelnya ikut disebut, supaya pembaca tahu label itu
+    // datang dari perbandingan terhadap ruangannya sendiri, bukan dari angka
+    // ajaib yang berlaku sama untuk semua orang.
+    DOM.raporVolumeKet.textContent = (typeof data.volumeRasio === 'number')
+      ? `${data.volumeRasio.toFixed(1)}× lebih keras daripada suara ruanganmu`
+      : 'dihitung dari saat kamu berbicara saja';
   } else {
     DOM.raporVolumeNilai.classList.add('kartu-metrik__nilai--nonaktif');
     DOM.raporVolumeNilai.textContent = 'belum aktif';

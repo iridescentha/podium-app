@@ -45,6 +45,28 @@
  *   transkrip di js/speech.js.
  *
  * ----------------------------------------------------------------------------
+ * KEPUTUSAN DESAIN: VOLUME DINILAI SECARA RELATIF (20 September 2026)
+ * ----------------------------------------------------------------------------
+ * Versi pertama menilai volume dari angka RMS mutlak lewat ambangVolumePelan.
+ * Itu tidak bisa dipindahkan antar perangkat: suara yang sama menghasilkan RMS
+ * yang jauh berbeda tergantung penguatan mikrofon, jarak duduk, dan setelan
+ * sistem, sehingga satu angka yang benar di satu laptop akan salah di laptop
+ * lain. Padahal modul ini sudah punya jawabannya untuk ambang bicara, yaitu
+ * mengukur suara ruangan lebih dulu lalu menyatakan segalanya sebagai kelipatan
+ * dari situ.
+ *
+ * Label volume kini memakai pola yang sama: rasio = volumeRataRms dibagi
+ * noiseFloorRms, dibandingkan dengan CONFIG.audio.pengaliVolumePelan. Dengan
+ * begitu seluruh ambang di modul ini diturunkan dari SATU pengukuran yang sama.
+ *
+ * Keterbatasan yang diketahui: getUserMedia berjalan dengan autoGainControl
+ * menyala, yang memang bertugas meratakan perbedaan volume. Ia membantu metrik
+ * lain dan bekerja melawan metrik ini. Bila uji kalibrasi menunjukkan suara
+ * normal dan suara berbisik menghasilkan rasio yang nyaris sama, jawabannya
+ * bukan memaksakan ambang, melainkan membiarkan pengalinya null sehingga kartu
+ * volume tetap berbunyi "belum aktif".
+ *
+ * ----------------------------------------------------------------------------
  * KEPUTUSAN DESAIN: APA YANG DIHITUNG SEBAGAI "JEDA PANJANG"
  * ----------------------------------------------------------------------------
  * Jeda panjang = hening yang DIAPIT SUARA BICARA di kedua sisinya, di dalam satu
@@ -102,7 +124,7 @@ const KONFIG_BAWAAN = {
   durasiJedaPanjangMs: 3000,
   minDurasiSuaraMs: 200,
   durasiUkurNoiseMs: 2000,
-  ambangVolumePelan: null,
+  pengaliVolumePelan: null,
   debug: false
 };
 let konfig = { ...KONFIG_BAWAAN };
@@ -619,9 +641,15 @@ export function stop() {
  *    mengeluarkan bobot jeda dari rumus skor.
  * 2. Volume rata-rata dihitung dari frame bicara saja. Bila tidak ada satu pun
  *    frame bicara, volumeRataRms bernilai null.
- * 3. Label volume: di bawah CONFIG.audio.ambangVolumePelan → "pelan", selain itu
- *    "ideal". Selama ambang itu belum ditetapkan dari hasil uji (masih null),
- *    labelnya null. Angka RMS mentah tetap dilaporkan untuk bahan kalibrasi.
+ * 3. Label volume dinilai dari RASIO terhadap suara ruangan, bukan dari angka
+ *    RMS mutlak: volumeRataRms dibagi noiseFloorRms. Alasannya sama dengan
+ *    ambang bicara (lihat catatan desain di kepala berkas): RMS mentah sangat
+ *    bergantung pada penguatan mikrofon, jarak duduk, dan setelan sistem, jadi
+ *    satu angka mutlak yang benar di satu laptop akan salah di laptop lain.
+ *    Rasio di bawah CONFIG.audio.pengaliVolumePelan dilabeli "pelan".
+ *    Selama pengali itu belum ditetapkan dari hasil uji (masih null), labelnya
+ *    null dan kartu rapor berbunyi "belum aktif". Rasio dan RMS mentah tetap
+ *    dilaporkan sebagai bahan kalibrasi.
  * 4. Daftar jeda disalin supaya pemanggil tidak bisa mengubah akumulator modul.
  *
  * @param {Object} config - Objek CONFIG dari app.js
@@ -636,15 +664,25 @@ export function getResults(config = {}) {
 
   const volumeRataRms = jumlahSampleRms > 0 ? (totalRmsAkumulasi / jumlahSampleRms) : null;
 
+  // Rasio terhadap suara ruangan: inilah angka yang bisa dibandingkan antar
+  // perangkat, karena pembilang dan penyebutnya diukur mikrofon yang sama pada
+  // sesi yang sama. "Tiga kali lebih keras daripada ruanganmu" berarti hal yang
+  // kurang lebih sama di laptop mana pun; "RMS 0,05" tidak.
+  const rasioVolume = (volumeRataRms !== null && noiseFloorRms > 0)
+    ? volumeRataRms / noiseFloorRms
+    : null;
+
   let volumeLabel = null;
-  if (volumeRataRms !== null && typeof k.ambangVolumePelan === 'number') {
-    volumeLabel = volumeRataRms < k.ambangVolumePelan ? 'pelan' : 'ideal';
+  if (rasioVolume !== null && typeof k.pengaliVolumePelan === 'number') {
+    volumeLabel = rasioVolume < k.pengaliVolumePelan ? 'pelan' : 'ideal';
   }
 
   if (k.debug) {
     console.log(
       `[audio] hasil: volumeRataRms=${volumeRataRms === null ? 'null' : volumeRataRms.toFixed(4)} ` +
-      `dari ${jumlahSampleRms} frame bicara, ambangVolumePelan=${k.ambangVolumePelan}, ` +
+      `dari ${jumlahSampleRms} frame bicara, noiseFloor=${noiseFloorRms === null ? 'null' : noiseFloorRms.toFixed(4)}, ` +
+      `RASIO=${rasioVolume === null ? 'null' : rasioVolume.toFixed(2)}× suara ruangan, ` +
+      `pengaliVolumePelan=${k.pengaliVolumePelan}, ` +
       `jeda=${jedaDaftar.length}, daftar=${JSON.stringify(jedaDaftar)}`
     );
   }
@@ -652,6 +690,8 @@ export function getResults(config = {}) {
   return {
     tersedia: true,
     volumeRataRms,
+    noiseFloorRms,
+    rasioVolume,
     volumeLabel,
     jeda: {
       jumlah: jedaDaftar.length,
