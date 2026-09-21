@@ -72,9 +72,33 @@
  * sekaligus membuat penyebut rasio ikut bergerak. Karena itu autoGainControl
  * dimatikan lewat CONFIG.audio.autoGainControl dan kalibrasinya diulang.
  *
- * Bila pengulangan itu pun menunjukkan rasio yang nyaris sama, jawabannya bukan
- * memaksakan ambang, melainkan membiarkan pengalinya null sehingga kartu volume
- * tetap berbunyi "belum aktif".
+ * HASIL UJI KEDUA, 21 September 2026 (autoGainControl DIMATIKAN): suara ruangan
+ * jadi stabil (0,0033 / 0,0022 / 0,0022, dari sebelumnya bergeser 58%), tetapi
+ * rasionya justru makin rapat:
+ *   bicara normal        : rasio 4,13x  (RMS bicara 0,0136)
+ *   hampir berbisik      : rasio 3,91x  (RMS bicara 0,0088)
+ *   normal, dua kali jauh: rasio 3,86x  (RMS bicara 0,0084)
+ *
+ * KEPUTUSAN: METRIK VOLUME DIHENTIKAN. Dua sebab, keduanya mendasar:
+ *
+ * 1. Rasio ini menormalkan dirinya sendiri. Rata-ratanya diambil dari frame yang
+ *    BERADA DI ATAS ambang bicara, sedangkan ambang itu sendiri 2,5x suara
+ *    ruangan. Berbisik menghasilkan lebih sedikit frame di atas garis, tetapi
+ *    frame yang lolos tetap sekitar 4x suara ruangan. Rancangannya membuang
+ *    persis perbedaan yang ingin diukurnya.
+ * 2. Bahkan pada angka RMS mentah, berbisik (0,0088) dan duduk dua kali lebih
+ *    jauh (0,0084) tidak terbedakan. Ini fisika, bukan cacat kode: memelankan
+ *    suara dan menjauh menurunkan tingkat mikrofon dengan cara yang sama.
+ *    Memisahkan keduanya butuh pengukuran jarak, yang tidak ada di sini.
+ *
+ * Karena itu pengaliVolumePelan dibiarkan null SELAMANYA, dan kartu volume di
+ * rapor berbunyi "tidak dinilai" beserta alasannya. RMS mentah, suara ruangan,
+ * dan rasionya tetap dihitung dan dilaporkan getResults() — angkanya sah sebagai
+ * bahan mentah, yang tidak sah adalah melabelinya "pelan" atau "ideal".
+ *
+ * autoGainControl tetap dimatikan: ia tidak menyelamatkan metrik ini, tetapi
+ * membuat suara ruangan hasil kalibrasi jauh lebih stabil, dan itu menguntungkan
+ * deteksi jeda yang memang bergantung padanya.
  *
  * ----------------------------------------------------------------------------
  * KEPUTUSAN DESAIN: APA YANG DIHITUNG SEBAGAI "JEDA PANJANG"

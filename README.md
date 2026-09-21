@@ -49,7 +49,7 @@ data, dan tidak ada berkas yang dikirim ke mana pun. Riwayat latihan disimpan di
 | Kata pengisi | Aktif | Pencocokan kata dari transkrip ("kayak", "gitu", "anu") |
 | Arah pandang | Aktif | Sudut kepala dari MediaPipe Face Landmarker, dibandingkan postur netral |
 | Jeda panjang | Aktif | Hening lebih dari 3 detik yang diapit suara bicara |
-| Volume | **Belum dikalibrasi** | Rasio energi suara saat bicara terhadap suara ruangan; pengalinya belum ditetapkan |
+| Volume | **Tidak dinilai** | Dihentikan setelah dua uji lapangan: tingkat suara tidak bisa dipisahkan dari jarak duduk |
 | Postur tubuh | **Tidak aktif** | Dibatalkan; modulnya stub dan bobotnya dialihkan |
 
 Metrik yang tidak menghasilkan data **tidak pernah diisi angka nol**. Rapor
@@ -68,6 +68,11 @@ sekali, diganti tanda hubung beserta alasannya.
 - **Cap waktu kata pengisi dan transkrip bersifat perkiraan**, karena pengenal
   suara memfinalkan kalimat beberapa saat setelah diucapkan. Seluruh label waktu
   di antarmuka memakai kata "sekitar".
+- **Tingkat volume suara tidak dinilai.** Dua uji lapangan (21 September 2026)
+  menunjukkan berbisik dan duduk dua kali lebih jauh menghasilkan tingkat
+  mikrofon yang praktis sama — 3,91 dan 3,86 kali suara ruangan. Memisahkan
+  keduanya butuh pengukuran jarak yang tidak ada di aplikasi ini, jadi kartunya
+  berbunyi "tidak dinilai" alih-alih menampilkan label yang menyesatkan.
 
 ## Privasi
 

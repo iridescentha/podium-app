@@ -236,6 +236,7 @@ Setiap tahap wajib dikerjakan berurutan, diuji secara manual, dan **berhenti men
   - Pencatatan wajah tidak terlihat secara terpisah.
   - *Langkah Uji*: Menunduk 10 detik → kontak pandang turun; tutup kamera → terhitung "wajah tidak terlihat".
 - [ ] **Tahap 3 — Audio (`audio.js`)**:
+  - *Revisi 21 September 2026:* **metrik volume DIHENTIKAN.** Dua uji lapangan menunjukkan berbisik (rasio 3,91x suara ruangan) dan duduk dua kali lebih jauh (3,86x) tidak terbedakan; memisahkannya butuh pengukuran jarak yang tidak tersedia. Kartu volume di rapor berbunyi "tidak dinilai" dan `CONFIG.audio.pengaliVolumePelan` dibiarkan `null` selamanya. Deteksi jeda panjang tidak terpengaruh.
   - Deteksi jeda hening > 3 detik (RMS < `SILENCE_RMS_MAX`).
   - Evaluasi volume rata-rata (pelan / ideal).
   - Heuristik vokal tertahan "eee" via audio (RMS konstan > 800ms tanpa penambahan kata interim) + logika anti double-count dengan filler transkrip.

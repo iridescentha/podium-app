@@ -15,7 +15,7 @@ Tiap butir berisi: **jalankan**, **lulus bila**, **kalau gagal**, **commit**, da
 
 | Bagian | Isi | Total waktu |
 |---|---|---|
-| A | Fitur yang belum jadi — bukan uji | ~5 menit |
+| A | Fitur yang belum jadi — bukan uji | ~1 menit |
 | B | Uji yang bisa memaksa perubahan kode | ~70 menit |
 | C | Uji tampilan | ~25 menit |
 | | **Seluruh pemeriksaan** | **~100 menit** |
@@ -27,59 +27,26 @@ Tiap butir berisi: **jalankan**, **lulus bila**, **kalau gagal**, **commit**, da
 Bukan pemeriksaan. Selama butir ini belum dikerjakan, ada metrik yang **tidak
 menghasilkan angka apa pun** di setiap sesi.
 
-## A1. Kalibrasi volume — metrik mati sampai ini dijalankan · ~4 menit
+## A1. ~~Kalibrasi volume~~ — SELESAI 21 September 2026, metrik DIHENTIKAN
 
-**Status:** `CONFIG.audio.pengaliVolumePelan` masih `null`. Akibatnya kartu volume
-di rapor **selalu** berbunyi "belum aktif". Ini bukan uji yang tertunda; ini
-metrik yang dijanjikan tetapi belum hidup.
+Tidak ada lagi yang perlu dijalankan di butir ini.
 
-**Yang dikalibrasi adalah KELIPATAN, bukan angka RMS.** Volume dinilai sebagai
-rasio: rata-rata energi suara saat bicara dibagi suara ruangan hasil kalibrasi.
-Angka RMS mentah berbeda jauh antar mikrofon, sedangkan rasio bisa dipakai di
-perangkat mana pun.
+**Percobaan 1 (autoGainControl menyala):** normal 3,79× · berbisik 2,85× · dua
+kali lebih jauh 3,00×. Suara ruangan hasil kalibrasi bergeser 58% antar sesi.
 
-**Jalankan:** setel `CONFIG.audio.debug: true`. Tiga sesi, masing-masing sekitar
-45 detik, **kalibrasi suara ruangan setiap kali** lalu bacakan paragraf ini:
+**Percobaan 2 (autoGainControl dimatikan):** suara ruangan stabil (0,0033 /
+0,0022 / 0,0022), tetapi rasionya makin rapat — normal 4,13× · berbisik 3,91× ·
+dua kali lebih jauh 3,86×.
 
-> "Selamat siang. Hari ini saya ingin membahas bagaimana teknologi bisa membantu
-> orang berlatih presentasi secara mandiri. Banyak orang merasa gugup saat
-> berbicara di depan umum, dan salah satu cara mengatasinya adalah dengan
-> berlatih berulang kali. Aplikasi ini mengukur kecepatan bicara, jeda, dan arah
-> pandang, lalu memberikan rapor setelah latihan selesai."
+**Kesimpulan:** metrik volume dihentikan. Rasionya menormalkan dirinya sendiri
+(rata-rata diambil dari frame di atas ambang, dan ambangnya sendiri turunan
+suara ruangan), dan bahkan pada RMS mentah, berbisik (0,0088) tidak terbedakan
+dari duduk dua kali lebih jauh (0,0084). Kartu volume kini berbunyi "tidak
+dinilai" beserta alasannya, `pengaliVolumePelan` dibiarkan `null` selamanya, dan
+README serta GEMINI.md sudah disesuaikan.
 
-- **Sesi 1:** volume presentasi yang wajar.
-- **Sesi 2:** hampir berbisik.
-- **Sesi 3:** volume wajar lagi, tetapi **duduk dua kali lebih jauh** dari laptop.
-
-Catat angka `RASIO=...× suara ruangan` dari baris `[audio] hasil:` pada ketiganya.
-
-**Lulus bila:** rasio sesi 1 dan 3 berdekatan (keduanya "cukup keras"), dan rasio
-sesi 2 jelas lebih kecil. Isikan angka di antara sesi 2 dan sesi 1 ke
-`CONFIG.audio.pengaliVolumePelan`. Contoh: bila sesi 1 dan 3 sekitar 8× dan sesi
-2 sekitar 3×, isi 5. Jalankan satu sesi lagi: kartu volume harus berbunyi
-"ideal" atau "pelan", dengan keterangan "N× lebih keras daripada suara ruanganmu".
-
-**Kalau gagal** (ketiga rasio berdekatan): `autoGainControl` meratakan volume
-sampai metriknya tidak bisa dipercaya. Jangan dipaksakan — biarkan `null` dan
-biarkan kartunya "belum aktif". Itu tetap jujur, dan sudah ditulis sebagai
-keterbatasan di kepala `js/audio.js`.
-
-**Commit:** `f6918e4`, commit volume relatif
-
-**Hasil percobaan pertama, 21 September 2026 (Chrome, autoGainControl masih
-menyala): GAGAL.** Bicara normal 3,79×, hampir berbisik 2,85×, normal pada jarak
-dua kali lipat 3,00×. Berbisik dan duduk jauh praktis tidak terbedakan, dan
-suara ruangan hasil kalibrasi sendiri bergeser 58% antar sesi (0,0101 → 0,0160 →
-0,0132) di ruangan yang sama.
-
-**Tindakan:** `CONFIG.audio.autoGainControl` kini `false`. **Ulangi ketiga sesi
-di atas.** Yang diharapkan: suara ruangan ketiga sesi berdekatan, rasio sesi 1
-dan 3 berdekatan, dan rasio sesi 2 jelas lebih kecil.
-
-**Kalau percobaan kedua juga gagal:** biarkan `pengaliVolumePelan` tetap `null`,
-tandai volume sebagai metrik yang tidak aktif di README dan GEMINI.md, dan
-berhenti. Dua percobaan sudah cukup untuk menyimpulkan bahwa pengukurannya tidak
-bisa dipercaya di perangkat ini.
+**autoGainControl tetap dimatikan** karena membuat suara ruangan jauh lebih
+stabil, dan deteksi jeda bergantung pada angka itu.
 
 ## A2. Matikan seluruh flag debug sebelum dikumpulkan · ~1 menit
 

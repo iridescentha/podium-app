@@ -154,12 +154,12 @@ export const CONFIG = {
     // menyimpan acuan yang pasti salah.
     // NILAI AWAL, BELUM DIVALIDASI: tetapkan dari RMS bicara sungguhan lewat debug.
     ambangBicaraMaks: 0.08,
-    // Volume dinilai sebagai KELIPATAN suara ruangan, bukan angka RMS mutlak:
-    // rasio = rata-rata RMS saat bicara dibagi suara ruangan hasil kalibrasi.
-    // Rasio di bawah angka ini dilabeli "pelan", selain itu "ideal".
-    // Angka mutlak tidak dipakai karena RMS yang sama berarti hal berbeda di
-    // mikrofon berbeda; rasio bisa dibandingkan antar perangkat.
-    // null = belum ditetapkan dari uji; selama null, label volume tidak muncul.
+    // DIBIARKAN null SELAMANYA — metrik volume dihentikan 21 September 2026.
+    // Dua uji lapangan menunjukkan berbisik dan duduk dua kali lebih jauh
+    // menghasilkan tingkat mikrofon yang praktis sama (rasio 3,91x lawan
+    // 3,86x), sehingga label "pelan" tidak bisa dipercaya. Alasan lengkap dan
+    // angkanya ada di kepala js/audio.js. Mengisi angka di sini akan
+    // menghidupkan kembali label yang sudah terbukti menyesatkan.
     pengaliVolumePelan: null,
 
     // Kendali penguatan otomatis mikrofon. DIMATIKAN sejak uji 21 September 2026:
@@ -1355,9 +1355,12 @@ function renderRaporUI(data, statusSimpan) {
       : 'dihitung dari saat kamu berbicara saja';
   } else {
     DOM.raporVolumeNilai.classList.add('kartu-metrik__nilai--nonaktif');
-    DOM.raporVolumeNilai.textContent = 'belum aktif';
+    DOM.raporVolumeNilai.textContent = 'tidak dinilai';
+    // Keterangan PERMANEN, bukan "belum dikalibrasi": dua uji lapangan
+    // menunjukkan suara pelan dan duduk menjauh menghasilkan tingkat mikrofon
+    // yang sama, sehingga labelnya tidak bisa dipercaya. Lihat js/audio.js.
     DOM.raporVolumeKet.textContent = data.jedaTersedia
-      ? 'batas volume belum dikalibrasi'
+      ? 'tingkat suara tidak bisa dipisahkan dari jarak dudukmu ke mikrofon'
       : 'suara ruangan tidak terukur';
   }
 
