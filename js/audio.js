@@ -59,12 +59,22 @@
  * noiseFloorRms, dibandingkan dengan CONFIG.audio.pengaliVolumePelan. Dengan
  * begitu seluruh ambang di modul ini diturunkan dari SATU pengukuran yang sama.
  *
- * Keterbatasan yang diketahui: getUserMedia berjalan dengan autoGainControl
- * menyala, yang memang bertugas meratakan perbedaan volume. Ia membantu metrik
- * lain dan bekerja melawan metrik ini. Bila uji kalibrasi menunjukkan suara
- * normal dan suara berbisik menghasilkan rasio yang nyaris sama, jawabannya
- * bukan memaksakan ambang, melainkan membiarkan pengalinya null sehingga kartu
- * volume tetap berbunyi "belum aktif".
+ * HASIL UJI KALIBRASI PERTAMA, 21 September 2026 (Chrome, autoGainControl
+ * MENYALA): metriknya GAGAL memisahkan ketiga kondisi.
+ *   bicara normal        : rasio 3,79x  (suara ruangan 0,0101)
+ *   hampir berbisik      : rasio 2,85x  (suara ruangan 0,0160)
+ *   normal, dua kali jauh: rasio 3,00x  (suara ruangan 0,0132)
+ * Berbisik dan duduk jauh nyaris tidak terbedakan, dan suara ruangan hasil
+ * kalibrasi sendiri bergeser 58% antar sesi di ruangan yang sama.
+ *
+ * Penyebabnya kendali penguatan otomatis: ia menguatkan masukan yang pelan dan
+ * menahan yang keras, sehingga meratakan justru perbedaan yang ingin diukur,
+ * sekaligus membuat penyebut rasio ikut bergerak. Karena itu autoGainControl
+ * dimatikan lewat CONFIG.audio.autoGainControl dan kalibrasinya diulang.
+ *
+ * Bila pengulangan itu pun menunjukkan rasio yang nyaris sama, jawabannya bukan
+ * memaksakan ambang, melainkan membiarkan pengalinya null sehingga kartu volume
+ * tetap berbunyi "belum aktif".
  *
  * ----------------------------------------------------------------------------
  * KEPUTUSAN DESAIN: APA YANG DIHITUNG SEBAGAI "JEDA PANJANG"

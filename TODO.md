@@ -66,6 +66,21 @@ keterbatasan di kepala `js/audio.js`.
 
 **Commit:** `f6918e4`, commit volume relatif
 
+**Hasil percobaan pertama, 21 September 2026 (Chrome, autoGainControl masih
+menyala): GAGAL.** Bicara normal 3,79×, hampir berbisik 2,85×, normal pada jarak
+dua kali lipat 3,00×. Berbisik dan duduk jauh praktis tidak terbedakan, dan
+suara ruangan hasil kalibrasi sendiri bergeser 58% antar sesi (0,0101 → 0,0160 →
+0,0132) di ruangan yang sama.
+
+**Tindakan:** `CONFIG.audio.autoGainControl` kini `false`. **Ulangi ketiga sesi
+di atas.** Yang diharapkan: suara ruangan ketiga sesi berdekatan, rasio sesi 1
+dan 3 berdekatan, dan rasio sesi 2 jelas lebih kecil.
+
+**Kalau percobaan kedua juga gagal:** biarkan `pengaliVolumePelan` tetap `null`,
+tandai volume sebagai metrik yang tidak aktif di README dan GEMINI.md, dan
+berhenti. Dua percobaan sudah cukup untuk menyimpulkan bahwa pengukurannya tidak
+bisa dipercaya di perangkat ini.
+
 ## A2. Matikan seluruh flag debug sebelum dikumpulkan · ~1 menit
 
 **Status:** `CONFIG.TIMELINE_DEBUG` saat ini `true`.
@@ -174,6 +189,13 @@ masuk akal, tetapi belum pernah diuji ulang di Chrome.
   turunkan `pengaliAmbangBicara` (kini 2.5).
 
 **Commit:** `f6918e4`
+
+**Perhatikan sejak 21 September 2026:** `autoGainControl` sudah dimatikan, jadi
+ujian ini sekalian memeriksa apakah deteksi jeda ikut membaik. Pada uji volume
+sebelumnya, bicara normal sering turun di bawah ambang (`bersuara=16/120` di
+tengah membaca) dan satu jeda panjang 4,8 detik tercatat saat pengguna masih
+membaca. Bila itu masih terjadi tanpa penguatan otomatis, turunkan
+`pengaliAmbangBicara` dari 2.5 ke sekitar 2.0 dan ulangi.
 
 ## B4. Jalur kegagalan kalibrasi · ~6 menit
 

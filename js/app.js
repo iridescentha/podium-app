@@ -155,8 +155,15 @@ export const CONFIG = {
     // mikrofon berbeda; rasio bisa dibandingkan antar perangkat.
     // null = belum ditetapkan dari uji; selama null, label volume tidak muncul.
     pengaliVolumePelan: null,
+
+    // Kendali penguatan otomatis mikrofon. DIMATIKAN sejak uji 21 September 2026:
+    // tugasnya meratakan perbedaan volume, dan itu persis yang ingin diukur.
+    // Nyalakan hanya bila mikrofonmu jadi terlalu pelan tanpanya, dengan sadar
+    // bahwa label volume ikut tidak bisa dipercaya.
+    autoGainControl: false,
+
     // true: cetak noise floor, RMS per detik, tiap jeda, dan hasil akhir ke console
-    debug: false
+    debug: true
   },
 
   // Arah Pandang (sudut kepala dari matriks transformasi MediaPipe)
@@ -457,7 +464,14 @@ async function mintaIzinMedia() {
       audio: {
         echoCancellation: true,
         noiseSuppression: false, // Menjaga akurasi deteksi bunyi nafas / jeda
-        autoGainControl: true
+        // Kendali penguatan otomatis DIMATIKAN sejak uji kalibrasi 21 September
+        // 2026. Tugasnya memang meratakan perbedaan volume, dan itu persis yang
+        // merusak dua pengukuran modul audio: suara ruangan hasil kalibrasi
+        // bergeser 58% antar sesi di ruangan yang sama, dan rasio volume saat
+        // berbisik (2,85x) nyaris sama dengan saat duduk dua kali lebih jauh
+        // (3,00x). Dengan penguatan tetap, angka mentah mikrofon jadi bisa
+        // dibandingkan antar sesi. Bisa dikembalikan lewat CONFIG.audio.
+        autoGainControl: CONFIG.audio.autoGainControl
       }
     });
 
