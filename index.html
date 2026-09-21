@@ -47,14 +47,14 @@
         <!-- Kelompok 1: Judul & Tagline (jarak dalam kelompok 24px) -->
         <div class="beranda-kelompok beranda-kelompok--judul">
           <h1 class="beranda-judul">Podium</h1>
-          <p class="beranda-tagline">Latih presentasimu sendirian — dapatkan rapor yang jujur.</p>
+          <p class="beranda-tagline">Latih presentasimu sendirian, dan dapatkan rapor yang jujur.</p>
         </div>
 
         <!-- Kelompok 2: Cara Kerja (jarak dalam kelompok 24px, antar kelompok 64px) -->
         <div class="beranda-kelompok">
           <div class="beranda-poin">
             <div class="beranda-poin__item">
-              <span class="beranda-poin__angka">1</span>
+            <span class="beranda-poin__angka">1</span>
               <div class="beranda-poin__konten">
                 <div class="beranda-poin__judul">Rekam</div>
                 <div class="beranda-poin__deskripsi">Berlatih berbicara secara alami di hadapan layar laptopmu.</div>
@@ -308,6 +308,9 @@
         <div class="indikator-item">
           <div id="live-angka-wpm" class="indikator-angka">0</div>
           <div class="indikator-label">WPM saat ini</div>
+          <!-- Hanya muncul bila pengenal suara benar-benar tidak hidup. Ini
+               keterangan teknis, bukan teguran atas cara pengguna berbicara. -->
+          <div id="live-status-suara" class="indikator-galat" style="display: none;">pengenal suara tidak aktif</div>
         </div>
         <div class="indikator-item">
           <div id="live-angka-filler" class="indikator-angka">0</div>

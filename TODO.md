@@ -197,6 +197,29 @@ tengah membaca) dan satu jeda panjang 4,8 detik tercatat saat pengguna masih
 membaca. Bila itu masih terjadi tanpa penguatan otomatis, turunkan
 `pengaliAmbangBicara` dari 2.5 ke sekitar 2.0 dan ulangi.
 
+## B3b. Pengenal suara yang mati diam-diam · ~5 menit
+
+**Temuan 21 September 2026:** satu sesi berjalan 45 detik penuh dengan WPM tetap
+nol padahal pengguna berbicara. `recognition.start()` melempar galat, modul
+menyerah untuk seluruh sesi, dan tidak ada apa pun di layar yang memberi tahu.
+Memuat ulang halaman memperbaikinya. Sudah diperbaiki dengan percobaan ulang dan
+pengawas berkala.
+
+**Jalankan:** beberapa sesi berturut-turut TANPA memuat ulang halaman —
+selesaikan satu sesi, "Latihan lagi", ulangi, minimal empat kali. Bicaralah
+sebentar di tiap sesi.
+
+**Lulus bila:** WPM naik di semua sesi. Tulisan merah "pengenal suara tidak
+aktif" tidak muncul. Di console tidak ada baris "tidak bisa dijalankan setelah
+beberapa percobaan".
+
+**Kalau gagal** (tulisan merah muncul, atau WPM tetap nol): salin seluruh baris
+peringatan dari console. Bila baris "dijalankan ulang" muncul terus-menerus saat
+kamu memang sedang bicara, `CONFIG.SPEECH_WATCHDOG_DETIK` (kini 15) terlalu
+pendek dan harus dinaikkan.
+
+**Commit:** `a5b23b9`
+
 ## B4. Jalur kegagalan kalibrasi · ~6 menit
 
 **Jalankan:**

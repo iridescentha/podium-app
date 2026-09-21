@@ -81,6 +81,12 @@ export const CONFIG = {
   // Konsekuensinya "anu" (3 huruf) TIDAK mencakup "anunya" selama ambang ini 4.
   FILLER_PREFIX_MIN: 4,
 
+  // Bila pengenal suara tidak mengirim satu pun hasil selama sekian detik saat
+  // sesi berjalan, instansnya dibangun ulang. Chrome bisa berhenti mendengarkan
+  // tanpa memicu event apa pun, dan tanpa ambang ini keadaan itu mustahil
+  // dibedakan dari "penggunanya memang sedang diam".
+  SPEECH_WATCHDOG_DETIK: 15,
+
   // Bunyi ragu non-leksikal. SENGAJA TIDAK dipakai untuk mencocokkan transkrip,
   // karena terbukti tidak pernah sampai ke sana. Didaftarkan di sini hanya
   // sebagai catatan hasil uji. Deteksi akustiknya DIBATALKAN pada Tahap 3
@@ -311,6 +317,7 @@ const DOM = {
   timerProgressBar: document.getElementById('timer-progress-bar'),
   timerProgresTeks: document.getElementById('timer-progres-teks'),
   liveAngkaWpm: document.getElementById('live-angka-wpm'),
+  liveStatusSuara: document.getElementById('live-status-suara'),
   liveAngkaFiller: document.getElementById('live-angka-filler'),
   liveStatusPandang: document.getElementById('live-status-pandang'),
   videoPreviewSesi: document.getElementById('video-preview-sesi'),
@@ -983,7 +990,18 @@ function mulaiSesiLatihan() {
 
   // Mulai modul-modul analisis
   // 1. Modul Suara (Speech)
+  DOM.liveStatusSuara.style.display = 'none';
+
   speechModule.start({
+    // Pengenal suara yang mati diam-diam pernah membuat satu sesi penuh berlalu
+    // dengan WPM nol tanpa pengguna tahu. Keadaannya kini ditampilkan apa adanya.
+    onStatusChange: (keadaan) => {
+      if (keadaan === 'tidak-aktif') {
+        DOM.liveStatusSuara.style.display = '';
+      } else if (keadaan === 'aktif') {
+        DOM.liveStatusSuara.style.display = 'none';
+      }
+    },
     onWpmUpdate: (wpm) => {
       state.metrikLive.wpm = wpm;
       DOM.liveAngkaWpm.textContent = wpm;

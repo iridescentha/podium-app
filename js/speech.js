@@ -92,6 +92,26 @@ let detikAkhirPotonganTerakhir = 0;
 let pernahAdaHasilFinal = false;
 
 // ----------------------------------------------------------------------------
+// PENGAWAS PENGENAL SUARA (ditambahkan 21 September 2026)
+//
+// Temuan lapangan: satu sesi berjalan 45 detik penuh dengan WPM tetap nol,
+// padahal pengguna berbicara. recognition.start() melempar galat saat dipanggil
+// — Chrome menolaknya bila instans sebelumnya belum selesai ditutup — dan modul
+// ini menyerah untuk seluruh sesi tanpa mencoba lagi dan tanpa memberi tahu
+// siapa pun. Memuat ulang halaman memperbaikinya, yang cocok dengan gejalanya.
+//
+// Dua lapis perbaikan:
+// 1. start() yang gagal DICOBA LAGI beberapa kali dengan jeda pendek.
+// 2. Pengawas berkala memeriksa apakah masih ada hasil yang masuk. Chrome bisa
+//    berhenti mendengarkan tanpa memicu onend sama sekali, dan tanpa pengawas
+//    ini keadaan itu mustahil dibedakan dari "penggunanya memang sedang diam".
+// ----------------------------------------------------------------------------
+let idPengawas = null;
+let waktuHasilTerakhir = 0;
+let percobaanStart = 0;
+let sedangAktif = false;
+
+// ----------------------------------------------------------------------------
 // JAM SESI: waktu berjalan yang MENGABAIKAN durasi jeda.
 //
 // Kenapa tidak memakai jam dinding: kalau pengguna menjeda sesi lima menit lalu
@@ -137,8 +157,16 @@ const DAFTAR_FILLER_DEFAULT = [
   "gitu", "kayak", "jadi jadi", "terus terus", "oke oke"
 ];
 
+// Berapa kali start() yang gagal dicoba lagi, dan jeda antar percobaannya.
+// Jedanya bertambah tiap percobaan (250, 500, 750 ms) supaya penyebab yang
+// butuh waktu lebih lama untuk hilang tetap tertangkap.
+const MAKS_PERCOBAAN_START = 3;
+const JEDA_PERCOBAAN_MS = 250;
+const CEK_PENGAWAS_MS = 5000;
+
 // Ambang bawaan, dipakai hanya jika CONFIG tidak dioper dari app.js.
 const KONFIG_BAWAAN = {
+  SPEECH_WATCHDOG_DETIK: 15,
   FILLER_WORDS: DAFTAR_FILLER_DEFAULT,
   FILLER_PREFIX_MIN: 4,
   WPM_BUCKET_DETIK: 30,
@@ -155,7 +183,10 @@ let eventCallbacks = {
   onWpmUpdate: null,      // Callback saat estimasi WPM bergulir diperbarui
   onFillerUpdate: null,   // Callback saat kata pengisi baru terdeteksi
   onError: null,          // Callback penanganan error recognition
-  onStatusChange: null    // Callback status recognition (aktif/restart/berhenti)
+  // Keadaan pengenal suara. Nilainya: 'dimulai', 'dijalankan-ulang', 'dijeda',
+  // 'dihentikan', lalu dua yang paling penting bagi pengguna: 'aktif' (hasil
+  // benar-benar masuk) dan 'tidak-aktif' (pengenalan mati atau membisu).
+  onStatusChange: null
 };
 
 /**
@@ -215,6 +246,9 @@ export function start(callbacks = {}, config = {}) {
   waktuMulaiSegmen = Date.now();
 
   status = 'berjalan';
+  waktuHasilTerakhir = Date.now();
+  percobaanStart = 0;
+  mulaiPengawas();
   return inisialisasiRecognition();
 }
 
@@ -233,10 +267,11 @@ export function start(callbacks = {}, config = {}) {
 export function pause() {
   if (status !== 'berjalan') return false;
   status = 'dijeda';
+  hentikanPengawas();
   tutupSegmenWaktu();
   lepasInstansRecognition();
   if (typeof eventCallbacks.onStatusChange === 'function') {
-    eventCallbacks.onStatusChange('paused');
+    eventCallbacks.onStatusChange('dijeda');
   }
   return true;
 }
@@ -256,6 +291,9 @@ export function resume() {
   if (status !== 'dijeda') return false;
   status = 'berjalan';
   waktuMulaiSegmen = Date.now(); // jam sesi berjalan lagi dari titik terakhir
+  waktuHasilTerakhir = Date.now();
+  percobaanStart = 0;
+  mulaiPengawas();
   return inisialisasiRecognition();
 }
 
@@ -269,10 +307,12 @@ export function resume() {
  */
 export function stop() {
   status = 'berhenti';
+  hentikanPengawas();
+  sedangAktif = false;
   tutupSegmenWaktu();
   lepasInstansRecognition();
   if (typeof eventCallbacks.onStatusChange === 'function') {
-    eventCallbacks.onStatusChange('stopped');
+    eventCallbacks.onStatusChange('dihentikan');
   }
 }
 
@@ -307,6 +347,14 @@ function inisialisasiRecognition() {
     // Event: onresult
     // ------------------------------------------------------------------------
     instans.onresult = (event) => {
+      // Penanda bahwa pengenal suara benar-benar masih mendengarkan
+      waktuHasilTerakhir = Date.now();
+      percobaanStart = 0;
+      if (!sedangAktif) {
+        sedangAktif = true;
+        laporkanStatus('aktif');
+      }
+
       let interimSegment = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -360,7 +408,7 @@ function inisialisasiRecognition() {
       try {
         instans.start();
         if (typeof eventCallbacks.onStatusChange === 'function') {
-          eventCallbacks.onStatusChange('restarted');
+          eventCallbacks.onStatusChange('dijalankan-ulang');
         }
       } catch (e) {
         // Bila restart instan gagal, coba lagi dalam jeda waktu singkat 100ms
@@ -376,15 +424,81 @@ function inisialisasiRecognition() {
     instans.start();
 
     if (typeof eventCallbacks.onStatusChange === 'function') {
-      eventCallbacks.onStatusChange('active');
+      eventCallbacks.onStatusChange('dimulai');
     }
     return true;
   } catch (err) {
-    console.error('Gagal menjalankan recognition.start():', err);
+    // Menyerah di sini berarti seluruh sesi berjalan tanpa transkrip sama
+    // sekali, dan itulah bug yang terjadi di lapangan. Galat paling lazim di
+    // sini adalah InvalidStateError karena instans sebelumnya belum tuntas
+    // ditutup, dan itu hilang sendiri dalam ratusan milidetik.
+    console.warn(`Gagal menjalankan recognition.start() (percobaan ${percobaanStart + 1}):`, err);
+
+    if (percobaanStart < MAKS_PERCOBAAN_START) {
+      percobaanStart++;
+      setTimeout(() => {
+        if (status === 'berjalan') inisialisasiRecognition();
+      }, JEDA_PERCOBAAN_MS * percobaanStart);
+      return false;
+    }
+
+    // Sudah dicoba beberapa kali dan tetap gagal: beri tahu pemanggil supaya
+    // pengguna tidak berbicara 45 detik ke pengenal suara yang tidak hidup.
+    console.error('Pengenal suara tidak bisa dijalankan setelah beberapa percobaan.');
+    sedangAktif = false;
+    laporkanStatus('tidak-aktif');
     if (typeof eventCallbacks.onError === 'function') {
       eventCallbacks.onError(err);
     }
     return false;
+  }
+}
+
+/**
+ * Memberi tahu pemanggil tentang keadaan pengenal suara.
+ */
+function laporkanStatus(keadaan) {
+  if (typeof eventCallbacks.onStatusChange === 'function') {
+    eventCallbacks.onStatusChange(keadaan);
+  }
+}
+
+/**
+ * Menjalankan pengawas berkala selama sesi.
+ *
+ * CARA KERJA:
+ * Tiap CEK_PENGAWAS_MS, pengawas melihat berapa lama sejak hasil terakhir
+ * diterima. Diam yang wajar tidak masalah: pengenal suara tetap mengirim hasil
+ * sementara begitu ada suara. Tetapi bila tidak ada apa pun selama lebih dari
+ * konfig.SPEECH_WATCHDOG_DETIK, kemungkinan besar pengenalannya sudah berhenti
+ * diam-diam, dan instansnya dibangun ulang.
+ *
+ * Membangun ulang saat pengguna memang sedang diam tidak merugikan: akumulator
+ * tidak disentuh, dan pengenalan baru langsung mendengarkan lagi.
+ */
+function mulaiPengawas() {
+  hentikanPengawas();
+  idPengawas = setInterval(() => {
+    if (status !== 'berjalan') return;
+
+    const diamMs = Date.now() - waktuHasilTerakhir;
+    if (diamMs < konfig.SPEECH_WATCHDOG_DETIK * 1000) return;
+
+    console.warn(`Pengenal suara tidak mengirim hasil selama ${Math.round(diamMs / 1000)} detik; dijalankan ulang.`);
+    if (sedangAktif) {
+      sedangAktif = false;
+      laporkanStatus('tidak-aktif');
+    }
+    waktuHasilTerakhir = Date.now();
+    percobaanStart = 0;
+    inisialisasiRecognition();
+  }, CEK_PENGAWAS_MS);
+}
+
+function hentikanPengawas() {
+  if (idPengawas !== null) {
+    clearInterval(idPengawas);
+    idPengawas = null;
   }
 }
 
