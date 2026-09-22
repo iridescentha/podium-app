@@ -18,31 +18,9 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
-| A | Fitur yang belum jadi — bukan uji | ~1 menit |
-| B | Uji yang bisa memaksa perubahan kode | ~21 menit |
+| B | Uji yang bisa memaksa perubahan kode | ~17 menit |
 | C | Uji tampilan | ~29 menit |
-| | **Sisa pemeriksaan** | **~51 menit** |
-
----
-
-# A. FITUR YANG BELUM JADI
-
-Bukan pemeriksaan. Selama butir ini belum dikerjakan, ada metrik yang **tidak
-menghasilkan angka apa pun** di setiap sesi.
-
-## A2. Matikan seluruh flag debug sebelum dikumpulkan · ~1 menit
-
-**Status:** `CONFIG.TIMELINE_DEBUG` saat ini `true`.
-
-**Jalankan:** di `js/app.js`, pastikan ketiganya `false`:
-`TIMELINE_DEBUG`, `FACE_DEBUG`, dan `CONFIG.audio.debug`.
-
-**Lulus bila:** jalankan satu sesi penuh, console bersih — tidak ada baris
-`[timeline]`, `[face]`, `[audio]`, maupun `[diag]`.
-
-**Kalau gagal:** setel manual ke `false`. Jangan dikumpulkan dengan debug menyala.
-
-**Commit:** beberapa; periksa nilainya langsung di `CONFIG`.
+| | **Sisa pemeriksaan** | **~46 menit** |
 
 ---
 
@@ -51,54 +29,6 @@ menghasilkan angka apa pun** di setiap sesi.
 Diurutkan dari yang akibatnya paling besar. Kegagalan di sini berarti ada yang
 harus diperbaiki, bukan sekadar dicatat.
 
-## B9. Sesi terlalu pendek dan penyimpanan penuh · ~4 menit
-
-**Jalankan:** (a) sesi 20 detik lalu Selesai. (b) Isi localStorage sampai penuh:
-```js
-let n = 0;
-for (const ukuran of [200_000, 20_000, 2_000, 200, 20]) {
-  try { for (;;) { localStorage.setItem('sampah' + n, 'x'.repeat(ukuran)); n++; } } catch (e) {}
-}
-console.log('blok terpakai:', n, '— sisa ruang kurang dari 20 karakter');
-```
-lalu jalankan sesi normal 40 detik.
-
-**Ukuran bloknya harus mengecil bertahap, dan ini bukan kerumitan yang
-mengada-ada.** Dua percobaan sebelumnya gagal menguji apa pun justru karena
-mengabaikannya:
-
-1. Satu blok 5 juta karakter. Kuota localStorage Chrome sekitar segitu, jadi
-   blok itu ditolak seketika dan **tidak ada apa pun yang tersimpan**.
-   localStorage tetap kosong melompong.
-2. Blok 200 ribu karakter, diulang sampai ditolak. Lebih baik, tapi masih salah:
-   yang ditolak adalah blok 200 ribu karakter, artinya ruang sisa bisa mencapai
-   199.999 karakter. Satu sesi cuma beberapa ribu karakter, jadi ia muat dengan
-   santai dan tetap tersimpan. Diuji 22 September 2026 di Chrome: "penuh setelah
-   26 blok", lalu sesi 40 detik **tetap tersimpan** dan transkripnya pun
-   tersimpan. Jalur kuota penuh tidak pernah tersentuh.
-
-Aturannya: blok terakhir harus lebih kecil daripada hal yang sedang diuji.
-Mengecil sampai 20 karakter membuat sisa ruang lebih kecil daripada sesi
-terkecil sekalipun.
-
-Riwayat yang sudah ada aman: `setItem` bersifat atomik, jadi saat ditolak nilai
-lama tetap utuh, bukan terpotong setengah.
-
-**Lulus bila:** (a) muncul pesan sesi di bawah 30 detik, kembali ke Beranda,
-tidak ada entri baru di Riwayat. (b) Rapor tetap tampil lengkap, dengan catatan
-merah bahwa sesi tidak tersimpan ke riwayat.
-
-**Kalau gagal:** aplikasi tidak boleh macet atau kehilangan rapor hanya karena
-penyimpanan penuh.
-
-**Bersihkan:**
-```js
-Object.keys(localStorage).filter(k => k.startsWith('sampah')).forEach(k => localStorage.removeItem(k));
-console.log('sisa kunci:', Object.keys(localStorage));
-```
-
-**Commit:** `931b9ce`
-
 ## B10. Luring dan CDN gagal · ~4 menit
 
 **Jalankan:** DevTools → Network → Offline → muat ulang → buka Riwayat dan
@@ -106,7 +36,21 @@ jalankan satu sesi.
 
 **Lulus bila:** grafik tren diganti keterangan bahwa pustaka grafik gagal dimuat,
 model wajah melaporkan "Gagal dimuat", sesi tetap bisa berjalan, dan arah pandang
-ditandai "belum aktif". **Console tidak boleh merah.**
+ditandai "belum aktif".
+
+**Tentang console merah.** Kriteria lama berbunyi "console tidak boleh merah",
+dan itu tidak bisa dipenuhi secara harfiah. Terlihat saat B9 dijalankan
+22 September 2026 di Chrome: badge console menunjukkan dua galat merah, dan
+keduanya BUKAN dari kode aplikasi.
+
+1. `GET /favicon.ico 404` — `index.html` tidak punya `rel="icon"`, jadi Chrome
+   meminta berkas yang tidak ada. Bisa dihilangkan dengan satu tag `<link>`.
+2. `INFO: Created TensorFlow Lite XNNPACK delegate for CPU.` — ditulis modul
+   wasm MediaPipe ke stderr, dan Chrome menandai apa pun dari stderr sebagai
+   galat. Tidak bisa dimatikan tanpa ikut menyembunyikan pesan asli pustaka itu.
+
+Jadi yang dinilai: **tidak boleh ada galat merah selain kedua baris di atas**,
+dan tidak boleh ada yang berasal dari berkas di `js/`.
 
 **Kalau gagal:** catat galatnya apa adanya.
 
@@ -253,6 +197,28 @@ Jangan diam-diam menambah gradien kedua.
 Butir-butirnya sudah dihapus dari daftar di atas; dicatat di sini supaya tidak
 diuji ulang tanpa alasan.
 
+- **Flag debug mati (A2)** — `TIMELINE_DEBUG`, `FACE_DEBUG`, dan
+  `CONFIG.audio.debug` ketiganya `false` sejak `9e424e6`. Dibuktikan lewat sesi
+  B9: rapor terbuka dan tidak satu pun baris `[timeline]`, `[face]`, `[audio]`,
+  atau `[diag]` muncul. Seluruh cetakan itu memang berada di balik salah satu
+  flag — yang `[diag]` lewat `catatDiagnostik()` yang keluar lebih dulu bila
+  `FACE_DEBUG` mati.
+- **Sesi pendek dan penyimpanan penuh (B9)** — 22 September 2026, Chrome.
+  (a) Sesi 20 detik ditolak, kembali ke Beranda, tidak ada entri baru.
+  (b) Pengisian localStorage bertahap berhenti di **38 blok**, dan barulah jalur
+  kuota penuh benar-benar tersentuh — dua percobaan sebelumnya (satu blok 5 juta,
+  lalu 26 blok 200 ribu) tidak pernah mencapainya. `setItem` melempar
+  `QuotaExceededError`, `simpanSesi()` menangkapnya sebagai `console.warn`
+  (kuning, bukan merah) dan mengembalikan `{ sukses: false }`. Rapor tetap
+  terender penuh — skor, kartu metrik, lintasan, legenda, saran — dengan DUA
+  catatan merah: satu di kotak transkrip ("Sesi ini tidak masuk riwayat, jadi
+  transkripnya juga tidak bisa disimpan") dan satu di bawah saran. Karena
+  `setItem` melempar, tidak ada apa pun yang tertulis, jadi riwayat dipastikan
+  tidak bertambah.
+- **Jumlah saran mengikuti masalah yang nyata** — sesi B9 hanya menampilkan SATU
+  saran, dan itu benar. `ATURAN_SARAN` di `js/report.js` memakai maksimal tiga,
+  bukan tepat tiga, dan sesi itu cuma melanggar satu aturan (40 WPM di bawah
+  `WPM_SARAN_PELAN`). Bukan cacat.
 - **Rapor saat metrik hilang** — semua metrik tak terukur berbunyi "belum aktif",
   skor ditahan, tidak ada pujian palsu.
 - **Arah pandang** — mendongak tidak pernah terbaca menunduk (pitch sampai +37°,
