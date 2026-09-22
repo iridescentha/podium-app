@@ -577,16 +577,35 @@ function prosesPotonganFinal(potonganTeks) {
   const teksBersih = potonganTeks.toLowerCase().trim();
   if (!teksBersih) return;
 
-  // Semua kata dalam satu potongan final diberi cap waktu yang sama, yaitu saat
-  // potongan itu difinalkan. Ini perkiraan, bukan waktu ucap sebenarnya, karena
-  // Chrome memfinalkan kalimat beberapa saat setelah kalimatnya selesai diucapkan.
+  // CAP WAKTU KATA: DISEBAR, BUKAN DITUMPUK (diperbaiki 22 September 2026)
+  //
+  // Pengenal suara memfinalkan satu potongan sekaligus, dan versi sebelumnya
+  // memberi SELURUH kata di dalamnya cap waktu yang sama, yaitu detik saat
+  // potongan itu difinalkan. Akibatnya terlihat jelas di lapangan: penutur yang
+  // bicara 40 detik tanpa jeda membuat tujuh puluhan katanya menumpuk di satu
+  // titik, sehingga potongan 30-44 detik terbaca 337 kata per menit sementara
+  // potongan sebelumnya nyaris kosong — padahal rata-rata sesinya 102.
+  //
+  // Sekarang kata-kata itu disebar merata sepanjang rentang yang memang
+  // diwakili potongannya, dari ujung potongan sebelumnya sampai saat
+  // finalisasi. Ini tetap perkiraan: bila penutur berhenti lama di tengah
+  // potongan, sebarannya menganggap ia bicara sepanjang rentang itu. Tetapi
+  // perkiraan yang tersebar jauh lebih dekat ke kenyataan daripada tumpukan di
+  // satu detik, dan jeda sungguhan tetap diukur terpisah oleh js/audio.js.
   const detikSesi = detikSesiSekarang();
+  const detikMulaiPotongan = detikAkhirPotonganTerakhir;
+  const rentangPotongan = Math.max(0, detikSesi - detikMulaiPotongan);
   const daftarKata = teksBersih.split(/\s+/).filter(Boolean);
 
+  // Posisi tiap kata di dalam rentang potongannya, dipakai juga oleh kata pengisi
+  const waktuKata = (indeks, total) => (total > 0)
+    ? detikMulaiPotongan + rentangPotongan * ((indeks + 0.5) / total)
+    : detikSesi;
+
   // Catat kata untuk perhitungan WPM
-  for (const k of daftarKata) {
-    kataPerWaktu.push({ detikSesi, kata: k });
-  }
+  daftarKata.forEach((k, i) => {
+    kataPerWaktu.push({ detikSesi: waktuKata(i, daftarKata.length), kata: k });
+  });
 
   // Simpan potongan transkrip beserta rentang waktunya untuk timeline Tahap 4B.
   //
@@ -603,7 +622,7 @@ function prosesPotonganFinal(potonganTeks) {
   detikAkhirPotonganTerakhir = detikSesi;
 
   // Deteksi kata pengisi
-  const adaPenambahanFiller = hitungKataPengisi(teksBersih, detikSesi);
+  const adaPenambahanFiller = hitungKataPengisi(teksBersih, waktuKata);
 
   if (adaPenambahanFiller && typeof eventCallbacks.onFillerUpdate === 'function') {
     eventCallbacks.onFillerUpdate(totalFiller, rincianFiller);
@@ -644,59 +663,54 @@ function prosesPotonganFinal(potonganTeks) {
  * @param {string} teksBersih - Potongan transkrip final yang sudah huruf kecil
  * @returns {boolean} True bila ada kata pengisi baru yang terhitung
  */
-function hitungKataPengisi(teksBersih, detikSesi = detikSesiSekarang()) {
+function hitungKataPengisi(teksBersih, waktuKata) {
   const minAwalan = konfig.FILLER_PREFIX_MIN;
   const semua = konfig.FILLER_WORDS.map(f => String(f).trim().toLowerCase()).filter(Boolean);
-  const daftarFrasa = semua.filter(f => /\s/.test(f));
+  const daftarFrasa = semua.filter(f => /\s/.test(f)).map(f => f.split(/\s+/));
   const daftarTunggal = semua.filter(f => !/\s/.test(f));
 
+  const token = teksBersih.split(/\s+/).filter(Boolean);
+  const bersih = (t) => String(t || '').replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
+
   let adaPenambahan = false;
-  let sisaTeks = teksBersih;
+  let i = 0;
 
-  // --- Fase 1: frasa ---
-  for (const frasa of daftarFrasa) {
-    const pola = frasa.split(/\s+/).map(amankanRegex).join('\\s+');
-    const regex = new RegExp(`\\b${pola}\\b`, 'gi');
+  const catat = (entri, indeks) => {
+    rincianFiller[entri] = (rincianFiller[entri] || 0) + 1;
+    totalFiller += 1;
+    adaPenambahan = true;
+    fillerEvents.push({
+      detik: Math.round(waktuKata(indeks, token.length) * 10) / 10,
+      kata: entri
+    });
+  };
 
-    let jumlah = 0;
-    sisaTeks = sisaTeks.replace(regex, () => { jumlah++; return ' '; });
+  while (i < token.length) {
+    // Frasa diperiksa LEBIH DULU, supaya "apa ya" tidak terpecah menjadi dua
+    // kata biasa dan supaya kata di dalamnya tidak ikut dihitung dua kali.
+    const frasaCocok = daftarFrasa.find(f => f.every((kata, k) => bersih(token[i + k]) === kata));
 
-    if (jumlah > 0) {
-      rincianFiller[frasa] = (rincianFiller[frasa] || 0) + jumlah;
-      totalFiller += jumlah;
-      adaPenambahan = true;
-      // Satu event per kemunculan, memakai cap waktu potongan finalnya
-      for (let i = 0; i < jumlah; i++) {
-        fillerEvents.push({ detik: Math.round(detikSesi * 10) / 10, kata: frasa });
-      }
+    if (frasaCocok) {
+      catat(frasaCocok.join(' '), i);
+      i += frasaCocok.length;
+      continue;
     }
-  }
 
-  // --- Fase 2: kata tunggal dengan pencocokan awalan ---
-  const tokenSisa = sisaTeks
-    .split(/\s+/)
-    .map(t => t.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, ''))
-    .filter(Boolean);
-
-  for (const kata of tokenSisa) {
+    // Kata tunggal: entri sepanjang minimal FILLER_PREFIX_MIN dicocokkan sebagai
+    // awalan, yang lebih pendek harus persis. Satu kata terucap dihitung paling
+    // banyak sekali, diatribusikan ke entri terpanjang yang cocok.
+    const kata = bersih(token[i]);
     let entriTerpilih = null;
 
     for (const entri of daftarTunggal) {
-      const cocok = (entri.length >= minAwalan)
-        ? kata.startsWith(entri)
-        : kata === entri;
-
+      const cocok = (entri.length >= minAwalan) ? kata.startsWith(entri) : kata === entri;
       if (cocok && (entriTerpilih === null || entri.length > entriTerpilih.length)) {
         entriTerpilih = entri;
       }
     }
 
-    if (entriTerpilih) {
-      rincianFiller[entriTerpilih] = (rincianFiller[entriTerpilih] || 0) + 1;
-      totalFiller += 1;
-      adaPenambahan = true;
-      fillerEvents.push({ detik: Math.round(detikSesi * 10) / 10, kata: entriTerpilih });
-    }
+    if (entriTerpilih) catat(entriTerpilih, i);
+    i++;
   }
 
   return adaPenambahan;

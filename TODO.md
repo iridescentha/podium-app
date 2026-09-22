@@ -205,6 +205,18 @@ sekali**, lalu langsung tekan Selesai tanpa berhenti dulu. Rapor harus tetap
 menghitung kalimat itu dan WPM tidak boleh nol. Sebelum perbaikan, sesi seperti
 ini menghasilkan nol kata dan rapor menolak menilai.
 
+**Hasil 22 September 2026: LULUS.** Empat sesi berturut-turut tanpa memuat ulang
+menghasilkan WPM 102, 106, 102, dan 93; sesi tanpa jeda sama sekali juga tetap
+terhitung.
+
+**Temuan menyusul, sudah diperbaiki:** angka kecepatan di panel lintasan
+menunjukkan 337, 265, dan 212 WPM padahal rata-rata sesinya sekitar 102, karena
+seluruh kata dalam satu potongan diberi cap waktu detik finalisasinya. Cap waktu
+kini disebar sepanjang rentang potongan. **Periksa ulang:** seret kepala pemutar
+ke beberapa posisi; angka "kecepatan N WPM" di panel harus masuk akal dibanding
+WPM rata-rata, dan garis kecepatan tidak boleh menanjak tajam di ujung pada sesi
+yang temponya rata.
+
 ## B4. Jalur kegagalan kalibrasi · ~6 menit
 
 **Jalankan:**
