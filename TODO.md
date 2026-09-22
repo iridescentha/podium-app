@@ -19,9 +19,9 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
 | A | Fitur yang belum jadi — bukan uji | ~1 menit |
-| B | Uji yang bisa memaksa perubahan kode | ~32 menit |
+| B | Uji yang bisa memaksa perubahan kode | ~27 menit |
 | C | Uji tampilan | ~29 menit |
-| | **Sisa pemeriksaan** | **~62 menit** |
+| | **Sisa pemeriksaan** | **~57 menit** |
 
 ---
 
@@ -71,32 +71,6 @@ kamera ke langit-langit malah **berhasil**, naikkan
 `CONFIG.FACE_KALIBRASI_MIN_RASIO` (kini 0.6).
 
 **Commit:** `010603b`
-
-## B7. Mode putar lintasan · ~5 menit
-
-**Jalankan:** di rapor, tekan Putar. Coba juga 2×, jeda di tengah, dan menyeret
-kepala pemutar saat sedang berjalan.
-
-**Lulus bila:**
-- Kepala pemutar berjalan mulus, panel dan transkrip mengikuti.
-- 2× benar-benar dua kali lebih cepat.
-- Menyeret saat berjalan **menghentikan** pemutaran, tidak berebut kendali.
-- Sampai di ujung, pemutaran berhenti sendiri.
-
-Periksa juga: tinggalkan Layar Rapor saat pemutaran sedang berjalan, lalu buka
-lagi. Tidak boleh ada pemutaran yang masih berjalan di latar.
-
-Periksa juga potongan transkrip TERAKHIR. Di sesi "B8 gitu test" potongan
-keempat berakhir di detik 46,6 padahal `durasiDetik` cuma 45: kalimat terakhir
-baru dibilas sesudah `stop()`, jadi ujungnya melewati ujung sesi. Yang perlu
-dilihat: apakah kepala pemutar bisa mencapai potongan itu, atau ekornya
-terpotong diam-diam di ujung lintasan. Kalau hanya ekornya yang terpotong dan
-teksnya tetap tampil, biarkan — ini kosmetik, bukan angka yang salah.
-
-**Kalau gagal:** catat apakah masalahnya di kecepatan, di seretan, di gulir
-transkrip, atau di pemutaran yang tidak berhenti saat layar ditinggalkan.
-
-**Commit:** `e1bb581`
 
 ## B9. Sesi terlalu pendek dan penyimpanan penuh · ~4 menit
 
@@ -294,6 +268,11 @@ diuji ulang tanpa alasan.
   `f1ac12d`. Dua "kayak" yang diucapkan sekitar detik 18 dan 22 tercatat di
   18,6 dan 22,8: meleset di bawah 1 detik, jauh di dalam batas ±5 detik. Sebelum
   perbaikan itu keduanya akan menumpuk di detik finalisasi potongan.
+- **Mode putar lintasan (B7)** — dikonfirmasi pemilik proyek, 22 September 2026,
+  Chrome. Kepala pemutar berjalan mulus dengan panel dan transkrip mengikuti,
+  2x benar-benar dua kali lebih cepat, menyeret saat berjalan menghentikan
+  pemutaran alih-alih berebut kendali, pemutaran berhenti sendiri di ujung, dan
+  tidak ada pemutaran yang tertinggal berjalan saat Layar Rapor ditinggalkan.
 - **Buka sesi lama dari Riwayat (B6)** — dikonfirmasi pemilik proyek,
   22 September 2026, Chrome. Rapor lengkap terbuka untuk sesi lama, sesi yang
   transkripnya tersimpan menampilkan potongan kalimatnya sementara yang tidak
