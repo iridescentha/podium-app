@@ -55,20 +55,31 @@ harus diperbaiki, bukan sekadar dicatat.
 
 **Jalankan:** (a) sesi 20 detik lalu Selesai. (b) Isi localStorage sampai penuh:
 ```js
-let i = 0;
-try { for (;; i++) localStorage.setItem('sampah' + i, 'x'.repeat(200_000)); }
-catch (e) { console.log('penuh setelah', i, 'blok'); }
+let n = 0;
+for (const ukuran of [200_000, 20_000, 2_000, 200, 20]) {
+  try { for (;;) { localStorage.setItem('sampah' + n, 'x'.repeat(ukuran)); n++; } } catch (e) {}
+}
+console.log('blok terpakai:', n, '— sisa ruang kurang dari 20 karakter');
 ```
 lalu jalankan sesi normal 40 detik.
 
-Cara lama — satu `setItem` berisi 5 juta karakter — TIDAK dipakai lagi, dan
-kalau dijalankan hasilnya menyesatkan. Kuota localStorage Chrome sekitar 5 MB,
-jadi blok sebesar itu langsung ditolak, `catch` mencetak "penuh", dan yang
-sebenarnya terjadi adalah **tidak ada apa pun yang tersimpan**. localStorage
-tetap lapang, sesi berikutnya tersimpan normal, dan ujinya lulus tanpa pernah
-menyentuh jalur kuota penuh. Mengisi bertahap 200 ribu karakter per blok
-sampai `setItem` benar-benar menolak adalah satu-satunya cara memastikan
-kuotanya memang habis.
+**Ukuran bloknya harus mengecil bertahap, dan ini bukan kerumitan yang
+mengada-ada.** Dua percobaan sebelumnya gagal menguji apa pun justru karena
+mengabaikannya:
+
+1. Satu blok 5 juta karakter. Kuota localStorage Chrome sekitar segitu, jadi
+   blok itu ditolak seketika dan **tidak ada apa pun yang tersimpan**.
+   localStorage tetap kosong melompong.
+2. Blok 200 ribu karakter, diulang sampai ditolak. Lebih baik, tapi masih salah:
+   yang ditolak adalah blok 200 ribu karakter, artinya ruang sisa bisa mencapai
+   199.999 karakter. Satu sesi cuma beberapa ribu karakter, jadi ia muat dengan
+   santai dan tetap tersimpan. Diuji 22 September 2026 di Chrome: "penuh setelah
+   26 blok", lalu sesi 40 detik **tetap tersimpan** dan transkripnya pun
+   tersimpan. Jalur kuota penuh tidak pernah tersentuh.
+
+Aturannya: blok terakhir harus lebih kecil daripada hal yang sedang diuji.
+Mengecil sampai 20 karakter membuat sisa ruang lebih kecil daripada sesi
+terkecil sekalipun.
 
 Riwayat yang sudah ada aman: `setItem` bersifat atomik, jadi saat ditolak nilai
 lama tetap utuh, bukan terpotong setengah.
