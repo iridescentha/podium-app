@@ -152,7 +152,11 @@ export const CONFIG = {
     // Batas atas ambang bicara hasil pengukuran. Di atas ini suara ruangan
     // dianggap setinggi suara bicara, dan kalibrasi digagalkan alih-alih
     // menyimpan acuan yang pasti salah.
-    // NILAI AWAL, BELUM DIVALIDASI: tetapkan dari RMS bicara sungguhan lewat debug.
+    // Diuji 22 September 2026 di Chrome desktop (uji B4): ruangan tenang LOLOS,
+    // musik keras di dekat mikrofon DITOLAK. Jadi ambang ini memisahkan kedua
+    // kondisi itu di perangkat penguji. Yang belum diketahui adalah letaknya di
+    // perangkat lain, karena nilai RMS bergantung pada mikrofon; kalau nanti
+    // ruangan tenang ikut ditolak, naikkan angkanya lewat CONFIG.audio.debug.
     ambangBicaraMaks: 0.08,
     // DIBIARKAN null SELAMANYA — metrik volume dihentikan 21 September 2026.
     // Dua uji lapangan menunjukkan berbisik dan duduk dua kali lebih jauh
@@ -180,6 +184,9 @@ export const CONFIG = {
   FACE_KALIBRASI_MS: 2000,         // Lama pengukuran posisi kepala netral di Layar Persiapan
   // Bagian minimal jendela kalibrasi yang wajahnya harus terdeteksi. Di bawah
   // ini kalibrasi digagalkan, karena median dari segelintir frame bukan acuan.
+  // Diuji 22 September 2026 di Chrome desktop (uji B4): kamera diarahkan ke
+  // langit-langit DITOLAK, kamera menghadap wajah LOLOS. Jadi ambang ini tidak
+  // bisa diakali oleh segelintir frame nyasar.
   FACE_KALIBRASI_MIN_RASIO: 0.6,
   // Wajah yang hilang saat status sedang menunduk dihitung menunduk paling lama
   // sekian detik. Batas ini memisahkan menunduk dalam dari meninggalkan meja.

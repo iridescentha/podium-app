@@ -19,9 +19,9 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
 | A | Fitur yang belum jadi — bukan uji | ~1 menit |
-| B | Uji yang bisa memaksa perubahan kode | ~27 menit |
+| B | Uji yang bisa memaksa perubahan kode | ~21 menit |
 | C | Uji tampilan | ~29 menit |
-| | **Sisa pemeriksaan** | **~57 menit** |
+| | **Sisa pemeriksaan** | **~51 menit** |
 
 ---
 
@@ -50,27 +50,6 @@ menghasilkan angka apa pun** di setiap sesi.
 
 Diurutkan dari yang akibatnya paling besar. Kegagalan di sini berarti ada yang
 harus diperbaiki, bukan sekadar dicatat.
-
-## B4. Jalur kegagalan kalibrasi · ~6 menit
-
-**Jalankan:**
-1. Arahkan kamera ke langit-langit → "Kalibrasi sekarang".
-2. Hadapkan ke wajah → ulangi.
-3. Putar musik keras dekat mikrofon → "Ukur sekarang" (kamu sendiri diam).
-4. Matikan musik → ulangi.
-
-**Lulus bila:**
-- Langkah 1 gagal dengan "Wajah tidak terdeteksi — pastikan kamera mengarah ke
-  wajahmu, lalu coba lagi.", badge kembali ke keadaan belum, tombol tetap kuning.
-- Langkah 3 gagal dengan "Ruangan terlalu berisik…".
-- Langkah 2 dan 4 berhasil, dan tidak ada sisa dari percobaan yang gagal.
-
-**Kalau gagal:** bila **ruangan tenang pun** ditolak sebagai terlalu berisik,
-naikkan `CONFIG.audio.ambangBicaraMaks` (kini 0.08, belum divalidasi). Bila
-kamera ke langit-langit malah **berhasil**, naikkan
-`CONFIG.FACE_KALIBRASI_MIN_RASIO` (kini 0.6).
-
-**Commit:** `010603b`
 
 ## B9. Sesi terlalu pendek dan penyimpanan penuh · ~4 menit
 
@@ -268,6 +247,15 @@ diuji ulang tanpa alasan.
   `f1ac12d`. Dua "kayak" yang diucapkan sekitar detik 18 dan 22 tercatat di
   18,6 dan 22,8: meleset di bawah 1 detik, jauh di dalam batas ±5 detik. Sebelum
   perbaikan itu keduanya akan menumpuk di detik finalisasi potongan.
+- **Jalur kegagalan kalibrasi (B4)** — dikonfirmasi pemilik proyek,
+  22 September 2026, Chrome. Kamera ke langit-langit ditolak dengan pesan wajah
+  tidak terdeteksi, musik keras ditolak dengan pesan ruangan terlalu berisik,
+  dan kedua percobaan ulang yang benar berhasil tanpa meninggalkan sisa keadaan.
+  Dua ambang ikut tervalidasi dan komentarnya di CONFIG sudah diperbarui:
+  `audio.ambangBicaraMaks` 0.08 (tadinya bertanda "belum divalidasi") dan
+  `FACE_KALIBRASI_MIN_RASIO` 0.6. Keduanya terbukti memisahkan kondisi lolos
+  dari kondisi gagal DI PERANGKAT PENGUJI; nilai RMS bergantung mikrofon, jadi
+  ini bukan jaminan untuk perangkat lain.
 - **Mode putar lintasan (B7)** — dikonfirmasi pemilik proyek, 22 September 2026,
   Chrome. Kepala pemutar berjalan mulus dengan panel dan transkrip mengikuti,
   2x benar-benar dua kali lebih cepat, menyeret saat berjalan menghentikan
