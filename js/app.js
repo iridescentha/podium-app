@@ -1505,6 +1505,20 @@ function cetakEventTimeline(data, potonganTranskrip) {
   const potongan = potonganTranskrip || [];
   console.log(`[timeline] potongan transkrip (${potongan.length}), cap waktunya PERKIRAAN:`);
   console.table(potongan.map(p => ({ mulai: waktu(p.detikMulai), selesai: waktu(p.detikSelesai), teks: p.teks })));
+
+  // console.table enak dibaca di layar, tetapi isinya tidak ikut tersalin waktu
+  // console-nya di-copy — yang tersalin cuma baris judulnya. Versi JSON di bawah
+  // ini ada supaya seluruh angkanya bisa disalin dalam satu blok.
+  console.log('[timeline] salinan JSON (blok ini yang di-copy):\n' + JSON.stringify({
+    judul: data.judul,
+    durasiDetik: data.durasiDetik,
+    filler: data.filler.events,
+    jeda: data.jedaTersedia ? data.jeda.daftar : null,
+    menundukSegmen: data.menundukSegmen,
+    hilangSegmen: data.hilangSegmen,
+    deretWpm: data.deretWpm,
+    potonganTranskrip: potongan
+  }, null, 1));
 }
 
 /**
