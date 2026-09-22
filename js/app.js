@@ -205,7 +205,7 @@ export const CONFIG = {
 
   // true: cetak seluruh event bertimestamp sesi ke console saat rapor dibuka,
   // untuk mencocokkan isinya dengan apa yang benar-benar dilakukan (Tahap 4B).
-  TIMELINE_DEBUG: true,
+  TIMELINE_DEBUG: false,
 
   // Lebar jendela yang diringkas panel lintasan, berpusat di kepala pemutar.
   // Delapan detik kira-kira selebar satu-dua kalimat, cukup untuk menjelaskan
