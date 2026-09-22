@@ -19,9 +19,9 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
 | A | Fitur yang belum jadi — bukan uji | ~1 menit |
-| B | Uji yang bisa memaksa perubahan kode | ~42 menit |
+| B | Uji yang bisa memaksa perubahan kode | ~37 menit |
 | C | Uji tampilan | ~29 menit |
-| | **Sisa pemeriksaan** | **~72 menit** |
+| | **Sisa pemeriksaan** | **~67 menit** |
 
 ---
 
@@ -118,40 +118,6 @@ transkrip, atau di pemutaran yang tidak berhenti saat layar ditinggalkan.
 
 **Commit:** `e1bb581`
 
-## B8. Simpan transkrip opt-in dan kuota penyimpanan · ~5 menit
-
-**Jalankan:** di rapor, centang lalu lepas "Simpan transkrip sesi ini ke riwayat".
-Periksa dengan:
-```js
-JSON.parse(localStorage.getItem('podium_sessions'))[0]
-```
-
-**Lulus bila:**
-- Bawaan **mati**; tanpa dicentang tidak ada field `potonganTranskrip`.
-- Dicentang → field muncul, disertai keterangan ukuran riwayat.
-- Dilepas → field hilang, sementara `skor`, `filler.events`, `jeda`, dan
-  `menundukSegmen` tetap utuh.
-- Sesi baru selalu kembali ke keadaan tidak tercentang.
-
-**Penting — jangan menyentuh halaman sesudah Selesai.** Percobaan pertama
-(22 September 2026) gagal jadi bukti justru karena ini: kotaknya sempat
-tercentang lebih dulu, jadi ketiga pembacaan keluar sama persis dan sampel
-"sebelum dicentang" tidak pernah ada. Buka console dengan **⌥⌘J**, yang
-menaruh fokus langsung di console tanpa mengklik halaman, lalu baru jalankan
-pembacaan pertama.
-
-Kejadian itu sendiri sudah ditelusuri dan BUKAN bug: baris status di bawah
-kotaknya berbunyi "Transkrip tersimpan bersama sesi ini", dan teks itu hanya
-ditulis di dalam handler-nya (`app.js:1456`), yang cuma terikat ke event
-`change`. Selain itu `app.js:1447` adalah satu-satunya baris di seluruh kode
-yang menulis `potonganTranskrip` ke objek sesi. Jadi transkripnya masuk lewat
-jalur yang benar. Yang belum terbukti hanyalah syarat "bawaan mati".
-
-**Kalau gagal:** transkrip tersimpan tanpa dicentang adalah **pelanggaran
-privasi**, perbaiki segera.
-
-**Commit:** `2121123`
-
 ## B9. Sesi terlalu pendek dan penyimpanan penuh · ~4 menit
 
 **Jalankan:** (a) sesi 20 detik lalu Selesai. (b) Isi localStorage sampai penuh:
@@ -224,6 +190,20 @@ bukan karena penampilannya buruk.
 
 Kalau hampir semua sesi bernilai 90-an, angkanya berhenti memberi informasi:
 pengguna tidak bisa melihat dirinya membaik, dan itu justru inti produknya.
+
+**Data baru yang MELEMAHKAN dugaan di atas.** Sesi "B8 test" (41 detik,
+berhitung satu sampai empat puluh) punya kontak pandang 100%, nol kata pengisi,
+dan nol jeda panjang — tetapi cuma dapat **65**, karena kecepatannya 50 WPM.
+Sesi "B8 gitu test" dapat 75. Jadi kurvanya jelas bisa membedakan, dan yang
+paling menentukan adalah WPM, bukan tiga metrik lainnya. Penumpukan di 90-an
+kemungkinan besar cuma karena hampir semua sesi uji kebetulan berkecepatan
+wajar.
+
+Yang perlu diputuskan jadi bergeser: bukan lagi "kurvanya terlalu murah hati",
+melainkan **apakah WPM pantas sedominan itu**. Satu sesi dengan kontak pandang
+sempurna dan tanpa satu pun kata pengisi turun ke 65 hanya karena bicaranya
+pelan. Untuk pelatih presentasi, itu bisa dibenarkan — tapi itu keputusanmu,
+bukan keputusanku.
 
 **Jalankan:** buka Riwayat, lihat sebaran Tren Skor. Lalu putuskan satu hal
 saja: apakah sesi yang jelas-jelas cacat (jeda panjang, kata pengisi banyak,
@@ -334,6 +314,14 @@ diuji ulang tanpa alasan.
   `f1ac12d`. Dua "kayak" yang diucapkan sekitar detik 18 dan 22 tercatat di
   18,6 dan 22,8: meleset di bawah 1 detik, jauh di dalam batas ±5 detik. Sebelum
   perbaikan itu keduanya akan menumpuk di detik finalisasi potongan.
+- **Simpan transkrip opt-in (B8)** — sesi "B8 test", 22 September 2026, Chrome.
+  Tiga pembacaan `localStorage` berturut-turut tanpa menyentuh halaman sama
+  sekali (console dibuka dengan Opt-Cmd-J): sebelum dicentang TIDAK ada field
+  `potonganTranskrip`, sesudah dicentang ada, sesudah dilepas hilang lagi
+  sementara `skor`, `filler`, `jeda`, `menundukSegmen`, dan `deretWpm` tetap
+  utuh. Syarat keempat ikut terbukti gratis: sesi sebelumnya ditinggalkan dengan
+  kotak TERCENTANG, dan sesi baru ini mulai dengan kotak mati. Jadi kotaknya
+  tidak mewarisi keadaan sesi sebelumnya.
 - **Kata pengisi "gitu" (sisa B5)** — sesi "B8 gitu test", 22 September 2026,
   Chrome. Tiga "gitu" di tiga posisi berbeda (ujung kalimat, tengah kalimat,
   awal kalimat) dan satu "kayak": keempatnya masuk ke `potonganTranskrip` DAN
