@@ -19,9 +19,9 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
 | A | Fitur yang belum jadi — bukan uji | ~1 menit |
-| B | Uji yang bisa memaksa perubahan kode | ~37 menit |
+| B | Uji yang bisa memaksa perubahan kode | ~32 menit |
 | C | Uji tampilan | ~29 menit |
-| | **Sisa pemeriksaan** | **~67 menit** |
+| | **Sisa pemeriksaan** | **~62 menit** |
 
 ---
 
@@ -71,26 +71,6 @@ kamera ke langit-langit malah **berhasil**, naikkan
 `CONFIG.FACE_KALIBRASI_MIN_RASIO` (kini 0.6).
 
 **Commit:** `010603b`
-
-## B6. Riwayat: buka analisis sesi lama · ~5 menit
-
-**Jalankan:** buka Riwayat, klik salah satu sesi. Ulangi untuk sesi yang
-transkripnya disimpan dan yang tidak.
-
-**Lulus bila:**
-- Rapor lengkap sesi itu terbuka: skor, kartu metrik, lintasan waktu dengan
-  kepala pemutar dan seluruh event.
-- Sesi dengan transkrip tersimpan menampilkan potongan kalimatnya di panel.
-- Sesi tanpa transkrip menampilkan "Transkrip tidak disimpan untuk sesi ini",
-  sementara lintasan dan panelnya tetap berfungsi penuh.
-- Tombol kembali mengantar ke Riwayat, bukan ke Beranda.
-- Kotak "Simpan transkrip" **tidak** muncul saat membuka sesi lama.
-- Bisa dibuka dengan papan ketik (Tab lalu Enter).
-
-**Kalau gagal:** sesi lama tidak bisa dibuka sama sekali → periksa apakah
-`skor`, `deretWpm`, dan `filler.events` benar-benar ada di `localStorage`.
-
-**Commit:** `bd7b83e`
 
 ## B7. Mode putar lintasan · ~5 menit
 
@@ -314,6 +294,12 @@ diuji ulang tanpa alasan.
   `f1ac12d`. Dua "kayak" yang diucapkan sekitar detik 18 dan 22 tercatat di
   18,6 dan 22,8: meleset di bawah 1 detik, jauh di dalam batas ±5 detik. Sebelum
   perbaikan itu keduanya akan menumpuk di detik finalisasi potongan.
+- **Buka sesi lama dari Riwayat (B6)** — dikonfirmasi pemilik proyek,
+  22 September 2026, Chrome. Rapor lengkap terbuka untuk sesi lama, sesi yang
+  transkripnya tersimpan menampilkan potongan kalimatnya sementara yang tidak
+  berbunyi "Transkrip tidak disimpan untuk sesi ini", tombol kembali mengantar
+  ke Riwayat, kotak "Simpan transkrip" tidak muncul, dan sesinya bisa dibuka
+  dengan Tab lalu Enter.
 - **Simpan transkrip opt-in (B8)** — sesi "B8 test", 22 September 2026, Chrome.
   Tiga pembacaan `localStorage` berturut-turut tanpa menyentuh halaman sama
   sekali (console dibuka dengan Opt-Cmd-J): sebelum dicentang TIDAK ada field
