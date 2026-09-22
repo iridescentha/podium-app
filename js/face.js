@@ -23,7 +23,8 @@
  * (sekitar -10 derajat pada laptop penguji). Bila pitch turun lebih dari
  * CONFIG.FACE_PITCH_MENUNDUK_DERAJAT di bawah netral, frame itu dihitung menunduk.
  *
- * Blendshape tetap dipakai untuk satu hal: menyaring kedipan.
+ * Blendshape masih dibaca, tetapi sejak 22 September 2026 hanya untuk
+ * ditampilkan di mode debug; tidak ada satu angka pun yang bergantung padanya.
  *
  * ----------------------------------------------------------------------------
  * ATURAN PEMBAGI (Bagian 6.1 GEMINI.md + CLAUDE.md)
@@ -105,21 +106,38 @@
  * terlihat mirip dengan bola mata yang bergulir ke bawah. Karena itu kedipan
  * harus disaring sebelum arah pandang diputuskan.
  *
- * Temuan ini muncul saat modul masih memakai eyeLookDown. Saringan kedipan
- * tetap dipertahankan sesudah pindah ke pitch, karena pengaruh kelopak mata
- * terhadap pitch belum diukur; buang hanya bila uji menunjukkannya tidak perlu.
+ * ----------------------------------------------------------------------------
+ * TEMUAN UJI 22 SEPTEMBER 2026: SARINGAN KEDIPAN DICABUT
+ * ----------------------------------------------------------------------------
+ * Saringan kedipan dipertahankan sementara sesudah modul pindah ke pitch, dengan
+ * catatan agar dibuang bila uji menunjukkannya tidak perlu. Ujinya sudah ada, dan
+ * jawabannya dua kali "tidak perlu":
  *
- * Dua perbaikan diterapkan, dan keduanya perlu:
- * 1. SARING KEDIPAN. Bila eyeBlinkLeft ATAU eyeBlinkRight melewati
- *    CONFIG.FACE_BLINK_THRESHOLD, frame itu tidak dihitung menunduk maupun
- *    menatap depan, dan dikeluarkan dari pembagi persentase, persis seperti
- *    frame tanpa wajah. Saat mata tertutup, arah pandang memang tidak bisa
- *    diukur. Frame berkedip dicatat di penghitung sendiri (frameBerkedip),
- *    TIDAK digabung ke "wajah tidak terlihat" karena itu kejadian berbeda.
- * 2. PENGHALUSAN TEMPORAL. Status depan/menunduk hanya berganti setelah
- *    CONFIG.FACE_SMOOTHING_FRAMES frame berturut-turut konsisten. Ini menangani
- *    frame meleset karena sebab lain (gerak cepat, blur, awal/akhir kedipan
- *    yang nilainya belum melewati ambang kedip).
+ * 1. SARINGANNYA MERUSAK. Pada sesi uji, membaca kertas selama sekitar sepuluh
+ *    detik menghasilkan rentetan frame bertanda KEDIP selama hampir tujuh detik
+ *    berturut-turut, dengan nilai eyeBlink 0,42-0,65. Tidak ada manusia yang
+ *    berkedip tujuh detik: itu kelopak mata yang memang turun karena pandangan
+ *    diarahkan ke bawah. Akibatnya sekitar dua pertiga waktu menunduk yang
+ *    sungguhan DIBUANG dari pembagi, dan kontak pandang terlihat lebih baik
+ *    daripada kenyataannya. Persis jenis kesalahan yang dilarang CLAUDE.md.
+ * 2. SARINGANNYA TIDAK DIBUTUHKAN LAGI. Ia ada karena eyeLookDown ikut naik saat
+ *    kelopak menutup. Modul ini tidak memakai eyeLookDown lagi. Sudut kepala
+ *    diambil dari matriks transformasi, dan log uji menunjukkan pitch sama sekali
+ *    tidak terganggu kedipan:
+ *      t=23,6 (biasa) pitch -25,0 | t=23,7 KEDIP -24,1 | t=24,0 KEDIP -24,0
+ *      t=27,6 (biasa) pitch -22,8
+ *    Tidak ada lompatan. Frame berkedip tetap memberi sudut kepala yang benar.
+ *
+ * Karena itu seluruh frame berwajah kini dinilai dari pitch-nya, tanpa kecuali.
+ * Nilai eyeBlink masih dibaca dan dicetak di mode debug sebagai bahan rujukan,
+ * tetapi tidak lagi memengaruhi satu angka pun.
+ *
+ * Dua perbaikan diterapkan waktu itu: menyaring frame berkedip, dan penghalusan
+ * temporal. Yang kedua bertahan. Yang pertama SUDAH DICABUT — lihat di bawah.
+ *
+ * PENGHALUSAN TEMPORAL. Status depan/menunduk hanya berganti setelah
+ * CONFIG.FACE_SMOOTHING_FRAMES frame berturut-turut konsisten. Ini menangani
+ * frame meleset karena gerak cepat atau blur.
  *
  * Risiko yang harus diawasi saat kalibrasi: saat benar-benar menunduk membaca
  * catatan, kelopak mata ikut turun sehingga eyeBlink juga naik. Ambang kedip
@@ -173,7 +191,6 @@ let totalFrameDianalisis = 0;
 let frameMenatapDepan = 0;
 let frameMenunduk = 0;
 let frameWajahTakTerlihat = 0;
-let frameBerkedip = 0;             // Dikeluarkan dari pembagi; tidak ditampilkan di UI
 let frameHilangDihitungMenunduk = 0; // Frame tanpa wajah yang diatribusikan ke menunduk
 
 // Posisi kepala netral pengguna (derajat), diukur di Layar Persiapan.
@@ -214,7 +231,6 @@ const KONFIG_BAWAAN = {
   FACE_KALIBRASI_MS: 2000,
   FACE_KALIBRASI_MIN_RASIO: 0.6,
   FACE_HILANG_MENUNDUK_MAKS_DETIK: 5,
-  FACE_BLINK_THRESHOLD: 0.5,
   FACE_SMOOTHING_FRAMES: 3,
   FACE_POLL_INTERVAL_MS: 150,
   MENUNDUK_EVENT_MIN_DETIK: 3,
@@ -465,7 +481,6 @@ export function start(callbacks = {}, videoElement = null, config = {}) {
   frameMenatapDepan = 0;
   frameMenunduk = 0;
   frameWajahTakTerlihat = 0;
-  frameBerkedip = 0;
   frameHilangDihitungMenunduk = 0;
   statusStabil = null;
   hilangMulaiDetik = null;
@@ -597,12 +612,10 @@ function hentikanLoopInferensi() {
  * 4. Bila tidak ada wajah, frame dicatat sebagai "wajah tidak terlihat",
  *    segmen menunduk yang sedang berjalan ditutup, dan status stabil
  *    dikosongkan supaya dibangun ulang saat wajah kembali.
- * 5. Bila salah satu mata berkedip (eyeBlink di atas CONFIG.FACE_BLINK_THRESHOLD),
- *    frame dicatat di frameBerkedip dan berhenti di situ: tidak menunduk, tidak
- *    menatap depan, tidak mengubah status. Lihat temuan uji di kepala berkas.
- * 6. Selain itu, rata-rata dua blendshape eyeLookDown dibandingkan dengan ambang
- *    untuk mendapat status MENTAH frame ini, lalu diserahkan ke penghalusan
- *    temporal yang memutuskan kapan status benar-benar berganti.
+ * 5. Sudut kepala dibandingkan dengan postur netral untuk mendapat status MENTAH
+ *    frame ini, lalu diserahkan ke penghalusan temporal yang memutuskan kapan
+ *    status benar-benar berganti. Nilai kedipan masih dibaca, tetapi HANYA untuk
+ *    ditampilkan di mode debug — lihat temuan 22 September 2026 di kepala berkas.
  */
 function prosesSatuFrame() {
   if (status !== 'berjalan' || !landmarker || !videoSumber) return;
@@ -660,14 +673,6 @@ function prosesSatuFrame() {
       );
     }
     laporkanArah('belum aktif');
-    return;
-  }
-
-  // Saring kedipan: mata tertutup berarti arah pandang tidak bisa diukur
-  const berkedip = kedipKiri > konfig.FACE_BLINK_THRESHOLD || kedipKanan > konfig.FACE_BLINK_THRESHOLD;
-  if (berkedip) {
-    frameBerkedip++;
-    cetakDebug(sudut, kedipKiri, kedipKanan, null, 'KEDIP (dikeluarkan)');
     return;
   }
 
@@ -781,8 +786,6 @@ function tutupSegmenHilang(detikSelesai = detikSesiSekarang()) {
  *   mengonfirmasi pergantian, bukan saat konfirmasi, supaya durasi event di
  *   timeline tidak bergeser sebesar penundaan penghalusan.
  *
- * Frame berkedip tidak masuk fungsi ini sama sekali, sehingga kedipan di
- * tengah antrean tidak memutus maupun menambah antrean.
  *
  * @param {'depan'|'menunduk'} mentah - Keputusan dari frame ini saja
  * @param {number} detik - Posisi jam sesi saat frame ini dibaca
@@ -891,10 +894,11 @@ function laporkanArah(arah) {
  * CARA KERJA:
  * Sekali di awal, mencetak seluruh nama blendshape yang benar-benar dikirim
  * model, supaya bisa dipastikan nama yang dipakai modul ini memang ada. Setelah
- * itu mencetak pitch kepala, selisihnya terhadap netral, nilai kedipan, dan
- * keputusan penghalusannya, sehingga CONFIG.FACE_PITCH_MENUNDUK_DERAJAT,
- * CONFIG.FACE_BLINK_THRESHOLD, dan CONFIG.FACE_SMOOTHING_FRAMES bisa ditetapkan
- * dari angka nyata di laptop pengguna, bukan dari tebakan.
+ * itu mencetak pitch kepala, selisihnya terhadap netral, dan keputusan
+ * penghalusannya, sehingga CONFIG.FACE_PITCH_MENUNDUK_DERAJAT dan
+ * CONFIG.FACE_SMOOTHING_FRAMES bisa ditetapkan dari angka nyata di laptop
+ * pengguna, bukan dari tebakan. Nilai kedipan ikut dicetak sebagai rujukan,
+ * tetapi sejak 22 September 2026 ia tidak memengaruhi perhitungan apa pun.
  */
 function cetakDebug(sudut, kedipKiri, kedipKanan, selisih, keputusan) {
   if (!konfig.FACE_DEBUG) return;
@@ -908,7 +912,7 @@ function cetakDebug(sudut, kedipKiri, kedipKanan, selisih, keputusan) {
     `[face] t=${detikSesiSekarang().toFixed(1)}s ` +
     `pitch=${sudut.pitch.toFixed(1)}° yaw=${sudut.yaw.toFixed(1)}° ` +
     `selisih=${selisih === null ? '-' : selisih.toFixed(1) + '°'} ` +
-    `blink kiri=${kedipKiri.toFixed(3)} kanan=${kedipKanan.toFixed(3)} (ambang ${konfig.FACE_BLINK_THRESHOLD}) ` +
+    `blink kiri=${kedipKiri.toFixed(3)} kanan=${kedipKanan.toFixed(3)} (hanya rujukan) ` +
     `-> ${keputusan}`
   );
 }
@@ -1002,10 +1006,9 @@ function cetakDiagnostikPerDetik() {
  *    angka apa pun, dan report.js mengeluarkan bobot arah pandang dari skor.
  * 2. Persentase kontak pandang dihitung hanya dari frame yang benar-benar
  *    dinilai: menatap depan + menunduk. Tiga jenis frame dikeluarkan dari
- *    pembagi: tanpa wajah, berkedip, dan antrean kandidat yang dibuang karena
- *    status stabil belum terbentuk.
- * 3. wajahTakTerlihatPersen HANYA berisi frame tanpa wajah. Frame berkedip
- *    dilaporkan terpisah lewat frameBerkedip dan tidak ditampilkan di UI.
+ *    pembagi: tanpa wajah dan antrean kandidat yang dibuang karena status
+ *    stabil belum terbentuk.
+ * 3. wajahTakTerlihatPersen HANYA berisi frame tanpa wajah.
  * 4. Segmen menunduk panjang disertakan sebagai event bertimestamp untuk
  *    timeline di Tahap 4B.
  *
@@ -1027,7 +1030,6 @@ export function getResults() {
     wajahTakTerlihatPersen: Math.min(Math.max(wajahTakTerlihatPersen, 0), 1),
     totalFrame: totalFrameDianalisis,
     frameMenunduk: frameMenunduk,
-    frameBerkedip: frameBerkedip,
     frameHilangDihitungMenunduk: frameHilangDihitungMenunduk,
     pitchNetral: pitchNetral,
     menundukSegmen: menundukSegmen.slice(),

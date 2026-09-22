@@ -130,6 +130,26 @@ masuk akal, tetapi belum pernah diuji ulang di Chrome.
 - Saat pergi dari bingkai: sekitar 5 detik pertama terhitung menunduk, sisanya
   "wajah tidak terlihat". Di lintasan: blok abu padat, lalu arsiran bergaris.
 
+**Hasil 22 September 2026:** LULUS untuk sudut kepala. Netral terukur -10,9°;
+mendongak mendorong pitch sampai +37° (selisih +48°) dan status TETAP `depan`;
+mata saja menggeser selisih sekitar 5°, di bawah ambang 8°; menunduk membaca
+kertas memberi selisih -10° sampai -14° dan terbaca `menunduk`.
+
+**Temuan menyusul, sudah diperbaiki:** saringan kedipan membuang hampir tujuh
+detik dari sepuluh detik membaca kertas, karena kelopak mata yang turun saat
+memandang ke bawah menghasilkan eyeBlink 0,42-0,65 selama berdetik-detik.
+Saringan itu DICABUT; alasan lengkapnya di kepala `js/face.js`.
+
+**Yang masih perlu diperiksa ulang sesudah pencabutan:** ulangi pose menunduk
+membaca kertas selama 10 detik, lalu lihat rapor. Waktu menunduk sekarang harus
+mendekati 10 detik, bukan sekitar sepertiganya.
+
+**Catatan kecil yang belum ditangani:** saat kepala berada persis di sekitar
+ambang (selisih -7° sampai -8°), status sempat berkedip antara menunduk dan
+depan selama kurang dari satu detik, sehingga satu segmen bisa terpecah dua.
+Bisa diredam dengan histeresis (ambang keluar lebih longgar daripada ambang
+masuk) bila memang mengganggu.
+
 **Kalau gagal:**
 - Mendongak terbaca menunduk → tanda `pitch` terbalik; laporkan angkanya.
 - Menunduk tidak terdeteksi → turunkan `FACE_PITCH_MENUNDUK_DERAJAT` (kini 8).

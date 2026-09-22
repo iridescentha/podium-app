@@ -125,3 +125,16 @@ Seluruh ambang yang bisa dikalibrasi terkumpul di objek `CONFIG` pada
    diputar ulang, serta tiga saran konkret.
 5. **Riwayat** — daftar sesi tersimpan dan grafik tren skor. Klik satu sesi untuk
    membuka kembali rapor lengkapnya.
+
+## Menjalankan uji
+
+```bash
+bash uji/jalankan.sh          # semua berkas uji
+bash uji/jalankan.sh face     # hanya yang namanya memuat "face"
+```
+
+Uji berjalan di Node tanpa dependensi apa pun. Modul aplikasi disalin ke folder
+sementara sebagai `.mjs` lebih dulu, karena Node memperlakukan `.js` sebagai
+CommonJS selama tidak ada `package.json` — dan proyek ini sengaja tanpa npm.
+Perangkat keras ditiru: mikrofon, kamera, MediaPipe, pengenal suara, dan DOM
+semuanya berupa tiruan, sehingga ujinya tidak butuh izin perangkat.

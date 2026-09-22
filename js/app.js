@@ -169,7 +169,7 @@ export const CONFIG = {
     autoGainControl: false,
 
     // true: cetak noise floor, RMS per detik, tiap jeda, dan hasil akhir ke console
-    debug: true
+    debug: false
   },
 
   // Arah Pandang (sudut kepala dari matriks transformasi MediaPipe)
@@ -184,11 +184,10 @@ export const CONFIG = {
   // Wajah yang hilang saat status sedang menunduk dihitung menunduk paling lama
   // sekian detik. Batas ini memisahkan menunduk dalam dari meninggalkan meja.
   FACE_HILANG_MENUNDUK_MAKS_DETIK: 5,
-  FACE_BLINK_THRESHOLD: 0.5,       // eyeBlinkLeft ATAU eyeBlinkRight di atas ini = berkedip, frame dikeluarkan (nilai awal, kalibrasi via debug)
   FACE_SMOOTHING_FRAMES: 3,        // Status depan/menunduk baru berganti setelah sekian frame berturut-turut sepakat (nilai awal)
   FACE_POLL_INTERVAL_MS: 150,      // Frekuensi inferensi wajah tiap 150 ms
   MENUNDUK_EVENT_MIN_DETIK: 3,     // Menunduk selama ini atau lebih dicatat sebagai satu event timeline
-  FACE_DEBUG: false,               // true: cetak pitch, selisih netral, dan nilai kedipan ke console untuk kalibrasi
+  FACE_DEBUG: true,               // true: cetak pitch, selisih netral, dan nilai kedipan ke console untuk kalibrasi
 
   // Postur (Teachable Machine)
   POSE_CONFIDENCE_MIN: 0.7,        // Minimal confidence 0.7
