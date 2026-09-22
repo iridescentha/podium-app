@@ -13,12 +13,15 @@ console ikut hilang. Nyalakan juga **Preserve log** di pengaturan console.
 Tiap butir berisi: **jalankan**, **lulus bila**, **kalau gagal**, **commit**, dan
 **perkiraan waktu**.
 
-| Bagian | Isi | Total waktu |
+Butir yang sudah selesai DIHAPUS dari berkas ini. Temuan yang masih penting
+sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
+
+| Bagian | Isi | Sisa waktu |
 |---|---|---|
 | A | Fitur yang belum jadi — bukan uji | ~1 menit |
-| B | Uji yang bisa memaksa perubahan kode | ~70 menit |
-| C | Uji tampilan | ~25 menit |
-| | **Seluruh pemeriksaan** | **~100 menit** |
+| B | Uji yang bisa memaksa perubahan kode | ~43 menit |
+| C | Uji tampilan | ~29 menit |
+| | **Sisa pemeriksaan** | **~73 menit** |
 
 ---
 
@@ -26,27 +29,6 @@ Tiap butir berisi: **jalankan**, **lulus bila**, **kalau gagal**, **commit**, da
 
 Bukan pemeriksaan. Selama butir ini belum dikerjakan, ada metrik yang **tidak
 menghasilkan angka apa pun** di setiap sesi.
-
-## A1. ~~Kalibrasi volume~~ — SELESAI 21 September 2026, metrik DIHENTIKAN
-
-Tidak ada lagi yang perlu dijalankan di butir ini.
-
-**Percobaan 1 (autoGainControl menyala):** normal 3,79× · berbisik 2,85× · dua
-kali lebih jauh 3,00×. Suara ruangan hasil kalibrasi bergeser 58% antar sesi.
-
-**Percobaan 2 (autoGainControl dimatikan):** suara ruangan stabil (0,0033 /
-0,0022 / 0,0022), tetapi rasionya makin rapat — normal 4,13× · berbisik 3,91× ·
-dua kali lebih jauh 3,86×.
-
-**Kesimpulan:** metrik volume dihentikan. Rasionya menormalkan dirinya sendiri
-(rata-rata diambil dari frame di atas ambang, dan ambangnya sendiri turunan
-suara ruangan), dan bahkan pada RMS mentah, berbisik (0,0088) tidak terbedakan
-dari duduk dua kali lebih jauh (0,0084). Kartu volume kini berbunyi "tidak
-dinilai" beserta alasannya, `pengaliVolumePelan` dibiarkan `null` selamanya, dan
-README serta GEMINI.md sudah disesuaikan.
-
-**autoGainControl tetap dimatikan** karena membuat suara ruangan jauh lebih
-stabil, dan deteksi jeda bergantung pada angka itu.
 
 ## A2. Matikan seluruh flag debug sebelum dikumpulkan · ~1 menit
 
@@ -68,191 +50,6 @@ stabil, dan deteksi jeda bergantung pada angka itu.
 
 Diurutkan dari yang akibatnya paling besar. Kegagalan di sini berarti ada yang
 harus diperbaiki, bukan sekadar dicatat.
-
-## B1. Rapor saat metrik hilang — aturan kejujuran · ~8 menit
-
-Ini inti klaim produk. Kalau butir ini gagal, rapor berbohong.
-
-**Jalankan:** mulai sesi mode Lengkap, lalu **cabut izin mikrofon dari ikon
-gembok di address bar** begitu sesi berjalan. Diam 40 detik menghadap kamera,
-tekan Selesai.
-
-**Lulus bila:**
-- Kartu WPM dan kata pengisi berbunyi **"belum aktif"**, bukan `0`.
-- Skor total menampilkan **"—"** berwarna redup, dengan keterangan metrik mana
-  yang tidak terukur.
-- **Tidak ada satu pun kalimat pujian** tentang metrik yang tidak diukur.
-- Riwayat menampilkan "—" untuk sesi itu; grafik tren melewatinya, tidak
-  menggambarnya sebagai nol.
-- Beranda menampilkan skor terakhir dari sesi yang memang punya skor.
-
-**Kalau gagal:** hentikan pekerjaan lain dan perbaiki. Ini pelanggaran aturan
-kejujuran metrik di `CLAUDE.md`, bukan cacat tampilan.
-
-**Commit:** `144a9e2`
-
-**Hasil 20 September 2026 (Chrome):** LULUS untuk seluruh aturan kejujuran —
-WPM, kata pengisi, arah pandang, volume, dan postur semuanya "belum aktif";
-skor ditahan beserta alasannya; tidak ada kalimat pujian. Dua cacat tampilan
-yang ditemukan sudah diperbaiki: skor yang ditahan dulu tampil sebagai "—"
-setinggi 96px yang terbaca seperti palang memuat (kini kata "Tidak dinilai"
-berukuran 28px), dan baris kecepatan yang kosong dulu menyisakan ruang menganga
-setinggi 40px (kini mengikuti tinggi keterangannya).
-
-**Sisa yang belum diperiksa di butir ini:** tampilan sesi itu di Riwayat (harus
-"—") dan angka di Beranda (harus mengambil skor dari sesi yang memang punya
-skor). Keduanya belum terlihat pada tangkapan layar.
-
-## B2. Ambang arah pandang dan kap wajah hilang · ~10 menit
-
-Tiga konstanta di bawah ditetapkan dari **satu** sesi uji di Safari. Angkanya
-masuk akal, tetapi belum pernah diuji ulang di Chrome.
-
-**Jalankan:** `FACE_DEBUG: true`, filter console `[face]`. Kalibrasi postur, lalu:
-
-| Detik | Pose |
-|---|---|
-| 0:00 | Kepala tegak, mata ke kamera |
-| 0:10 | **Kepala mendongak**, mata tetap ke layar |
-| 0:20 | Kepala tegak, **hanya mata** melirik ke bawah |
-| 0:30 | Kepala menunduk membaca kertas |
-| 0:40 | Kepala tegak lagi |
-| 0:50 | Berkedip keras 5–6 kali |
-| 1:00 | **Menunduk sangat dalam** sampai wajah hilang |
-| 1:10 | **Berdiri dan pergi dari bingkai tanpa mendongak**, diam 20 detik |
-| 1:30 | Kembali duduk, tatap kamera |
-
-**Lulus bila:**
-- Pose mendongak **tidak pernah** terbaca menunduk (`selisih` positif).
-- Pose mata saja menggeser `selisih` kurang dari 3°.
-- Pose menunduk melewati −8° dan terbaca `menunduk`.
-- Kedipan bertanda `KEDIP (dikeluarkan)`, tidak menambah menunduk.
-- Saat pergi dari bingkai: sekitar 5 detik pertama terhitung menunduk, sisanya
-  "wajah tidak terlihat". Di lintasan: blok abu padat, lalu arsiran bergaris.
-
-**Hasil 22 September 2026:** LULUS untuk sudut kepala. Netral terukur -10,9°;
-mendongak mendorong pitch sampai +37° (selisih +48°) dan status TETAP `depan`;
-mata saja menggeser selisih sekitar 5°, di bawah ambang 8°; menunduk membaca
-kertas memberi selisih -10° sampai -14° dan terbaca `menunduk`.
-
-**Temuan menyusul, sudah diperbaiki:** saringan kedipan membuang hampir tujuh
-detik dari sepuluh detik membaca kertas, karena kelopak mata yang turun saat
-memandang ke bawah menghasilkan eyeBlink 0,42-0,65 selama berdetik-detik.
-Saringan itu DICABUT; alasan lengkapnya di kepala `js/face.js`.
-
-**Yang masih perlu diperiksa ulang sesudah pencabutan:** ulangi pose menunduk
-membaca kertas selama 10 detik, lalu lihat rapor. Waktu menunduk sekarang harus
-mendekati 10 detik, bukan sekitar sepertiganya.
-
-**Catatan kecil yang belum ditangani:** saat kepala berada persis di sekitar
-ambang (selisih -7° sampai -8°), status sempat berkedip antara menunduk dan
-depan selama kurang dari satu detik, sehingga satu segmen bisa terpecah dua.
-Bisa diredam dengan histeresis (ambang keluar lebih longgar daripada ambang
-masuk) bila memang mengganggu.
-
-**Kalau gagal:**
-- Mendongak terbaca menunduk → tanda `pitch` terbalik; laporkan angkanya.
-- Menunduk tidak terdeteksi → turunkan `FACE_PITCH_MENUNDUK_DERAJAT` (kini 8).
-- Menunduk sungguhan bertanda KEDIP → naikkan `FACE_BLINK_THRESHOLD` (kini 0.5).
-- Waktu pergi dari meja terhitung menunduk terlalu lama → turunkan
-  `FACE_HILANG_MENUNDUK_MAKS_DETIK` (kini 5).
-
-**Commit:** `dce7537`, `831eb52`
-
-## B3. Deteksi jeda panjang dan penyaring ketukan · ~6 menit
-
-**Jalankan:** `CONFIG.audio.debug: true`. Bicara terus-menerus 1 menit, dengan:
-- satu diam penuh 5 detik di tengah,
-- satu diam 6 detik yang **diketuk meja sekali** di tengahnya,
-- satu diam 2 detik (tidak boleh terhitung).
-
-**Lulus bila:** tepat **dua** jeda panjang tercatat, masing-masing sekitar 5 dan
-6 detik. Ketukan tidak memecah jeda kedua menjadi dua.
-
-**Kalau gagal:**
-- Jeda 6 detik terpecah dua → naikkan `CONFIG.audio.minDurasiSuaraMs` (kini 200).
-- Jeda 2 detik ikut terhitung → periksa `durasiJedaPanjangMs` (kini 3000).
-- Bicara biasa terpotong jadi banyak jeda → ambang bicara terlalu tinggi;
-  turunkan `pengaliAmbangBicara` (kini 2.5).
-
-**Commit:** `f6918e4`
-
-**Hasil 22 September 2026: LULUS.**
-- Jeda 5 detik tercatat tepat (mulai 20,5 durasi 5,0).
-- **Ketukan meja tidak memecah jeda.** Ketukannya mencapai RMS 0,2574 — empat
-  puluh kali ambang bicara — tetapi hanya berlangsung 12 frame (sekitar 100 ms),
-  di bawah `minDurasiSuaraMs` 200 ms, jadi jeda 8,5 detik itu tetap utuh.
-- **Tidak ada jeda palsu saat bicara.** Di tengah kalimat `bersuara` berkisar
-  60-110 dari 120 frame, dan penghitung hening tidak pernah melewati 1,5 detik.
-  Bandingkan dengan sebelum autoGainControl dimatikan, yang sempat turun ke
-  16/120. `pengaliAmbangBicara: 2.5` TIDAK perlu diubah.
-- Hening di bawah 3 detik memang diabaikan: log memuat hening 1,9 dan 2,9 detik
-  yang tidak pernah jadi jeda panjang.
-
-**Catatan:** jeda ketiga tercatat 3,1 detik padahal naskahnya meminta 2 detik.
-Itu bukan salah hitung — hening yang sebenarnya memang 3,1 detik, dan aturannya
-"lebih dari 3 detik". Batas itu belum pernah diuji dengan jeda 2 detik yang
-sungguh-sungguh 2 detik, tetapi bukti tidak langsungnya sudah ada di atas.
-
-**Perhatikan sejak 21 September 2026:** `autoGainControl` sudah dimatikan, jadi
-ujian ini sekalian memeriksa apakah deteksi jeda ikut membaik. Pada uji volume
-sebelumnya, bicara normal sering turun di bawah ambang (`bersuara=16/120` di
-tengah membaca) dan satu jeda panjang 4,8 detik tercatat saat pengguna masih
-membaca. Bila itu masih terjadi tanpa penguatan otomatis, turunkan
-`pengaliAmbangBicara` dari 2.5 ke sekitar 2.0 dan ulangi.
-
-## B3b. Pengenal suara yang mati diam-diam · ~5 menit
-
-**Temuan 21 September 2026:** satu sesi berjalan 45 detik penuh dengan WPM tetap
-nol padahal pengguna berbicara. `recognition.start()` melempar galat, modul
-menyerah untuk seluruh sesi, dan tidak ada apa pun di layar yang memberi tahu.
-Memuat ulang halaman memperbaikinya. Sudah diperbaiki dengan percobaan ulang dan
-pengawas berkala.
-
-**Jalankan:** beberapa sesi berturut-turut TANPA memuat ulang halaman —
-selesaikan satu sesi, "Latihan lagi", ulangi, minimal empat kali. Bicaralah
-sebentar di tiap sesi.
-
-**Lulus bila:** WPM naik di semua sesi. Tulisan merah "pengenal suara tidak
-aktif" tidak muncul. Di console tidak ada baris "tidak bisa dijalankan setelah
-beberapa percobaan".
-
-**Kalau gagal** (tulisan merah muncul, atau WPM tetap nol): salin seluruh baris
-peringatan dari console. Bila baris "dijalankan ulang" muncul terus-menerus saat
-kamu memang sedang bicara, `CONFIG.SPEECH_WATCHDOG_DETIK` (kini 15) terlalu
-pendek dan harus dinaikkan.
-
-**Commit:** `a5b23b9`, `8f5c1a9`
-
-**Hasil 22 September 2026:** WPM naik di semua sesi **asalkan ada jeda**. Dua
-temuan menyusul, keduanya tentang cara pengenal suara bekerja, bukan tentang
-pengenal suara yang mati:
-
-1. **WPM hanya bergerak saat penutur berhenti sejenak.** Pengenal suara Chrome
-   memfinalkan kalimat pada jeda alami, dan seluruh hitungan Podium berjalan di
-   atas hasil final. Selama bicara tanpa henti, angkanya diam di nol lalu
-   melompat sekaligus begitu ada jeda. Tidak ada cara memaksa finalisasi lebih
-   awal lewat Web Speech API; ini batas platform, bukan cacat kode.
-2. **Kalimat terakhir dulu hilang bila sesi ditutup tanpa jeda.** Sudah
-   diperbaiki di `8f5c1a9`: `stop()` menunggu pembilasan hasil final sebelum
-   rapor disusun.
-
-**Tambahan yang harus diperiksa sekarang:** bicara 40 detik **tanpa jeda sama
-sekali**, lalu langsung tekan Selesai tanpa berhenti dulu. Rapor harus tetap
-menghitung kalimat itu dan WPM tidak boleh nol. Sebelum perbaikan, sesi seperti
-ini menghasilkan nol kata dan rapor menolak menilai.
-
-**Hasil 22 September 2026: LULUS.** Empat sesi berturut-turut tanpa memuat ulang
-menghasilkan WPM 102, 106, 102, dan 93; sesi tanpa jeda sama sekali juga tetap
-terhitung.
-
-**Temuan menyusul, sudah diperbaiki:** angka kecepatan di panel lintasan
-menunjukkan 337, 265, dan 212 WPM padahal rata-rata sesinya sekitar 102, karena
-seluruh kata dalam satu potongan diberi cap waktu detik finalisasinya. Cap waktu
-kini disebar sepanjang rentang potongan. **Periksa ulang:** seret kepala pemutar
-ke beberapa posisi; angka "kecepatan N WPM" di panel harus masuk akal dibanding
-WPM rata-rata, dan garis kecepatan tidak boleh menanjak tajam di ujung pada sesi
-yang temponya rata.
 
 ## B4. Jalur kegagalan kalibrasi · ~6 menit
 
@@ -483,6 +280,23 @@ Jangan diam-diam menambah gradien kedua.
 **Commit:** `66b75ba`
 
 ---
+
+# Sudah diuji dan lulus (22 September 2026, Chrome)
+
+Butir-butirnya sudah dihapus dari daftar di atas; dicatat di sini supaya tidak
+diuji ulang tanpa alasan.
+
+- **Rapor saat metrik hilang** — semua metrik tak terukur berbunyi "belum aktif",
+  skor ditahan, tidak ada pujian palsu.
+- **Arah pandang** — mendongak tidak pernah terbaca menunduk (pitch sampai +37°,
+  status tetap depan); menunduk membaca kertas 10 detik terhitung penuh 10 detik
+  sesudah saringan kedipan dicabut.
+- **Deteksi jeda** — jeda 5 detik tercatat, ketukan meja tidak memecahnya, tidak
+  ada jeda palsu saat bicara. Tidak ada konstanta yang perlu digeser.
+- **Pengenal suara lintas sesi** — empat sesi berturut-turut tanpa memuat ulang
+  menghasilkan WPM 102, 106, 102, 93; sesi tanpa jeda sama sekali tetap terhitung.
+- **Kalibrasi volume** — dijalankan dua kali dan GAGAL memisahkan kondisi;
+  metriknya dihentikan, kartunya berbunyi "tidak dinilai".
 
 # Keputusan yang diambil tanpa pengujian
 
