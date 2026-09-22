@@ -55,9 +55,23 @@ harus diperbaiki, bukan sekadar dicatat.
 
 **Jalankan:** (a) sesi 20 detik lalu Selesai. (b) Isi localStorage sampai penuh:
 ```js
-try { localStorage.setItem('sampah', 'x'.repeat(5_000_000)); } catch (e) { console.log('penuh'); }
+let i = 0;
+try { for (;; i++) localStorage.setItem('sampah' + i, 'x'.repeat(200_000)); }
+catch (e) { console.log('penuh setelah', i, 'blok'); }
 ```
 lalu jalankan sesi normal 40 detik.
+
+Cara lama — satu `setItem` berisi 5 juta karakter — TIDAK dipakai lagi, dan
+kalau dijalankan hasilnya menyesatkan. Kuota localStorage Chrome sekitar 5 MB,
+jadi blok sebesar itu langsung ditolak, `catch` mencetak "penuh", dan yang
+sebenarnya terjadi adalah **tidak ada apa pun yang tersimpan**. localStorage
+tetap lapang, sesi berikutnya tersimpan normal, dan ujinya lulus tanpa pernah
+menyentuh jalur kuota penuh. Mengisi bertahap 200 ribu karakter per blok
+sampai `setItem` benar-benar menolak adalah satu-satunya cara memastikan
+kuotanya memang habis.
+
+Riwayat yang sudah ada aman: `setItem` bersifat atomik, jadi saat ditolak nilai
+lama tetap utuh, bukan terpotong setengah.
 
 **Lulus bila:** (a) muncul pesan sesi di bawah 30 detik, kembali ke Beranda,
 tidak ada entri baru di Riwayat. (b) Rapor tetap tampil lengkap, dengan catatan
@@ -66,7 +80,11 @@ merah bahwa sesi tidak tersimpan ke riwayat.
 **Kalau gagal:** aplikasi tidak boleh macet atau kehilangan rapor hanya karena
 penyimpanan penuh.
 
-**Bersihkan:** `localStorage.removeItem('sampah')`
+**Bersihkan:**
+```js
+Object.keys(localStorage).filter(k => k.startsWith('sampah')).forEach(k => localStorage.removeItem(k));
+console.log('sisa kunci:', Object.keys(localStorage));
+```
 
 **Commit:** `931b9ce`
 
