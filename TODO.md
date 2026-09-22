@@ -19,9 +19,9 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
 | A | Fitur yang belum jadi — bukan uji | ~1 menit |
-| B | Uji yang bisa memaksa perubahan kode | ~43 menit |
+| B | Uji yang bisa memaksa perubahan kode | ~44 menit |
 | C | Uji tampilan | ~29 menit |
-| | **Sisa pemeriksaan** | **~73 menit** |
+| | **Sisa pemeriksaan** | **~74 menit** |
 
 ---
 
@@ -72,26 +72,32 @@ kamera ke langit-langit malah **berhasil**, naikkan
 
 **Commit:** `010603b`
 
-## B5. Event lintasan waktu dan selisih waktu transkrip · ~6 menit
+## B5b. Sisa B5: apakah "gitu" sampai ke transkrip · ~2 menit
 
-**Jalankan:** `TIMELINE_DEBUG: true`, lalu sesi 2 menit dengan naskah Sesi A
-(bicara terus-menerus; satu-satunya diam adalah 5 detik di 0:40; menunduk 6 detik
-di 1:00; mendongak 5 detik di 1:20; dua "kayak" di 0:15; satu "gitu" di 1:30;
-bicara cepat di 1:40–2:00).
+B5 sudah dijalankan (22 September 2026, Chrome, sesi "B5 Test" 2m 6s) dan lulus
+di lima dari enam syarat. Rinciannya ada di bagian "Sudah diuji dan lulus".
 
-**Lulus bila:**
-- kata pengisi: 3 entri; jeda panjang: 1 entri (~0:40); segmen menunduk: 1 entri
-  (~1:00) dan **tidak ada** entri di 1:20; kecepatan: 4 potongan, terakhir tertinggi.
-- Potongan transkrip bersambung tanpa lubang.
+Satu yang belum terjawab: naskahnya memuat tiga kata pengisi, yang tercatat dua.
+Keduanya "kayak"; "gitu" tidak ada sama sekali. Pencocoknya sudah dibuktikan
+bukan penyebabnya — diuji dengan daftar `FILLER_WORDS` produksi, "gitu" tertangkap
+di tengah kalimat, di ujung kalimat, dan sebagai "gitulah", sementara "begitu"
+benar tidak ikut terhitung. Dugaan yang tersisa: pengenal suara Chrome memang
+tidak mengeluarkan kata itu. Belum terbukti, karena potongan transkrip sesi itu
+hilang saat halaman dimuat ulang.
 
-**Kalau gagal:**
-- Kata pengisi kurang → periksa `filler.events`; bila "kayak" memang tidak ada di
-  transkrip, itu batas pengenal suara, catat saja.
-- Jeda lebih dari satu → lihat B3.
-- **Selisih waktu transkrip lebih dari ±5 detik** → label "sekitar" saja tidak
-  cukup; pertimbangkan menggeser cap waktu potongan dengan offset tetap.
+**Jalankan:** gabungkan dengan sesi B8. Ucapkan "gitu" tiga kali di kalimat yang
+berbeda dan "kayak" sekali. Tetap di Layar Rapor, lalu baca blok
+`[timeline] salinan JSON` di console.
 
-**Commit:** `2121123`, `a9d764b`
+**Lulus bila:** `potonganTranskrip` memuat kata "gitu", dan `filler.events`
+menghitungnya. Berarti B5 lulus penuh dan yang kemarin cuma sekali meleset.
+
+**Kalau gagal:** kalau "gitu" tidak ada di `potonganTranskrip` sama sekali, itu
+batas pengenal suara, sekelas temuan "eee". Catat di README bagian "Yang tidak
+diukur", jangan diperbaiki lewat kode. Kalau ada di transkrip tapi tidak
+terhitung, itu bug pencocok — perbaiki di `hitungKataPengisi()`.
+
+**Commit:** `2121123`, `a9d764b`, `1d6882b`
 
 ## B6. Riwayat: buka analisis sesi lama · ~5 menit
 
@@ -214,6 +220,31 @@ Riwayat menandai modenya.
 
 **Commit:** `010603b`
 
+## B13. Apakah kurva skor terlalu murah hati · ~5 menit
+
+Muncul dari data B5, bukan dari kesan. Sesi "B5 Test" berisi satu jeda 5 detik,
+dua kata pengisi, dan kontak pandang 88,2% — tetap mendapat **94**. Grafik tren
+di Riwayat memperlihatkan sepuluh sesi terakhir menumpuk di 90–100, dengan hanya
+dua sesi di bawah 60, dan dua sesi itu rendah karena metriknya memang **hilang**,
+bukan karena penampilannya buruk.
+
+Kalau hampir semua sesi bernilai 90-an, angkanya berhenti memberi informasi:
+pengguna tidak bisa melihat dirinya membaik, dan itu justru inti produknya.
+
+**Jalankan:** buka Riwayat, lihat sebaran Tren Skor. Lalu putuskan satu hal
+saja: apakah sesi yang jelas-jelas cacat (jeda panjang, kata pengisi banyak,
+sering menunduk) sudah jatuh ke angka yang terasa berbeda dari sesi yang mulus.
+
+**Lulus bila:** sesi bagus dan sesi cacat terpisah setidaknya 20 angka.
+
+**Kalau gagal:** ini keputusan pemilik proyek, bukan keputusanku — ambangnya
+soal rasa, bukan soal benar/salah. Yang boleh kuubah hanyalah kurva di
+`js/report.js`, dan hanya sesudah kamu menyebut angka yang kamu mau. **Jangan
+diubah sebelum B4–B12 selesai**, karena mengubah kurva membuat seluruh skor di
+Riwayat tidak lagi sebanding dengan hasil uji sebelumnya.
+
+**Commit:** belum ada.
+
 ---
 
 # C. UJI TAMPILAN
@@ -297,6 +328,23 @@ diuji ulang tanpa alasan.
   menghasilkan WPM 102, 106, 102, 93; sesi tanpa jeda sama sekali tetap terhitung.
 - **Kalibrasi volume** — dijalankan dua kali dan GAGAL memisahkan kondisi;
   metriknya dihentikan, kartunya berbunyi "tidak dinilai".
+- **Event lintasan waktu (B5)** — sesi "B5 Test", 2m 6s. Jeda tercatat di detik
+  41 selama 5,0 detik (naskah: 0:40, 5 detik). Segmen menunduk satu buah di
+  detik 60 selama 8,3 detik (naskah: 1:00), dan **tidak ada** segmen di 1:20
+  meski kepala sempat menunduk sebentar di situ — di bawah
+  `MENUNDUK_EVENT_MIN_DETIK`, jadi benar tidak dijadikan segmen. Wajah hilang: 0.
+  Kecepatan: empat potongan 114/104/100/126, yang terakhir tertinggi sesuai
+  naskah. Potongan kelima (detik 120–126) sengaja dibuang karena lebih pendek
+  dari `WPM_BUCKET_MIN_DETIK`.
+- **Sebaran cap waktu kata pengisi** — ini uji nyata pertama untuk perbaikan
+  `f1ac12d`. Dua "kayak" yang diucapkan sekitar detik 18 dan 22 tercatat di
+  18,6 dan 22,8: meleset di bawah 1 detik, jauh di dalam batas ±5 detik. Sebelum
+  perbaikan itu keduanya akan menumpuk di detik finalisasi potongan.
+- **Arah pandang terhadap lirikan pendek** — `pandangPersen` 88,2% sementara
+  satu-satunya segmen menunduk cuma 8,3 detik dari 126. Selisihnya (~6,6 detik)
+  adalah lirikan-lirikan pendek ke bawah saat membaca naskah di layar. Ini
+  perilaku yang diinginkan: lirikan pendek ikut menurunkan persentase tetapi
+  tidak dijadikan segmen di lintasan waktu.
 
 # Keputusan yang diambil tanpa pengujian
 
