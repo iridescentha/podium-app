@@ -1122,7 +1122,10 @@ function selesaiSesiLatihan() {
   }
   state.sesiBerjalan = false;
 
-  speechModule.stop();
+  // stop() mengembalikan janji yang selesai saat pengenal suara benar-benar
+  // menutup. Menunggunya WAJIB: kalimat terakhir pengguna baru difinalkan pada
+  // saat berhenti, dan tanpa menunggu, kalimat itu tiba sesudah rapor disusun.
+  const pembilasanSuara = speechModule.stop();
   audioModule.stop();
   faceModule.stop();
   if (state.analisisPosturAktif) poseModule.stop();
@@ -1139,8 +1142,8 @@ function selesaiSesiLatihan() {
     return;
   }
 
-  // Kumpulkan data sesi
-  prosesDanTampilkanRapor();
+  // Tunggu kalimat terakhir selesai dibilas, baru kumpulkan data sesi
+  pembilasanSuara.then(prosesDanTampilkanRapor);
 }
 
 /**

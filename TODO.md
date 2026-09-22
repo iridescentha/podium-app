@@ -185,7 +185,25 @@ peringatan dari console. Bila baris "dijalankan ulang" muncul terus-menerus saat
 kamu memang sedang bicara, `CONFIG.SPEECH_WATCHDOG_DETIK` (kini 15) terlalu
 pendek dan harus dinaikkan.
 
-**Commit:** `a5b23b9`
+**Commit:** `a5b23b9`, `8f5c1a9`
+
+**Hasil 22 September 2026:** WPM naik di semua sesi **asalkan ada jeda**. Dua
+temuan menyusul, keduanya tentang cara pengenal suara bekerja, bukan tentang
+pengenal suara yang mati:
+
+1. **WPM hanya bergerak saat penutur berhenti sejenak.** Pengenal suara Chrome
+   memfinalkan kalimat pada jeda alami, dan seluruh hitungan Podium berjalan di
+   atas hasil final. Selama bicara tanpa henti, angkanya diam di nol lalu
+   melompat sekaligus begitu ada jeda. Tidak ada cara memaksa finalisasi lebih
+   awal lewat Web Speech API; ini batas platform, bukan cacat kode.
+2. **Kalimat terakhir dulu hilang bila sesi ditutup tanpa jeda.** Sudah
+   diperbaiki di `8f5c1a9`: `stop()` menunggu pembilasan hasil final sebelum
+   rapor disusun.
+
+**Tambahan yang harus diperiksa sekarang:** bicara 40 detik **tanpa jeda sama
+sekali**, lalu langsung tekan Selesai tanpa berhenti dulu. Rapor harus tetap
+menghitung kalimat itu dan WPM tidak boleh nol. Sebelum perbaikan, sesi seperti
+ini menghasilkan nol kata dan rapor menolak menilai.
 
 ## B4. Jalur kegagalan kalibrasi · ~6 menit
 

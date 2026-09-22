@@ -164,6 +164,10 @@ const MAKS_PERCOBAAN_START = 3;
 const JEDA_PERCOBAAN_MS = 250;
 const CEK_PENGAWAS_MS = 5000;
 
+// Berapa lama stop() menunggu hasil final terakhir dikirim pengenal suara
+// sebelum menyerah dan melanjutkan. Lihat catatan di lepasInstansRecognition().
+const BATAS_PEMBILASAN_MS = 600;
+
 // Ambang bawaan, dipakai hanya jika CONFIG tidak dioper dari app.js.
 const KONFIG_BAWAAN = {
   SPEECH_WATCHDOG_DETIK: 15,
@@ -304,16 +308,33 @@ export function resume() {
  * Status diubah ke 'berhenti' lebih dulu agar onend tidak menghidupkan ulang,
  * lalu instans dilepas. Akumulator sengaja TIDAK dikosongkan supaya
  * getResults() masih bisa dibaca oleh Layar Rapor setelah sesi selesai.
+ *
+ * MENGEMBALIKAN PROMISE, dan pemanggil WAJIB menunggunya sebelum membaca
+ * getResults(). Alasannya ditemukan lewat uji lapangan 22 September 2026:
+ * pengenal suara hanya memfinalkan kalimat saat penuturnya berhenti sejenak.
+ * Pengguna yang bicara tanpa jeda lalu langsung menekan Selesai membuat seluruh
+ * ucapannya masih menggantung sebagai hasil sementara. recognition.stop()
+ * memerintahkan layanan mengirimkan sisa itu sebagai hasil final, tetapi
+ * kiriman itu datang ASINKRON — beberapa puluh milidetik kemudian. Versi
+ * sebelumnya menyusun rapor di baris berikutnya juga, jadi kalimat terakhir
+ * selalu ketinggalan. Bila itu satu-satunya kalimat di sesi tersebut, hasilnya
+ * nol kata dan rapor menolak menilai, persis gejala yang dilaporkan.
+ *
+ * @returns {Promise<void>} Selesai saat pengenal suara benar-benar menutup
  */
 export function stop() {
   status = 'berhenti';
   hentikanPengawas();
   sedangAktif = false;
   tutupSegmenWaktu();
-  lepasInstansRecognition();
+
+  const pembilasan = lepasInstansRecognition();
+
   if (typeof eventCallbacks.onStatusChange === 'function') {
     eventCallbacks.onStatusChange('dihentikan');
   }
+
+  return pembilasan;
 }
 
 /**
@@ -511,14 +532,40 @@ function hentikanPengawas() {
  * identitas dan tidak melakukan apa-apa, berapa pun lama Chrome menunda eventnya.
  */
 function lepasInstansRecognition() {
-  if (!recognition) return;
+  if (!recognition) return Promise.resolve();
+
   const lama = recognition;
   recognition = null;
-  try {
-    lama.stop();
-  } catch (e) {
-    try { lama.abort(); } catch (err) {}
-  }
+
+  return new Promise((selesai) => {
+    let sudah = false;
+    const tuntas = () => {
+      if (sudah) return;
+      sudah = true;
+      selesai();
+    };
+
+    // onend adalah tanda bahwa pengenal suara benar-benar sudah menutup dan
+    // tidak akan mengirim apa-apa lagi. Handler lama sudah gagal pada
+    // pemeriksaan identitas di atas, jadi aman ditimpa di sini.
+    lama.onend = tuntas;
+
+    // Jaring pengaman: bila onend tidak pernah datang, jangan menggantung
+    // seluruh alur rapor. Setengah detik jauh lebih dari cukup untuk
+    // pembilasan yang memang berhasil.
+    setTimeout(tuntas, BATAS_PEMBILASAN_MS);
+
+    try {
+      // stop(), BUKAN abort(). Keduanya menghentikan pengenalan, tetapi stop()
+      // memerintahkan layanan mengembalikan hasil dari audio yang sudah
+      // terlanjur ditangkap, sedangkan abort() membuangnya. Kalimat terakhir
+      // pengguna hidup di situ.
+      lama.stop();
+    } catch (e) {
+      try { lama.abort(); } catch (err) {}
+      tuntas();
+    }
+  });
 }
 
 /**
