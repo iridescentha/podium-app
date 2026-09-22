@@ -157,6 +157,23 @@ masuk akal, tetapi belum pernah diuji ulang di Chrome.
 
 **Commit:** `f6918e4`
 
+**Hasil 22 September 2026: LULUS.**
+- Jeda 5 detik tercatat tepat (mulai 20,5 durasi 5,0).
+- **Ketukan meja tidak memecah jeda.** Ketukannya mencapai RMS 0,2574 — empat
+  puluh kali ambang bicara — tetapi hanya berlangsung 12 frame (sekitar 100 ms),
+  di bawah `minDurasiSuaraMs` 200 ms, jadi jeda 8,5 detik itu tetap utuh.
+- **Tidak ada jeda palsu saat bicara.** Di tengah kalimat `bersuara` berkisar
+  60-110 dari 120 frame, dan penghitung hening tidak pernah melewati 1,5 detik.
+  Bandingkan dengan sebelum autoGainControl dimatikan, yang sempat turun ke
+  16/120. `pengaliAmbangBicara: 2.5` TIDAK perlu diubah.
+- Hening di bawah 3 detik memang diabaikan: log memuat hening 1,9 dan 2,9 detik
+  yang tidak pernah jadi jeda panjang.
+
+**Catatan:** jeda ketiga tercatat 3,1 detik padahal naskahnya meminta 2 detik.
+Itu bukan salah hitung — hening yang sebenarnya memang 3,1 detik, dan aturannya
+"lebih dari 3 detik". Batas itu belum pernah diuji dengan jeda 2 detik yang
+sungguh-sungguh 2 detik, tetapi bukti tidak langsungnya sudah ada di atas.
+
 **Perhatikan sejak 21 September 2026:** `autoGainControl` sudah dimatikan, jadi
 ujian ini sekalian memeriksa apakah deteksi jeda ikut membaik. Pada uji volume
 sebelumnya, bicara normal sering turun di bawah ambang (`bersuara=16/120` di
