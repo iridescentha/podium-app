@@ -31,8 +31,23 @@ harus diperbaiki, bukan sekadar dicatat.
 
 ## B10. Luring dan CDN gagal · ~4 menit
 
-**Jalankan:** DevTools → Network → Offline → muat ulang → buka Riwayat dan
-jalankan satu sesi.
+**Jangan pakai throttling "Offline".** Dicoba 22 September 2026 di Chrome dan
+GAGAL menguji apa pun: Offline memutus `localhost` juga, jadi halamannya sendiri
+tidak pernah dimuat dan yang muncul cuma layar dino Chrome. Yang perlu ditiru
+adalah aplikasi tetap dimuat sementara CDN-nya mati, bukan seluruh jaringan mati.
+
+**Jalankan:** DevTools → `Cmd-Shift-P` → "Show Network request blocking" →
+centang "Enable network request blocking" → tambahkan dua pola:
+
+```
+*cdn.jsdelivr.net*
+*storage.googleapis.com*
+```
+
+Yang pertama membawa Chart.js dan bundel + wasm MediaPipe; yang kedua membawa
+berkas model `face_landmarker.task`. Pastikan throttling kembali ke "No
+throttling", lalu centang **Disable cache** di panel Network supaya pustaka tidak
+datang dari cache. Muat ulang → buka Riwayat → jalankan satu sesi.
 
 **Lulus bila:** grafik tren diganti keterangan bahwa pustaka grafik gagal dimuat,
 model wajah melaporkan "Gagal dimuat", sesi tetap bisa berjalan, dan arah pandang
