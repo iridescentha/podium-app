@@ -187,7 +187,7 @@ export const CONFIG = {
   FACE_SMOOTHING_FRAMES: 3,        // Status depan/menunduk baru berganti setelah sekian frame berturut-turut sepakat (nilai awal)
   FACE_POLL_INTERVAL_MS: 150,      // Frekuensi inferensi wajah tiap 150 ms
   MENUNDUK_EVENT_MIN_DETIK: 3,     // Menunduk selama ini atau lebih dicatat sebagai satu event timeline
-  FACE_DEBUG: true,               // true: cetak pitch, selisih netral, dan nilai kedipan ke console untuk kalibrasi
+  FACE_DEBUG: false,               // true: cetak pitch, selisih netral, dan nilai kedipan ke console untuk kalibrasi
 
   // Postur (Teachable Machine)
   POSE_CONFIDENCE_MIN: 0.7,        // Minimal confidence 0.7
@@ -198,7 +198,7 @@ export const CONFIG = {
 
   // true: cetak seluruh event bertimestamp sesi ke console saat rapor dibuka,
   // untuk mencocokkan isinya dengan apa yang benar-benar dilakukan (Tahap 4B).
-  TIMELINE_DEBUG: false,
+  TIMELINE_DEBUG: true,
 
   // Lebar jendela yang diringkas panel lintasan, berpusat di kepala pemutar.
   // Delapan detik kira-kira selebar satu-dua kalimat, cukup untuk menjelaskan
