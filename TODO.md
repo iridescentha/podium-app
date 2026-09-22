@@ -19,9 +19,9 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
 | A | Fitur yang belum jadi — bukan uji | ~1 menit |
-| B | Uji yang bisa memaksa perubahan kode | ~44 menit |
+| B | Uji yang bisa memaksa perubahan kode | ~42 menit |
 | C | Uji tampilan | ~29 menit |
-| | **Sisa pemeriksaan** | **~74 menit** |
+| | **Sisa pemeriksaan** | **~72 menit** |
 
 ---
 
@@ -72,33 +72,6 @@ kamera ke langit-langit malah **berhasil**, naikkan
 
 **Commit:** `010603b`
 
-## B5b. Sisa B5: apakah "gitu" sampai ke transkrip · ~2 menit
-
-B5 sudah dijalankan (22 September 2026, Chrome, sesi "B5 Test" 2m 6s) dan lulus
-di lima dari enam syarat. Rinciannya ada di bagian "Sudah diuji dan lulus".
-
-Satu yang belum terjawab: naskahnya memuat tiga kata pengisi, yang tercatat dua.
-Keduanya "kayak"; "gitu" tidak ada sama sekali. Pencocoknya sudah dibuktikan
-bukan penyebabnya — diuji dengan daftar `FILLER_WORDS` produksi, "gitu" tertangkap
-di tengah kalimat, di ujung kalimat, dan sebagai "gitulah", sementara "begitu"
-benar tidak ikut terhitung. Dugaan yang tersisa: pengenal suara Chrome memang
-tidak mengeluarkan kata itu. Belum terbukti, karena potongan transkrip sesi itu
-hilang saat halaman dimuat ulang.
-
-**Jalankan:** gabungkan dengan sesi B8. Ucapkan "gitu" tiga kali di kalimat yang
-berbeda dan "kayak" sekali. Tetap di Layar Rapor, lalu baca blok
-`[timeline] salinan JSON` di console.
-
-**Lulus bila:** `potonganTranskrip` memuat kata "gitu", dan `filler.events`
-menghitungnya. Berarti B5 lulus penuh dan yang kemarin cuma sekali meleset.
-
-**Kalau gagal:** kalau "gitu" tidak ada di `potonganTranskrip` sama sekali, itu
-batas pengenal suara, sekelas temuan "eee". Catat di README bagian "Yang tidak
-diukur", jangan diperbaiki lewat kode. Kalau ada di transkrip tapi tidak
-terhitung, itu bug pencocok — perbaiki di `hitungKataPengisi()`.
-
-**Commit:** `2121123`, `a9d764b`, `1d6882b`
-
 ## B6. Riwayat: buka analisis sesi lama · ~5 menit
 
 **Jalankan:** buka Riwayat, klik salah satu sesi. Ulangi untuk sesi yang
@@ -133,6 +106,13 @@ kepala pemutar saat sedang berjalan.
 Periksa juga: tinggalkan Layar Rapor saat pemutaran sedang berjalan, lalu buka
 lagi. Tidak boleh ada pemutaran yang masih berjalan di latar.
 
+Periksa juga potongan transkrip TERAKHIR. Di sesi "B8 gitu test" potongan
+keempat berakhir di detik 46,6 padahal `durasiDetik` cuma 45: kalimat terakhir
+baru dibilas sesudah `stop()`, jadi ujungnya melewati ujung sesi. Yang perlu
+dilihat: apakah kepala pemutar bisa mencapai potongan itu, atau ekornya
+terpotong diam-diam di ujung lintasan. Kalau hanya ekornya yang terpotong dan
+teksnya tetap tampil, biarkan — ini kosmetik, bukan angka yang salah.
+
 **Kalau gagal:** catat apakah masalahnya di kecepatan, di seretan, di gulir
 transkrip, atau di pemutaran yang tidak berhenti saat layar ditinggalkan.
 
@@ -152,6 +132,20 @@ JSON.parse(localStorage.getItem('podium_sessions'))[0]
 - Dilepas → field hilang, sementara `skor`, `filler.events`, `jeda`, dan
   `menundukSegmen` tetap utuh.
 - Sesi baru selalu kembali ke keadaan tidak tercentang.
+
+**Penting — jangan menyentuh halaman sesudah Selesai.** Percobaan pertama
+(22 September 2026) gagal jadi bukti justru karena ini: kotaknya sempat
+tercentang lebih dulu, jadi ketiga pembacaan keluar sama persis dan sampel
+"sebelum dicentang" tidak pernah ada. Buka console dengan **⌥⌘J**, yang
+menaruh fokus langsung di console tanpa mengklik halaman, lalu baru jalankan
+pembacaan pertama.
+
+Kejadian itu sendiri sudah ditelusuri dan BUKAN bug: baris status di bawah
+kotaknya berbunyi "Transkrip tersimpan bersama sesi ini", dan teks itu hanya
+ditulis di dalam handler-nya (`app.js:1456`), yang cuma terikat ke event
+`change`. Selain itu `app.js:1447` adalah satu-satunya baris di seluruh kode
+yang menulis `potonganTranskrip` ke objek sesi. Jadi transkripnya masuk lewat
+jalur yang benar. Yang belum terbukti hanyalah syarat "bawaan mati".
 
 **Kalau gagal:** transkrip tersimpan tanpa dicentang adalah **pelanggaran
 privasi**, perbaiki segera.
@@ -340,6 +334,16 @@ diuji ulang tanpa alasan.
   `f1ac12d`. Dua "kayak" yang diucapkan sekitar detik 18 dan 22 tercatat di
   18,6 dan 22,8: meleset di bawah 1 detik, jauh di dalam batas ±5 detik. Sebelum
   perbaikan itu keduanya akan menumpuk di detik finalisasi potongan.
+- **Kata pengisi "gitu" (sisa B5)** — sesi "B8 gitu test", 22 September 2026,
+  Chrome. Tiga "gitu" di tiga posisi berbeda (ujung kalimat, tengah kalimat,
+  awal kalimat) dan satu "kayak": keempatnya masuk ke `potonganTranskrip` DAN
+  terhitung di `filler.events`. Jadi yang hilang di B5 adalah satu kali meleset
+  pengenal suara, bukan cacat pencocok. Cap waktunya ikut diperiksa manual
+  terhadap rentang potongannya: "kayak" adalah kata ke-3 dari 19 di potongan
+  11,2–24,1 detik, jadi 11,2 + (2,5/19)×12,9 = 12,9 — persis yang tercatat.
+  Keempat event cocok dalam 0,1 detik.
+- **Jeda pendek tidak dipalsukan jadi jeda panjang** — empat tarikan napas
+  1–2 detik di sesi yang sama menghasilkan `jeda.jumlah: 0`.
 - **Arah pandang terhadap lirikan pendek** — `pandangPersen` 88,2% sementara
   satu-satunya segmen menunduk cuma 8,3 detik dari 126. Selisihnya (~6,6 detik)
   adalah lirikan-lirikan pendek ke bawah saat membaca naskah di layar. Ini
