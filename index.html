@@ -281,6 +281,10 @@
 
       <!-- Tombol Aksi Mulai Sesi -->
       <div class="tombol-grup" style="margin-top: 32px;">
+        <!-- Peringatan konsekuensi kalibrasi yang dilewatkan. Isinya ditulis
+             perbaruiHirarkiMulaiSesi() di js/app.js, dan elemennya mengambil
+             satu baris penuh sendiri karena .tombol-grup sudah flex-wrap. -->
+        <p id="peringatan-kalibrasi" class="peringatan-kalibrasi" aria-live="polite" hidden></p>
         <button id="btn-mulai-sesi" class="tombol tombol--utama" disabled>Mulai sesi</button>
       </div>
     </div>

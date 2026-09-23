@@ -311,6 +311,7 @@ const DOM = {
   statusModelWajah: document.getElementById('status-model-wajah'),
   statusModelPostur: document.getElementById('status-model-postur'),
   tombolMulaiSesi: document.getElementById('btn-mulai-sesi'),
+  peringatanKalibrasi: document.getElementById('peringatan-kalibrasi'),
   btnBatalPersiapan: document.getElementById('btn-batal-persiapan'),
 
   // Alat Uji Bentrok Mikrofon (Tahap 0)
@@ -763,7 +764,8 @@ function setStatusKalibrasi(nama, status, keterangan, gagal = false) {
 }
 
 /**
- * Menentukan apakah "Mulai sesi" sudah layak jadi aksi utama layar.
+ * Menentukan apakah "Mulai sesi" sudah layak jadi aksi utama layar, DAN menulis
+ * peringatan konsekuensi bila kalibrasinya hendak dilewatkan.
  *
  * CARA KERJA:
  * Selama masih ada kalibrasi yang belum selesai, tombol Mulai sesi ditampilkan
@@ -771,13 +773,40 @@ function setStatusKalibrasi(nama, status, keterangan, gagal = false) {
  * tertinggal. Tombolnya tetap bisa ditekan: pengguna boleh melewatkan kalibrasi,
  * dengan konsekuensi metrik terkait dilaporkan "belum aktif" di rapor, bukan
  * diisi angka karangan.
+ *
+ * Gaya tombol saja ternyata tidak cukup. Diperiksa 23 September 2026: sesi bisa
+ * dimulai tanpa kalibrasi sama sekali, dan pengguna baru tahu metriknya mati di
+ * Layar Rapor — sesudah sesinya tidak bisa diulang. Jadi fungsi ini juga
+ * menyusun satu kalimat yang menyebut metrik mana yang akan hilang, dari
+ * pemetaan tetap:
+ *
+ *   kalibrasi ruangan belum  ->  jeda panjang tidak dinilai (ambangBicara null)
+ *   kalibrasi postur belum   ->  arah pandang tidak dinilai (pitchNetral null)
+ *
+ * Peringatan disembunyikan saat tombolnya sedang disabled, yaitu sebelum izin
+ * perangkat diberikan dan selagi satu kalibrasi sedang mengukur. Di dua keadaan
+ * itu pengguna tidak sedang memutuskan apa pun, jadi kalimatnya cuma jadi
+ * gangguan.
  */
 function perbaruiHirarkiMulaiSesi() {
   // Mode suara saja tidak punya kalibrasi postur, jadi yang ditunggu hanya satu.
   const posturDibutuhkan = (state.modeSesi === 'lengkap');
-  const semuaSelesai = state.kalibrasi.ruangan === 'selesai'
-    && (!posturDibutuhkan || state.kalibrasi.postur === 'selesai');
+  const ruanganSelesai = state.kalibrasi.ruangan === 'selesai';
+  const posturSelesai = !posturDibutuhkan || state.kalibrasi.postur === 'selesai';
+  const semuaSelesai = ruanganSelesai && posturSelesai;
   DOM.tombolMulaiSesi.className = `tombol ${semuaSelesai ? 'tombol--utama' : 'tombol--sekunder'}`;
+
+  const metrikHilang = [];
+  if (!ruanganSelesai) metrikHilang.push('jeda panjang');
+  if (!posturSelesai) metrikHilang.push('arah pandang');
+
+  const tampilkan = metrikHilang.length > 0 && DOM.tombolMulaiSesi.disabled === false;
+  DOM.peringatanKalibrasi.hidden = !tampilkan;
+  if (tampilkan) {
+    DOM.peringatanKalibrasi.textContent =
+      `Kalibrasi belum lengkap. Kalau sesi dimulai sekarang, ${metrikHilang.join(' dan ')} `
+      + 'tidak akan dinilai — metriknya ditandai "belum aktif" di rapor, bukan diisi angka.';
+  }
 }
 
 /**

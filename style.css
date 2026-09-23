@@ -752,6 +752,19 @@ button:disabled, .tombol:disabled {
   margin-top: 2px;
 }
 
+/* Peringatan satu baris di atas tombol "Mulai sesi", muncul hanya selama masih
+   ada kalibrasi yang belum dijalankan. flex-basis 100% memaksanya turun ke baris
+   sendiri di dalam .tombol-grup yang flex-wrap, jadi tombolnya tidak terdorong
+   ke samping. Warnanya --sorot, aksen tunggal yang sama dengan lampu sorot:
+   ini bukan error, jadi --bahaya tidak dipakai. */
+.peringatan-kalibrasi {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--sorot);
+}
+
 /* Tombol ukuran kecil untuk baris kalibrasi. Bentuk, radius, dan warnanya tetap
    milik .tombol--utama / .tombol--sekunder; hanya paddingnya yang dikecilkan. */
 .tombol--kecil {

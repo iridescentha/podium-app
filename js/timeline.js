@@ -200,7 +200,7 @@ function gambarBarisPandang(sesi, durasi) {
  * Titik yang keluar dari rentang nyaman digambar lebih besar dan berlubang,
  * sehingga bedanya terbaca dari bentuk, bukan dari warna saja.
  */
-function gambarBarisKecepatan(deret, durasi, konfig) {
+function gambarBarisKecepatan(deret, durasi, konfig, wpmTersedia) {
   const { baris, lintasan } = buatBaris('Kecepatan bicara', 'kecepatan');
   lintasan.classList.add('timeline__lintasan--kecepatan');
 
@@ -209,7 +209,21 @@ function gambarBarisKecepatan(deret, durasi, konfig) {
     // kosong, tingginya mengikuti keterangannya supaya tidak ada ruang menganga
     // yang membuat barisnya terlihat rusak.
     lintasan.classList.add('timeline__lintasan--kosong');
-    lintasan.appendChild(elemen('div', 'timeline__kosong', 'Sesi terlalu singkat untuk mengukur perubahan kecepatan.'));
+
+    // Deret kosong punya DUA sebab yang berbeda, dan menyebut sebab yang salah
+    // sama saja dengan berbohong ke pengguna. Ditemukan 23 September 2026 lewat
+    // sesi diam 40 detik: rapornya berbunyi "sesi terlalu singkat" padahal
+    // sesinya sama sekali tidak singkat, dan kartu metrik tepat di atasnya sudah
+    // menyebut sebab yang sebenarnya ("tidak ada ucapan yang tertangkap").
+    //
+    //   wpmTersedia === false -> pengenal suara tidak menangkap satu kata pun,
+    //                            jadi tidak ada yang bisa dipotong jadi titik
+    //   wpmTersedia === true  -> katanya ada, tapi durasinya belum cukup untuk
+    //                            satu potongan penuh (WPM_BUCKET_MIN_DETIK)
+    const pesan = (wpmTersedia === false)
+      ? 'Tidak ada ucapan yang tertangkap, jadi kecepatan bicara tidak diukur.'
+      : 'Sesi terlalu singkat untuk mengukur perubahan kecepatan.';
+    lintasan.appendChild(elemen('div', 'timeline__kosong', pesan));
     return baris;
   }
 
@@ -613,7 +627,7 @@ export function render(wadah, sesi, config = {}, opsi = {}) {
   const panggung = elemen('div', 'timeline__panggung');
   panggung.appendChild(gambarSumbu(durasi));
   if (adaBarisPandang) panggung.appendChild(gambarBarisPandang(sesi, durasi));
-  panggung.appendChild(gambarBarisKecepatan(sesi.deretWpm, durasi, konfig));
+  panggung.appendChild(gambarBarisKecepatan(sesi.deretWpm, durasi, konfig, sesi.wpmTersedia));
   panggung.appendChild(gambarBarisMasalah(sesi, durasi));
 
   const kepala = elemen('div', 'timeline__kepala');
