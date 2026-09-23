@@ -18,9 +18,9 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
-| B | Uji yang bisa memaksa perubahan kode | ~13 menit |
+| B | Uji yang bisa memaksa perubahan kode | ~9 menit |
 | C | Uji tampilan | ~1 menit |
-| | **Sisa pemeriksaan** | **~14 menit** |
+| | **Sisa pemeriksaan** | **~10 menit** |
 
 ---
 
@@ -28,48 +28,6 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 
 Diurutkan dari yang akibatnya paling besar. Kegagalan di sini berarti ada yang
 harus diperbaiki, bukan sekadar dicatat.
-
-## B10. Luring dan CDN gagal · ~4 menit
-
-**Jangan pakai throttling "Offline".** Dicoba 22 September 2026 di Chrome dan
-GAGAL menguji apa pun: Offline memutus `localhost` juga, jadi halamannya sendiri
-tidak pernah dimuat dan yang muncul cuma layar dino Chrome. Yang perlu ditiru
-adalah aplikasi tetap dimuat sementara CDN-nya mati, bukan seluruh jaringan mati.
-
-**Jalankan:** DevTools → `Cmd-Shift-P` → "Show Network request blocking" →
-centang "Enable network request blocking" → tambahkan dua pola:
-
-```
-*cdn.jsdelivr.net*
-*storage.googleapis.com*
-```
-
-Yang pertama membawa Chart.js dan bundel + wasm MediaPipe; yang kedua membawa
-berkas model `face_landmarker.task`. Pastikan throttling kembali ke "No
-throttling", lalu centang **Disable cache** di panel Network supaya pustaka tidak
-datang dari cache. Muat ulang → buka Riwayat → jalankan satu sesi.
-
-**Lulus bila:** grafik tren diganti keterangan bahwa pustaka grafik gagal dimuat,
-model wajah melaporkan "Gagal dimuat", sesi tetap bisa berjalan, dan arah pandang
-ditandai "belum aktif".
-
-**Tentang console merah.** Kriteria lama berbunyi "console tidak boleh merah",
-dan itu tidak bisa dipenuhi secara harfiah. Terlihat saat B9 dijalankan
-22 September 2026 di Chrome: badge console menunjukkan dua galat merah, dan
-keduanya BUKAN dari kode aplikasi.
-
-1. `GET /favicon.ico 404` — `index.html` tidak punya `rel="icon"`, jadi Chrome
-   meminta berkas yang tidak ada. Bisa dihilangkan dengan satu tag `<link>`.
-2. `INFO: Created TensorFlow Lite XNNPACK delegate for CPU.` — ditulis modul
-   wasm MediaPipe ke stderr, dan Chrome menandai apa pun dari stderr sebagai
-   galat. Tidak bisa dimatikan tanpa ikut menyembunyikan pesan asli pustaka itu.
-
-Jadi yang dinilai: **tidak boleh ada galat merah selain kedua baris di atas**,
-dan tidak boleh ada yang berasal dari berkas di `js/`.
-
-**Kalau gagal:** catat galatnya apa adanya.
-
-**Commit:** `931b9ce`, `dce7537`
 
 ## B12. Mode suara saja · ~4 menit
 
@@ -167,6 +125,20 @@ memastikan pilihannya benar-benar bertahan.
 Butir-butirnya sudah dihapus dari daftar di atas; dicatat di sini supaya tidak
 diuji ulang tanpa alasan.
 
+- **Luring dan CDN gagal (B10)** — 23 September 2026, Chrome,
+  `cdn.jsdelivr.net` diblokir lewat "Block request domain" di panel Network.
+  Kartu Tren Skor tetap tampil membawa keterangan pustaka grafik gagal dimuat,
+  badge model wajah berbunyi "Gagal dimuat", sesi tetap berjalan sampai rapor,
+  arah pandang ditandai "belum aktif" (bukan 0%), sementara WPM, kata pengisi,
+  dan jeda tetap berangka dengan skor tetap dihitung dari sisa bobot 73.
+  Console tanpa galat merah dari `js/`.
+
+  Percobaan PERTAMA butir ini gagal menguji separuh bagiannya karena yang
+  dipakai "Block request URL", bukan "Block request domain": hanya
+  `chart.umd.min.js` yang terblokir sementara bundel MediaPipe tetap lolos,
+  sehingga arah pandang malah menunjukkan 100% dan terbaca seperti lulus.
+  Percobaan itu jugalah yang menemukan bug kartu tren yang hilang diam-diam
+  (`6dac7cc`).
 - **Lebar 380px (C3)** — 23 September 2026, Chrome. Kelima layar lolos
   `scrollWidth > clientWidth` bernilai false sesudah `fb40bb1`. Penyebab satu
   kegagalannya bukan lintasan waktu seperti dugaan awal — `.timeline-gulir`
