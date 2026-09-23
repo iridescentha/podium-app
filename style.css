@@ -1303,9 +1303,16 @@ button:disabled, .tombol:disabled {
   color: var(--tinta);
 }
 
+/* Empat tombol (Putar, kecepatan, dan dua lompat masalah) dibiarkan turun ke
+   baris berikutnya saat layarnya sempit. Tanpa ini baris tombolnya butuh 394px
+   dan tidak punya tempat untuk patah, sehingga SELURUH halaman ikut bisa
+   digeser mendatar — terlihat di uji 380px, 23 September 2026 di Chrome:
+   scrollWidth 434 sementara clientWidth 380. Induknya .timeline__panel-kepala
+   memang sudah flex-wrap; yang kurang hanya kelompok tombolnya sendiri. */
 .timeline__panel-navigasi {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .timeline__panel-ringkasan {

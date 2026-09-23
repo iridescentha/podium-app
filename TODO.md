@@ -19,8 +19,8 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
 | B | Uji yang bisa memaksa perubahan kode | ~17 menit |
-| C | Uji tampilan | ~17 menit |
-| | **Sisa pemeriksaan** | **~34 menit** |
+| C | Uji tampilan | ~12 menit |
+| | **Sisa pemeriksaan** | **~29 menit** |
 
 ---
 
@@ -176,14 +176,6 @@ browser tidak tertimpa tombol tema.
 
 **Commit:** `c5c8bc6`, `0faa177`
 
-## C4. Aksesibilitas papan ketik · ~5 menit
-
-**Lulus bila:** seluruh layar bisa dilalui dengan Tab, fokus selalu terlihat,
-lintasan waktu bisa digeser dengan panah kiri/kanan, Home, dan End, serta tombol
-"Masalah sebelumnya/berikutnya" bisa dicapai papan ketik.
-
-**Commit:** `aa09c4f`
-
 ---
 
 # Sudah diuji dan lulus (22 September 2026, Chrome)
@@ -191,6 +183,13 @@ lintasan waktu bisa digeser dengan panah kiri/kanan, Home, dan End, serta tombol
 Butir-butirnya sudah dihapus dari daftar di atas; dicatat di sini supaya tidak
 diuji ulang tanpa alasan.
 
+- **Aksesibilitas papan ketik (C4)** — 23 September 2026, Chrome (Live Server,
+  `localhost:8080`). Kelima layar dilalui penuh dengan Tab, fokus selalu
+  terlihat, baris sesi di Riwayat bisa dibuka dengan Tab lalu Enter, dan
+  lintasan menanggapi panah kiri/kanan (1 detik), Shift+panah (5 detik), Home,
+  End, serta PageUp/PageDown (10 detik) tanpa menggulirkan halaman. Tombol
+  "Masalah sebelumnya/berikutnya" tercapai papan ketik dan melompat ke masalah.
+  Diuji dengan sesi "B5 Test" yang memang punya jeda dan kata pengisi.
 - **Kepadatan dan hierarki lima layar (C1)** — 23 September 2026, Chrome.
   Skor 96px memang paling menonjol di rapor, tinggi kartu metrik tidak melompat
   antara kartu berangka dan kartu "belum aktif", dan kepadatan antar bagian
