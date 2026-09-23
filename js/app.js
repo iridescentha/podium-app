@@ -783,10 +783,19 @@ function setStatusKalibrasi(nama, status, keterangan, gagal = false) {
  *   kalibrasi ruangan belum  ->  jeda panjang tidak dinilai (ambangBicara null)
  *   kalibrasi postur belum   ->  arah pandang tidak dinilai (pitchNetral null)
  *
- * Peringatan disembunyikan saat tombolnya sedang disabled, yaitu sebelum izin
- * perangkat diberikan dan selagi satu kalibrasi sedang mengukur. Di dua keadaan
- * itu pengguna tidak sedang memutuskan apa pun, jadi kalimatnya cuma jadi
- * gangguan.
+ * Peringatan disembunyikan sebelum izin perangkat diberikan dan selagi ada
+ * kalibrasi yang sedang mengukur. Di dua keadaan itu pengguna tidak sedang
+ * memutuskan apa pun, jadi kalimatnya cuma jadi gangguan.
+ *
+ * Syarat itu SENGAJA dibaca dari state, bukan dari `tombolMulaiSesi.disabled`.
+ * Versi pertama memakai properti disabled dan salah, ketahuan saat uji manual
+ * 23 September 2026: sesudah kalibrasi ruangan selesai peringatannya hilang
+ * sama sekali, padahal seharusnya menyusut jadi "arah pandang" saja. Sebabnya
+ * urutan pemanggilan — selesaiKalibrasiRuangan() memanggil setStatusKalibrasi()
+ * (yang menggambar ulang peringatan) LEBIH DULU, baru sesudah itu mengembalikan
+ * tombolnya jadi enabled. Jadi peringatannya digambar saat tombolnya masih
+ * disabled, lalu tidak pernah digambar ulang. State tidak punya masalah urutan
+ * seperti itu.
  */
 function perbaruiHirarkiMulaiSesi() {
   // Mode suara saja tidak punya kalibrasi postur, jadi yang ditunggu hanya satu.
@@ -800,7 +809,11 @@ function perbaruiHirarkiMulaiSesi() {
   if (!ruanganSelesai) metrikHilang.push('jeda panjang');
   if (!posturSelesai) metrikHilang.push('arah pandang');
 
-  const tampilkan = metrikHilang.length > 0 && DOM.tombolMulaiSesi.disabled === false;
+  const sedangMengukur = (nama) => state.kalibrasi[nama] === 'mengukur' || state.kalibrasi[nama] === 'bersiap';
+  const adaYangMengukur = sedangMengukur('ruangan') || sedangMengukur('postur');
+  const izinSudahDiberikan = state.streamKameraMic !== null;
+
+  const tampilkan = metrikHilang.length > 0 && izinSudahDiberikan && !adaYangMengukur;
   DOM.peringatanKalibrasi.hidden = !tampilkan;
   if (tampilkan) {
     DOM.peringatanKalibrasi.textContent =
