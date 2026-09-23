@@ -359,6 +359,41 @@ button:disabled, .tombol:disabled {
   width: 100%;
 }
 
+/* Gerbang browser tanpa pengenal suara. Bentuknya sengaja meniru .kotak-privasi
+   (garis kiri 2px --sorot) supaya terbaca sebagai keterangan jujur dari
+   aplikasi, bukan galat. Tidak ada warna baru: --bahaya tidak dipakai karena
+   ini bukan kesalahan pengguna dan bukan kegagalan aplikasi. */
+.gerbang-tanpa-suara {
+  background-color: var(--panggung-naik);
+  border: 1px solid var(--garis);
+  border-left: 2px solid var(--sorot);
+  border-radius: 10px;
+  padding: 20px 24px;
+  width: 100%;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+/* .tersembunyi di berkas ini bukan kelas utilitas global: ia selalu diikat ke
+   komponennya (lihat .banner-browser.tersembunyi). Aturan ini mengikuti pola
+   yang sama, bukan membuat utilitas baru. */
+.gerbang-tanpa-suara.tersembunyi {
+  display: none;
+}
+
+.gerbang-tanpa-suara__judul {
+  font-size: 16px;
+  color: var(--kapur);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.gerbang-tanpa-suara__isi {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--redup);
+}
+
 .kotak-privasi__judul {
   font-size: 14px;
   color: var(--kapur); /* --kapur biasa 14px (bukan kuning) */

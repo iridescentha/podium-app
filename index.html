@@ -114,6 +114,19 @@
 
         <!-- Kelompok 4: Tombol Aksi (jarak antar kelompok 64px, jarak antar tombol 12px) -->
         <div class="beranda-kelompok beranda-kelompok--tombol">
+          <!-- Gerbang untuk browser tanpa Web Speech API (misalnya Firefox).
+               Disembunyikan dan tidak berpengaruh apa-apa di Chrome maupun
+               Safari; ditampilkan oleh gerbangBrowserTanpaSuara() di js/app.js. -->
+          <div id="gerbang-tanpa-suara" class="gerbang-tanpa-suara tersembunyi" role="status">
+            <div class="gerbang-tanpa-suara__judul">Latihan tidak bisa dijalankan di browser ini</div>
+            <div class="gerbang-tanpa-suara__isi">
+              Podium membutuhkan pengenal suara yang tidak tersedia di browser ini.
+              Tanpa itu kecepatan bicara dan kata pengisi tidak terukur, dan skor
+              latihan tidak bisa dihitung sama sekali — bukan sekadar berkurang.
+              Buka Podium di <strong>Google Chrome desktop</strong> untuk berlatih.
+              Riwayat latihan yang tersimpan di browser ini tetap bisa dibuka.
+            </div>
+          </div>
           <div class="tombol-grup">
             <button id="btn-mulai-latihan" class="tombol tombol--utama">Mulai latihan</button>
             <button id="btn-ke-riwayat" class="tombol tombol--sekunder">Riwayat</button>

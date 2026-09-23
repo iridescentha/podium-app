@@ -272,6 +272,7 @@ const state = {
 // 3. ELEMEN DOM UTAMA
 // ----------------------------------------------------------------------------
 const DOM = {
+  gerbangTanpaSuara: document.getElementById('gerbang-tanpa-suara'),
   bannerBrowser: document.getElementById('banner-browser'),
   bannerBrowserTeks: document.getElementById('banner-browser-teks'),
   btnTutupBannerBrowser: document.getElementById('btn-tutup-banner-browser'),
@@ -1783,11 +1784,42 @@ function tampilkanBannerBrowser() {
   });
 }
 
+/**
+ * Menutup tombol "Mulai latihan" di browser yang tidak punya Web Speech API.
+ *
+ * CARA KERJA:
+ * Syaratnya dibaca dari ADA TIDAKNYA API-nya (`adaPengenalSuara()`), bukan dari
+ * nama browser. Menebak lewat nama akan salah dua arah sekaligus: browser baru
+ * yang punya API-nya ikut terblokir, dan browser lama yang namanya dikenal tapi
+ * API-nya dicabut tetap lolos.
+ *
+ * KENAPA DIBLOKIR, PADAHAL GEMINI.md Bagian 1.5 MENCABUT PEMBLOKIRAN.
+ * Ketentuan lama dicabut 17 September 2026 karena memakai tombol mati tanpa
+ * penjelasan, dan itu terbaca sebagai aplikasi rusak. Alasan itu masih benar,
+ * tetapi uji Firefox 23 September 2026 menunjukkan yang dibiarkan berjalan pun
+ * sama buruknya: tanpa pengenal suara, bobot wpm (35) dan filler (27) hilang
+ * dan yang tersisa cuma 38, di bawah SKOR_MIN_BOBOT_TERUKUR 50. Artinya SETIAP
+ * sesi di browser itu berakhir "Tidak dinilai", di kedua mode. Pengguna diminta
+ * bicara beberapa menit untuk hasil yang sudah pasti kosong.
+ *
+ * Jalan tengahnya: tombolnya dimatikan TAPI alasannya dijelaskan penuh, dan
+ * tombol "Riwayat" sengaja dibiarkan hidup supaya aplikasinya masih bisa
+ * dilihat, bukan jadi layar buntu.
+ */
+function gerbangBrowserTanpaSuara() {
+  if (browserModule.adaPengenalSuara()) return;
+
+  DOM.gerbangTanpaSuara.classList.remove('tersembunyi');
+  DOM.tombolKePersiapan.disabled = true;
+  DOM.tombolKePersiapan.setAttribute('aria-describedby', 'gerbang-tanpa-suara');
+}
+
 // ----------------------------------------------------------------------------
 // 9. INISIALISASI EVENT LISTENERS
 // ----------------------------------------------------------------------------
 function initEventListeners() {
   tampilkanBannerBrowser();
+  gerbangBrowserTanpaSuara();
 
   // Beranda
   DOM.tombolKePersiapan.addEventListener('click', () => {
