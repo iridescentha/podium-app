@@ -18,9 +18,9 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
-| B | Uji yang bisa memaksa perubahan kode | ~9 menit |
+| B | Uji yang bisa memaksa perubahan kode | ~5 menit |
 | C | Uji tampilan | ~1 menit |
-| | **Sisa pemeriksaan** | **~10 menit** |
+| | **Sisa pemeriksaan** | **~6 menit** |
 
 ---
 
@@ -28,19 +28,6 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 
 Diurutkan dari yang akibatnya paling besar. Kegagalan di sini berarti ada yang
 harus diperbaiki, bukan sekadar dicatat.
-
-## B12. Mode suara saja · ~4 menit
-
-**Jalankan:** Persiapan → "Suara saja" → Izinkan → kalibrasi ruangan → sesi 40 detik.
-
-**Lulus bila:** Chrome hanya meminta mikrofon (lampu kamera mati), tidak ada
-preview di layar sesi, indikator arah pandang berbunyi "tanpa kamera", rapor
-menyebut "Mode suara saja", lintasan tampil tiga baris tanpa kontak pandang, dan
-Riwayat menandai modenya.
-
-**Kalau gagal:** bila Chrome tetap meminta kamera, periksa `mintaIzinMedia`.
-
-**Commit:** `010603b`
 
 ## B13. Apakah kurva skor terlalu murah hati · ~5 menit
 
@@ -125,6 +112,21 @@ memastikan pilihannya benar-benar bertahan.
 Butir-butirnya sudah dihapus dari daftar di atas; dicatat di sini supaya tidak
 diuji ulang tanpa alasan.
 
+- **Mode suara saja (B12)** — 23 September 2026, Chrome. Dikonfirmasi pemilik
+  proyek: Chrome hanya meminta mikrofon, dan lampu kamera tidak pernah menyala
+  sepanjang sesi. Sisanya diperiksa langsung di kode, bukan di layar:
+  `getUserMedia` dipanggil dengan `video: false` (bukan sekadar preview
+  disembunyikan), baris kalibrasi postur di-`display: none`, preview pojok di
+  Layar Sesi disembunyikan dan modul wajah tidak pernah di-`start()`, indikator
+  ketiga diisi "tanpa kamera", subjudul rapor dan label Riwayat bercabang sesuai
+  mode, dan baris Kontak pandang tidak digambar di lintasan. Rapornya diperiksa
+  di layar dan cocok, termasuk legenda yang ikut membuang entri menunduk dan
+  wajah tidak terlihat.
+
+  Satu cacat ditemukan dan diperbaiki di sini (`6b70a32`): kartu arah pandang
+  selalu beralasan "postur netral belum terukur atau model gagal dimuat",
+  padahal di mode ini kameranya memang tidak pernah diminta. Sekarang kalimatnya
+  bercabang sesuai mode.
 - **Luring dan CDN gagal (B10)** — 23 September 2026, Chrome,
   `cdn.jsdelivr.net` diblokir lewat "Block request domain" di panel Network.
   Kartu Tren Skor tetap tampil membawa keterangan pustaka grafik gagal dimuat,
