@@ -126,6 +126,19 @@ sempurna dan tanpa satu pun kata pengisi turun ke 65 hanya karena bicaranya
 pelan. Untuk pelatih presentasi, itu bisa dibenarkan — tapi itu keputusanmu,
 bukan keputusanku.
 
+**DATA YANG DIKUTIP DI ATAS SUDAH TIDAK ADA.** Diperiksa 23 September 2026 di
+Chrome: `podium_sessions` cuma berisi dua sesi, "B4" (skor 60) dan "B8 test"
+(skor 65). Sesi "B5 Test", "B8 gitu test", dan sepuluh sesi yang dulu menumpuk
+di 90–100 sudah terhapus, jadi sebaran yang jadi alasan butir ini dibuat tidak
+bisa dilihat lagi. Temuannya tetap dicatat di atas sebagai riwayat pengamatan,
+bukan sebagai sesuatu yang masih bisa diperiksa di layar.
+
+Butir ini karena itu **tidak bisa dijalankan sebelum ada data baru**: perlu
+setidaknya satu sesi yang sengaja dibuat mulus dan satu yang sengaja dibuat
+cacat (jeda panjang, kata pengisi banyak, sering menunduk), keduanya dengan
+bicara sungguhan. Dua sesi yang tersisa berjarak lima angka dan tak satu pun
+sengaja dibuat cacat.
+
 **Jalankan:** buka Riwayat, lihat sebaran Tren Skor. Lalu putuskan satu hal
 saja: apakah sesi yang jelas-jelas cacat (jeda panjang, kata pengisi banyak,
 sering menunduk) sudah jatuh ke angka yang terasa berbeda dari sesi yang mulus.
