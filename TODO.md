@@ -19,8 +19,8 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
 | B | Uji yang bisa memaksa perubahan kode | ~17 menit |
-| C | Uji tampilan | ~20 menit |
-| | **Sisa pemeriksaan** | **~37 menit** |
+| C | Uji tampilan | ~17 menit |
+| | **Sisa pemeriksaan** | **~34 menit** |
 
 ---
 
@@ -159,40 +159,6 @@ Riwayat tidak lagi sebanding dengan hasil uji sebelumnya.
 
 Tidak mengubah kode kalau lulus. Dikerjakan terakhir.
 
-## C1. Sisa satu butir — peringatan saat kalibrasi dilewatkan · ~3 menit
-
-Tiga dari empat syarat C1 sudah lulus 23 September 2026 di Chrome (skor 96px
-paling menonjol, tinggi kartu metrik tidak melompat, kepadatan antar bagian
-sepadan dengan lintasan). Syarat keempat TERNYATA SALAH TULIS dan diganti.
-
-**Syarat lama:** "blok kalibrasi terbaca sebagai langkah wajib, bukan pelengkap."
-
-**Kenapa salah:** kalibrasi memang BOLEH dilewatkan, dan itu keputusan sadar yang
-terdokumentasi di `perbaruiHirarkiMulaiSesi()` (`js/app.js`). Tombol Mulai sesi
-sengaja tetap bisa ditekan; yang berubah hanya gaya tombolnya, dari utama jadi
-sekunder, supaya satu-satunya aksi utama di layar adalah kalibrasi yang
-tertinggal. Konsekuensinya dipikul metriknya: `face.getResults()` mengembalikan
-`{ tersedia: false }` saat `pitchNetral === null`, dan `audio.getResults()` juga
-saat `ambangBicara === null`. Keduanya sudah diperiksa di kode, jadi melewatkan
-kalibrasi TIDAK menghasilkan angka karangan. Menyebutnya "wajib" di daftar uji
-bertentangan dengan kode.
-
-**Yang benar-benar kurang, ditemukan 23 September 2026:** tidak ada satu kalimat
-pun di Layar Persiapan yang menyebut apa yang hilang kalau kalibrasi dilewatkan.
-Pengguna baru tahu di Layar Rapor, sesudah sesinya tidak bisa diulang. Aturan
-proyek menyuruh menyebut keterbatasan di UI, dan tempat yang tepat adalah di
-titik keputusannya, bukan sesudahnya.
-
-**Keputusan pemilik proyek, belum diambil.** Pilihannya:
-1. Biarkan apa adanya.
-2. Tambah satu baris di dekat tombol Mulai sesi, hanya muncul selama ada
-   kalibrasi yang tertinggal, menyebut metrik mana yang tidak akan dinilai
-   (ruangan → jeda panjang; postur → arah pandang).
-3. Kunci tombolnya sampai kalibrasi selesai — ini MEMBATALKAN keputusan desain
-   yang sudah ada, jadi jangan diambil diam-diam.
-
-**Commit:** `c5c8bc6`, `28abd6f`
-
 ## C2. Tema gelap dan terang · ~6 menit
 
 **Lulus bila:** Rapor dan Riwayat berganti tema; Beranda, Persiapan, dan Sesi
@@ -225,6 +191,23 @@ lintasan waktu bisa digeser dengan panah kiri/kanan, Home, dan End, serta tombol
 Butir-butirnya sudah dihapus dari daftar di atas; dicatat di sini supaya tidak
 diuji ulang tanpa alasan.
 
+- **Kepadatan dan hierarki lima layar (C1)** — 23 September 2026, Chrome.
+  Skor 96px memang paling menonjol di rapor, tinggi kartu metrik tidak melompat
+  antara kartu berangka dan kartu "belum aktif", dan kepadatan antar bagian
+  sepadan dengan lintasan. Syarat keempat ("blok kalibrasi terbaca sebagai
+  langkah wajib") dicabut karena bertentangan dengan keputusan desain: kalibrasi
+  memang boleh dilewatkan, dan kedua modul sudah mengembalikan
+  `{ tersedia: false }` tanpa acuan, jadi tidak ada angka karangan.
+  Gantinya ditambahkan peringatan konsekuensi di Layar Persiapan (`cf2131e`),
+  karena sebelumnya pengguna baru tahu metriknya mati di Layar Rapor — sesudah
+  sesinya tidak bisa diulang. Peringatan menyebut metrik yang akan hilang,
+  menyusut saat satu kalibrasi selesai, hilang saat keduanya selesai, dan di
+  mode suara saja tidak pernah menyebut arah pandang. Semuanya diuji manual.
+- **Sebab kosongnya baris kecepatan disebut dengan benar** — sesudah `cf2131e`,
+  sesi tanpa ucapan berbunyi "Tidak ada ucapan yang tertangkap, jadi kecepatan
+  bicara tidak diukur", bukan lagi "Sesi terlalu singkat" yang jelas salah untuk
+  sesi 40 detik. Sesi yang ada ucapannya tetap menggambar garis seperti semula
+  (diperiksa dengan sesi "B4").
 - **Audit kepatuhan tampilan (C5)** — 23 September 2026, Chrome. Diuji lewat
   sesi "C5 diam": sesi 40 detik tanpa bicara sama sekali, dengan menunduk
   10-16 detik dan lensa ditutup tangan 22-30 detik. Segmen menunduk tergambar
