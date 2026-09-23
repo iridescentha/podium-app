@@ -1378,7 +1378,13 @@ function renderRaporUI(data, statusSimpan) {
   } else {
     DOM.raporPandangNilai.classList.add('kartu-metrik__nilai--nonaktif');
     DOM.raporPandangNilai.textContent = 'belum aktif';
-    DOM.raporPandangKet.textContent = 'postur netral belum terukur atau model gagal dimuat, jadi tidak ikut dihitung dalam skor';
+    // Sebabnya berbeda antar mode, dan menyebut sebab yang salah sama saja
+    // dengan berbohong. Di mode suara saja kameranya memang tidak pernah
+    // diminta (getUserMedia dipanggil dengan video: false), jadi kalimat
+    // "postur netral belum terukur atau model gagal dimuat" keliru di sana.
+    DOM.raporPandangKet.textContent = (data.mode === 'suara-saja')
+      ? 'mode suara saja tidak memakai kamera, jadi arah pandang memang tidak diukur'
+      : 'postur netral belum terukur atau model gagal dimuat, jadi tidak ikut dihitung dalam skor';
     DOM.raporPandangCatatan.style.display = 'none';
   }
 
