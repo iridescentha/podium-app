@@ -19,8 +19,8 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
 | B | Uji yang bisa memaksa perubahan kode | ~13 menit |
-| C | Uji tampilan | ~12 menit |
-| | **Sisa pemeriksaan** | **~25 menit** |
+| C | Uji tampilan | ~1 menit |
+| | **Sisa pemeriksaan** | **~14 menit** |
 
 ---
 
@@ -142,22 +142,23 @@ Riwayat tidak lagi sebanding dengan hasil uji sebelumnya.
 
 Tidak mengubah kode kalau lulus. Dikerjakan terakhir.
 
-## C2. Tema gelap dan terang · ~6 menit
+## C2 sisa. Hapus riwayat tanpa kehilangan pilihan tema · ~1 menit
 
-**Lulus bila:** Rapor dan Riwayat berganti tema; Beranda, Persiapan, dan Sesi
-tetap gelap; tombol tema hilang di Layar Sesi; grafik tren tetap terbaca di tema
-gelap (ganti tema lalu pindah layar dan kembali); pilihan bertahan setelah muat
-ulang; menghapus seluruh riwayat tidak menghapus pilihan tema.
+**INI TINDAKAN TERAKHIR DARI SELURUH VALIDASI.** Jangan dijalankan sebelum B10,
+B12, dan B13 selesai: menghapus riwayat memusnahkan 23 sesi yang dipakai B13
+untuk membandingkan skor, dan sesi itu tidak bisa dibuat ulang.
+
+Enam syarat C2 lainnya sudah lulus 23 September 2026 di Chrome.
+
+**Jalankan:** setel tema ke **gelap**, buka Riwayat, tekan **Hapus semua**, lalu
+konfirmasi.
+
+**Lulus bila:** seluruh sesi hilang, tetapi temanya MASIH gelap — pilihan tema
+disimpan di kunci `podium_tema` yang terpisah dari `podium_sessions`, jadi
+menghapus riwayat tidak boleh menyentuhnya. Muat ulang sekali lagi untuk
+memastikan pilihannya benar-benar bertahan.
 
 **Commit:** `0c5c6d2`
-
-## C3. Lebar 380px · ~6 menit
-
-**Lulus bila:** kelima layar tidak terpotong, lintasan waktu bisa digeser
-mendatar sementara halaman tidak, tombol tidak saling menimpa, dan banner
-browser tidak tertimpa tombol tema.
-
-**Commit:** `c5c8bc6`, `0faa177`
 
 ---
 
@@ -166,6 +167,18 @@ browser tidak tertimpa tombol tema.
 Butir-butirnya sudah dihapus dari daftar di atas; dicatat di sini supaya tidak
 diuji ulang tanpa alasan.
 
+- **Lebar 380px (C3)** — 23 September 2026, Chrome. Kelima layar lolos
+  `scrollWidth > clientWidth` bernilai false sesudah `fb40bb1`. Penyebab satu
+  kegagalannya bukan lintasan waktu seperti dugaan awal — `.timeline-gulir`
+  terbukti mengurung anak 480px-nya di wadah 290px — melainkan
+  `.timeline__panel-navigasi` yang butuh 394px tanpa flex-wrap. Lintasan tetap
+  bisa digeser mendatar sementara halaman tidak.
+- **Tema gelap dan terang (C2, enam dari tujuh syarat)** — 23 September 2026,
+  Chrome. Rapor dan Riwayat mengikuti tema, Beranda dan Persiapan tetap gelap,
+  tombol tema tidak tampil di Layar Sesi, grafik tren tetap terbaca di tema
+  gelap termasuk sesudah pindah layar dan kembali, dan pilihannya bertahan
+  sesudah muat ulang. Syarat ketujuh (hapus riwayat tidak menghapus tema)
+  ditahan sampai akhir karena menghancurkan data uji B13.
 - **Banner browser dan teks privasi (B11)** — 23 September 2026, ketiga browser.
   Chrome: tanpa banner, kotak privasi menyebut "layanan speech bawaan Chrome".
   Safari: banner tenang bisa ditutup dan tetap tertutup sesudah muat ulang,
