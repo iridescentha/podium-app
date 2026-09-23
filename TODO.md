@@ -19,8 +19,8 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
 | B | Uji yang bisa memaksa perubahan kode | ~17 menit |
-| C | Uji tampilan | ~25 menit |
-| | **Sisa pemeriksaan** | **~42 menit** |
+| C | Uji tampilan | ~20 menit |
+| | **Sisa pemeriksaan** | **~37 menit** |
 
 ---
 
@@ -159,14 +159,37 @@ Riwayat tidak lagi sebanding dengan hasil uji sebelumnya.
 
 Tidak mengubah kode kalau lulus. Dikerjakan terakhir.
 
-## C1. Kepadatan dan hierarki lima layar · ~8 menit
+## C1. Sisa satu butir — peringatan saat kalibrasi dilewatkan · ~3 menit
 
-**Lulus bila:** skor 96px jelas paling menonjol di rapor; kartu metrik padat dan
-tingginya tidak melompat saat berbunyi "belum aktif"; blok kalibrasi terbaca
-sebagai langkah wajib, bukan pelengkap; lintasan waktu tetap jadi acuan
-kepadatan — bagian lain tidak terasa jauh lebih longgar.
+Tiga dari empat syarat C1 sudah lulus 23 September 2026 di Chrome (skor 96px
+paling menonjol, tinggi kartu metrik tidak melompat, kepadatan antar bagian
+sepadan dengan lintasan). Syarat keempat TERNYATA SALAH TULIS dan diganti.
 
-**Kalau gagal:** catat layar dan elemennya, jangan diubah sendiri saat menguji.
+**Syarat lama:** "blok kalibrasi terbaca sebagai langkah wajib, bukan pelengkap."
+
+**Kenapa salah:** kalibrasi memang BOLEH dilewatkan, dan itu keputusan sadar yang
+terdokumentasi di `perbaruiHirarkiMulaiSesi()` (`js/app.js`). Tombol Mulai sesi
+sengaja tetap bisa ditekan; yang berubah hanya gaya tombolnya, dari utama jadi
+sekunder, supaya satu-satunya aksi utama di layar adalah kalibrasi yang
+tertinggal. Konsekuensinya dipikul metriknya: `face.getResults()` mengembalikan
+`{ tersedia: false }` saat `pitchNetral === null`, dan `audio.getResults()` juga
+saat `ambangBicara === null`. Keduanya sudah diperiksa di kode, jadi melewatkan
+kalibrasi TIDAK menghasilkan angka karangan. Menyebutnya "wajib" di daftar uji
+bertentangan dengan kode.
+
+**Yang benar-benar kurang, ditemukan 23 September 2026:** tidak ada satu kalimat
+pun di Layar Persiapan yang menyebut apa yang hilang kalau kalibrasi dilewatkan.
+Pengguna baru tahu di Layar Rapor, sesudah sesinya tidak bisa diulang. Aturan
+proyek menyuruh menyebut keterbatasan di UI, dan tempat yang tepat adalah di
+titik keputusannya, bukan sesudahnya.
+
+**Keputusan pemilik proyek, belum diambil.** Pilihannya:
+1. Biarkan apa adanya.
+2. Tambah satu baris di dekat tombol Mulai sesi, hanya muncul selama ada
+   kalibrasi yang tertinggal, menyebut metrik mana yang tidak akan dinilai
+   (ruangan → jeda panjang; postur → arah pandang).
+3. Kunci tombolnya sampai kalibrasi selesai — ini MEMBATALKAN keputusan desain
+   yang sudah ada, jadi jangan diambil diam-diam.
 
 **Commit:** `c5c8bc6`, `28abd6f`
 
