@@ -19,8 +19,8 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
 | B | Uji yang bisa memaksa perubahan kode | ~17 menit |
-| C | Uji tampilan | ~29 menit |
-| | **Sisa pemeriksaan** | **~46 menit** |
+| C | Uji tampilan | ~25 menit |
+| | **Sisa pemeriksaan** | **~42 menit** |
 
 ---
 
@@ -197,34 +197,27 @@ lintasan waktu bisa digeser dengan panah kiri/kanan, Home, dan End, serta tombol
 
 ---
 
-## C5. Hasil audit kepatuhan — periksa mata sekali · ~4 menit
-
-Audit Tahap 6 dijalankan terhadap larangan nyata di `GEMINI.md` Bagian 1 dan 3.
-(Bagian 9 yang disebut peta jalan tidak pernah ada di berkas itu.) Tiga temuan
-sudah diperbaiki; yang perlu dipastikan hanya tampilannya.
-
-**Lulus bila:**
-- Segmen **"wajah tidak terlihat"** di lintasan waktu masih jelas berbeda dari
-  segmen **menunduk**: sekarang isian pudar bergaris tepi putus-putus, bukan
-  arsiran diagonal. Arsiran lama memakai gradien kedua, dan `GEMINI.md` Bagian 3
-  hanya mengizinkan satu gradien di seluruh aplikasi.
-- Kedua bentuk itu masih terbedakan **tanpa bergantung warna** di tema gelap
-  maupun terang, dan contoh di legenda cocok dengan yang tergambar di lintasan.
-- Pesan izin kamera yang ditolak tidak lagi memakai tanda panah.
-
-**Kalau gagal** (segmen hilang jadi sulit dibedakan): pilihan lain adalah
-mengembalikan arsiran dan mengubah aturan gradien di `GEMINI.md` secara sadar.
-Jangan diam-diam menambah gradien kedua.
-
-**Commit:** `66b75ba`
-
----
-
 # Sudah diuji dan lulus (22 September 2026, Chrome)
 
 Butir-butirnya sudah dihapus dari daftar di atas; dicatat di sini supaya tidak
 diuji ulang tanpa alasan.
 
+- **Audit kepatuhan tampilan (C5)** — 23 September 2026, Chrome. Diuji lewat
+  sesi "C5 diam": sesi 40 detik tanpa bicara sama sekali, dengan menunduk
+  10-16 detik dan lensa ditutup tangan 22-30 detik. Segmen menunduk tergambar
+  sebagai blok abu-abu padat, segmen wajah tidak terlihat sebagai blok pudar
+  bergaris tepi putus-putus: bedanya terbaca dari BENTUK, bukan warna. Dipastikan
+  di tema gelap dan terang, dan contoh di legenda cocok dengan yang tergambar.
+  Pesan izin kamera ditolak (`app.js:548`) sudah tanpa tanda panah; seluruh `→`
+  dan `->` yang tersisa di repo ada di komentar kode dan satu string di dalam
+  console.log ber-flag `FACE_DEBUG`, jadi tidak ada yang sampai ke UI.
+- **Sesi diam menahan skor dengan benar** — temuan sampingan dari sesi yang sama.
+  Nol kata membuat `speech.getResults()` mengembalikan `tersedia: false` (bukan
+  nol), sehingga bobot wpm 35 + filler 27 hilang dan yang terukur tinggal 38 —
+  di bawah `SKOR_MIN_BOBOT_TERUKUR` 50. Rapor menampilkan "Tidak dinilai" beserta
+  alasannya, bukan angka. Tinggi kartu metrik juga tidak melompat: kartu
+  "belum aktif" sama tingginya dengan kartu berangka (satu syarat C1 terpenuhi;
+  syarat C1 lainnya belum diperiksa).
 - **Flag debug mati (A2)** — `TIMELINE_DEBUG`, `FACE_DEBUG`, dan
   `CONFIG.audio.debug` ketiganya `false` sejak `9e424e6`. Dibuktikan lewat sesi
   B9: rapor terbuka dan tidak satu pun baris `[timeline]`, `[face]`, `[audio]`,
