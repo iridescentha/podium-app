@@ -1620,17 +1620,38 @@ function muatTampilanRiwayat() {
 
   // Grafik tren skor. Butuh minimal dua sesi: satu titik bukan tren, dan
   // menggambarnya hanya akan menyiratkan perbandingan yang belum ada.
-  const bisaTren = daftar.length >= 2
+  //
+  // DUA SEBAB YANG BERBEDA, DUA PERLAKUAN YANG BERBEDA. Versi pertama menyatukan
+  // keduanya jadi satu boolean lalu menyembunyikan kartunya, dan itu membuat
+  // kegagalan Chart.js lenyap tanpa jejak: elemen keterangannya ada, tetapi
+  // berada DI DALAM kartu yang baru saja disembunyikan, jadi mustahil terbaca.
+  // Ketahuan saat uji B10 (23 September 2026, Chrome, cdn.jsdelivr.net diblokir):
+  // riwayat berisi 23 sesi, grafiknya hilang, dan tidak ada satu kata pun yang
+  // menjelaskan kenapa.
+  //
+  //   sesi < 2            -> kartu disembunyikan (benar: satu titik bukan tren)
+  //   sesi cukup, gagal   -> kartu TETAP tampil, membawa keterangan kegagalan
+  const cukupSesi = daftar.length >= 2;
+  const grafikJalan = cukupSesi
     && reportModule.gambarGrafikTrenSkor(DOM.chartTrenSkor, daftar, 10);
-  DOM.grafikTrenKartu.style.display = bisaTren ? 'block' : 'none';
 
-  if (bisaTren) {
+  DOM.grafikTrenKartu.style.display = cukupSesi ? 'block' : 'none';
+
+  // Kanvas kosong disembunyikan supaya kartunya tidak menyisakan kotak menganga
+  // setinggi grafik yang tidak pernah tergambar.
+  const wadahGrafik = DOM.chartTrenSkor.closest('.grafik-wadah');
+  if (wadahGrafik) wadahGrafik.style.display = grafikJalan ? '' : 'none';
+
+  if (grafikJalan) {
     // Skor dua mode tidak benar-benar sebanding; disebut apa adanya bila
     // riwayatnya memang bercampur, bukan disembunyikan.
     const modeYangAda = new Set(daftar.slice(0, 10).map(s => s.mode || 'tidak-tercatat'));
     DOM.grafikTrenCatatan.textContent = modeYangAda.size > 1
       ? 'Riwayat ini memuat lebih dari satu mode latihan. Skor mode suara saja dihitung dari tiga metrik, mode lengkap dari empat, jadi keduanya tidak sepenuhnya sebanding.'
       : '';
+  } else if (cukupSesi) {
+    DOM.grafikTrenCatatan.textContent =
+      'Grafik tren tidak bisa digambar karena pustaka grafik gagal dimuat. Skor tiap sesi tetap tercantum di daftar di bawah.';
   }
 
   daftar.forEach(sesi => {
