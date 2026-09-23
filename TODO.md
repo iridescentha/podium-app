@@ -18,9 +18,9 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
-| B | Uji yang bisa memaksa perubahan kode | ~17 menit |
+| B | Uji yang bisa memaksa perubahan kode | ~13 menit |
 | C | Uji tampilan | ~12 menit |
-| | **Sisa pemeriksaan** | **~29 menit** |
+| | **Sisa pemeriksaan** | **~25 menit** |
 
 ---
 
@@ -70,23 +70,6 @@ dan tidak boleh ada yang berasal dari berkas di `js/`.
 **Kalau gagal:** catat galatnya apa adanya.
 
 **Commit:** `931b9ce`, `dce7537`
-
-## B11. Banner browser dan teks privasi · ~4 menit
-
-**Jalankan:** buka Beranda di Chrome, lalu di Safari, lalu (bila ada) Firefox.
-
-**Lulus bila:**
-- **Chrome:** tanpa banner; kotak privasi menyebut "layanan speech bawaan Chrome".
-- **Safari:** banner tenang bisa ditutup; kotak privasi menyebut "layanan speech
-  Apple"; **tidak ada kata Chrome di kotak privasi**.
-- **Firefox:** banner menyebut kecepatan bicara dan kata pengisi tidak dinilai;
-  tombol "Mulai latihan" tetap bisa ditekan; rapor menandai keduanya "belum aktif".
-- Banner yang sudah ditutup tidak muncul lagi setelah muat ulang.
-
-**Kalau gagal:** teks privasi yang menyebut penyedia yang salah adalah pernyataan
-palsu; perbaiki `js/browser.js` sebelum dikumpulkan.
-
-**Commit:** `2a60e12`, `0faa177`
 
 ## B12. Mode suara saja · ~4 menit
 
@@ -183,6 +166,17 @@ browser tidak tertimpa tombol tema.
 Butir-butirnya sudah dihapus dari daftar di atas; dicatat di sini supaya tidak
 diuji ulang tanpa alasan.
 
+- **Banner browser dan teks privasi (B11)** — 23 September 2026, ketiga browser.
+  Chrome: tanpa banner, kotak privasi menyebut "layanan speech bawaan Chrome".
+  Safari: banner tenang bisa ditutup dan tetap tertutup sesudah muat ulang,
+  kotak privasi menyebut "layanan speech Apple" tanpa satu pun kata Chrome.
+  Firefox: banner muncul, DAN sejak `9350ffe` tombol "Mulai latihan" ditutup
+  dengan panel penjelas sementara tombol "Riwayat" tetap hidup. Perubahan itu
+  lahir dari uji ini: sesi Firefox 30 detik tidak menangkap satu kata pun, dan
+  pemeriksaan kode menunjukkan bobot tersisa cuma 38 dari SKOR_MIN_BOBOT_TERUKUR
+  50, jadi setiap sesi di sana pasti berakhir "Tidak dinilai". Gerbangnya dibaca
+  dari `adaPengenalSuara()`, bukan nama browser; Chrome dan Safari diperiksa
+  ulang dan tidak tersentuh.
 - **Aksesibilitas papan ketik (C4)** — 23 September 2026, Chrome (Live Server,
   `localhost:8080`). Kelima layar dilalui penuh dengan Tab, fokus selalu
   terlihat, baris sesi di Riwayat bisa dibuka dengan Tab lalu Enter, dan
