@@ -61,10 +61,31 @@ mikrofon — bukan perkiraan AI. Angka-angka itulah yang jadi dasar keputusan
 seperti menghentikan metrik volume, membatalkan modul postur, dan menutup
 latihan di peramban tanpa pengenal suara.
 
-Catatan: aplikasinya sendiri **tidak memakai AI generatif atau LLM apa pun**.
-Tidak ada API key, tidak ada panggilan ke layanan AI, dan tidak ada teks yang
-dikirim ke mana pun untuk dianalisis. Seluruh penilaian dihitung dari rumus
-aritmetika biasa di `js/report.js`, yang bisa dibaca dan diperiksa seluruhnya.
+## AI yang dipakai di dalam aplikasi
+
+Podium **menjalankan model machine learning langsung di dalam peramban**, bukan
+memanggil layanan AI dari jauh:
+
+- **MediaPipe Face Landmarker** (Google) — model deteksi wajah beserta
+  blendshape, berjalan sepenuhnya di perangkat lewat WebAssembly. Inilah yang
+  mengukur sudut kepala tiap 150 ms untuk menilai arah pandang. Tidak ada satu
+  frame pun yang meninggalkan laptop pengguna.
+- **Web Speech API** — pengenal suara bawaan peramban, dipakai untuk
+  transkripsi, kecepatan bicara, dan kata pengisi. Ini satu-satunya bagian yang
+  TIDAK berjalan di perangkat: peramban meneruskan audionya ke layanan penyedia
+  peramban itu sendiri. Lihat bagian Privasi.
+
+Inferensinya berjalan di sisi pengguna, dan itu justru intinya: pelatih
+presentasi mengamati wajah dan suara, dua hal paling pribadi yang dimiliki
+seseorang. Menjalankan modelnya di perangkat membuat aplikasinya berguna tanpa
+perlu dipercaya memegang rekaman siapa pun.
+
+Yang **sengaja tidak dipakai adalah LLM atau API AI generatif**. Alasannya
+teknis, bukan ideologis: API key di aplikasi tanpa server tidak mungkin
+dirahasiakan, dan menyembunyikannya menuntut backend — sementara backend
+membatalkan klaim inti produk ini. Skor dan sarannya karena itu dihitung dari
+rumus aritmetika biasa di `js/report.js`, yang bisa dibaca dan diperiksa
+seluruhnya, bukan dari model yang jawabannya tidak bisa ditelusuri.
 
 ## Metrik
 
