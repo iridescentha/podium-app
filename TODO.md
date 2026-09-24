@@ -1,53 +1,38 @@
 # TODO — Daftar Periksa Sebelum Dikumpulkan
 
-Bukan catatan riwayat. Ini daftar kerja yang harus dijalankan sebelum proyek
-dikumpulkan, **diurutkan berdasarkan akibat kalau gagal**, bukan berdasarkan
-kapan dibuatnya.
+**SELURUH DAFTAR PERIKSA SELESAI, 24 September 2026, Chrome desktop.** Tidak ada
+butir yang tersisa. Berkas ini sekarang berfungsi sebagai catatan hasil: apa yang
+diuji, di browser apa, dengan angka apa, dan apa yang sengaja dibiarkan.
 
-**Semua dijalankan di Chrome desktop.** Jalankan `python3 -m http.server 8000` di
-folder proyek, lalu buka `http://localhost:8000`. Jangan pakai Live Server saat
-menguji: ia memuat ulang halaman tiap kali ada berkas berubah di folder yang
-dipantau (termasuk tangkapan layar yang jatuh ke Desktop), dan seluruh isi
-console ikut hilang. Nyalakan juga **Preserve log** di pengaturan console.
+Seluruh pengujian dijalankan di Chrome desktop, sebagian lewat Live Server di
+`localhost:8080`. Hasil dari browser lain (Safari, Firefox) dicatat terpisah dan
+tidak diberlakukan untuk Chrome.
 
-Tiap butir berisi: **jalankan**, **lulus bila**, **kalau gagal**, **commit**, dan
-**perkiraan waktu**.
+Enam cacat ditemukan dan diperbaiki selama pemeriksaan ini, dan lima di antaranya
+satu keluarga: antarmuka menyebutkan ALASAN yang bukan alasan sebenarnya.
 
-Butir yang sudah selesai DIHAPUS dari berkas ini. Temuan yang masih penting
-sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
-
-| Bagian | Isi | Sisa waktu |
-|---|---|---|
-| C | Uji tampilan | ~1 menit |
-| | **Sisa pemeriksaan** | **~1 menit** |
-
----
-
-## C2 sisa. Hapus riwayat tanpa kehilangan pilihan tema · ~1 menit
-
-**INI TINDAKAN TERAKHIR DARI SELURUH VALIDASI.** Jangan dijalankan sebelum B10,
-B12, dan B13 selesai: menghapus riwayat memusnahkan 23 sesi yang dipakai B13
-untuk membandingkan skor, dan sesi itu tidak bisa dibuat ulang.
-
-Enam syarat C2 lainnya sudah lulus 23 September 2026 di Chrome.
-
-**Jalankan:** setel tema ke **gelap**, buka Riwayat, tekan **Hapus semua**, lalu
-konfirmasi.
-
-**Lulus bila:** seluruh sesi hilang, tetapi temanya MASIH gelap — pilihan tema
-disimpan di kunci `podium_tema` yang terpisah dari `podium_sessions`, jadi
-menghapus riwayat tidak boleh menyentuhnya. Muat ulang sekali lagi untuk
-memastikan pilihannya benar-benar bertahan.
-
-**Commit:** `0c5c6d2`
+| Perbaikan | Commit |
+|---|---|
+| Baris kecepatan berbunyi "sesi terlalu singkat" padahal sebabnya tidak ada ucapan | `cf2131e` |
+| Layar Persiapan tidak menyebut akibat melewatkan kalibrasi | `cf2131e` |
+| Peringatan kalibrasi hilang sesudah kalibrasi ruangan (bergantung urutan) | `9197573` |
+| Tombol panel lintasan melebarkan halaman di 380px | `fb40bb1` |
+| Browser tanpa pengenal suara dibiarkan menjalankan sesi yang pasti "Tidak dinilai" | `9350ffe` |
+| Kegagalan Chart.js menyembunyikan kartu tren tanpa keterangan | `6dac7cc` |
+| Kartu arah pandang menyebut sebab yang salah di mode suara saja | `6b70a32` |
 
 ---
 
-# Sudah diuji dan lulus (22 September 2026, Chrome)
+# Sudah diuji dan lulus (22-24 September 2026, Chrome)
 
 Butir-butirnya sudah dihapus dari daftar di atas; dicatat di sini supaya tidak
 diuji ulang tanpa alasan.
 
+- **Hapus riwayat tanpa kehilangan pilihan tema (C2, syarat terakhir)** —
+  24 September 2026, Chrome. Tindakan penutup seluruh validasi. Tema disetel
+  gelap, "Hapus semua" ditekan, seluruh sesi hilang, dan temanya tetap gelap
+  termasuk sesudah muat ulang. Kunci `podium_tema` memang terpisah dari
+  `podium_sessions`, dan terbukti tidak ikut terhapus.
 - **Kurva skor dan ambang kata pengisi (B13)** — 24 September 2026, Chrome.
   Ditutup TANPA mengubah kode, sesudah satu uji terkendali yang membatalkan
   dugaan awal.
