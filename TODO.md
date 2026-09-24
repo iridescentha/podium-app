@@ -18,60 +18,10 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
-| B | Uji yang bisa memaksa perubahan kode | ~2 menit |
 | C | Uji tampilan | ~1 menit |
-| | **Sisa pemeriksaan** | **~3 menit** |
+| | **Sisa pemeriksaan** | **~1 menit** |
 
 ---
-
-# B. UJI YANG BISA MEMAKSA PERUBAHAN KODE
-
-Diurutkan dari yang akibatnya paling besar. Kegagalan di sini berarti ada yang
-harus diperbaiki, bukan sekadar dicatat.
-
-## B13 sisa. Satu keputusan: ambang kata pengisi · ~2 menit
-
-Sebaran skor sudah diperiksa dan DITERIMA (23 sesi berskor, 23-24 September
-2026, Chrome). Bagian ini tinggal satu keputusan pemilik proyek.
-
-**Temuan: metrik kata pengisi tidak berpengaruh apa pun pada skor.** Korelasi
-skor terhadap tiap metrik di 22 sesi berskor:
-
-| Metrik | Korelasi |
-|---|---|
-| WPM | **0,868** |
-| Arah pandang | 0,407 (hanya 6 sesi) |
-| Jeda | -0,235 |
-| Kata pengisi | **-0,015** |
-
-Sebabnya bukan bobot — bobot filler (27, atau 37 ternormalisasi tanpa pandang)
-justru terbesar kedua. Sebabnya `hitungSkorFiller()` mengembalikan tepat 1,000
-di 21 dari 22 sesi. Seluruh laju filler yang pernah tercatat: 1,0 / 1,1 / 1,2 /
-1,5 / 5,3 per menit, dan 17 sesi lainnya nol. `FILLER_IDEAL_PER_MENIT: 2` berada
-DI ATAS empat dari lima sesi yang punya kata pengisi sama sekali.
-
-Akibatnya bisa ditunjukkan dengan dua sesi: "B8 gitu test" (5,3 kata pengisi per
-menit, laju terburuk yang pernah tercatat) dapat **75**, sementara "Pitch AI"
-(nol kata pengisi, nol jeda, kontak pandang 100%) cuma dapat **68** karena
-bicaranya 63 WPM.
-
-Akar masalahnya di hulu: aplikasi hanya menghitung kata pengisi LEKSIKAL dari
-transkrip. Bunyi "eee" dan "emm" dibuang pengenal suara sebelum sampai ke
-aplikasi, jadi angka yang terukur adalah batas bawah dari kata pengisi yang
-sebenarnya, dan wajar saja selalu di bawah ambang yang dirancang untuk perilaku
-filler seutuhnya.
-
-**Perubahan terkecil yang mungkin:** dua nilai di `CONFIG` (`js/app.js`),
-`FILLER_IDEAL_PER_MENIT` 2 -> 1 dan `FILLER_BURUK_PER_MENIT` 10 -> 5. Tanpa
-menyentuh logika; `report.js` sudah membaca keduanya dari CONFIG.
-
-**Ongkosnya:** ambang itu akan ditetapkan dari lima titik data yang cuma satu di
-antaranya melewati nilai sekarang. Itu menebak, dan CLAUDE.md melarangnya.
-Supaya jujur, ada dua jalan: rekam dua-tiga sesi sengaja penuh "kayak"/"gitu"
-(sekitar lima menit) lalu tetapkan ambang dari angka itu, atau ambil
-perubahannya dan catat bahwa ambangnya sementara.
-
-**Belum diputuskan.**
 
 ## C2 sisa. Hapus riwayat tanpa kehilangan pilihan tema · ~1 menit
 
@@ -98,6 +48,38 @@ memastikan pilihannya benar-benar bertahan.
 Butir-butirnya sudah dihapus dari daftar di atas; dicatat di sini supaya tidak
 diuji ulang tanpa alasan.
 
+- **Kurva skor dan ambang kata pengisi (B13)** — 24 September 2026, Chrome.
+  Ditutup TANPA mengubah kode, sesudah satu uji terkendali yang membatalkan
+  dugaan awal.
+
+  Dugaan awalnya: metrik kata pengisi tidak berpengaruh apa pun. Dasarnya
+  korelasi skor terhadap kata pengisi -0,015 di 22 sesi, dan `hitungSkorFiller()`
+  yang mengembalikan tepat 1,000 di 21 di antaranya. Kesimpulan yang ditarik
+  dari situ — bahwa pita 2-10 per menit terlalu longgar — TERNYATA SALAH.
+  Sebab sebenarnya ada di sampelnya: 17 dari 22 sesi itu nol kata pengisi sama
+  sekali, karena isinya berhitung atau membaca naskah bersih. Korelasi yang
+  dihitung dari data yang nyaris tanpa ragam memang tidak bisa menunjukkan apa
+  pun.
+
+  Uji terkendalinya: tiga sesi mode suara saja, naskah setopik dan sepanjang
+  yang sama, kecepatan ditahan di 91-97 WPM dan jeda panjang nol di ketiganya,
+  sehingga kata pengisi jadi satu-satunya variabel.
+
+  | Sesi | Kata pengisi | Laju | skorFiller | Skor |
+  |---|---|---|---|---|
+  | filler bersih | 0 | 0,0/mnt | 1,00 | **96** |
+  | filler sedang | 2 | 2,0/mnt | 1,00 | **93** |
+  | filler berat | 14 | 15,3/mnt | 0,00 | **52** |
+
+  Selisih 44 angka, murni dari kata pengisi. Ketiga skor itu juga direproduksi
+  persis oleh rumusnya di atas kertas (96, 93, 52), jadi bukan kebetulan.
+  Ambang `FILLER_IDEAL_PER_MENIT: 2` dan `FILLER_BURUK_PER_MENIT: 10` DIBIARKAN
+  apa adanya, dan sekarang punya dasar pengukuran, bukan tebakan. Titik tengah
+  pitanya ikut masuk akal: 5 per menit memotong sekitar 14 dari 37 poin.
+
+  Pencocok kata pengisinya juga terbukti benar di sesi berat: "kayak" 5, "gitu"
+  5, "anu" 2, "apa ya" 1, "apa namanya" 1 — sementara "terus" dan "jadi" yang
+  berdiri sendiri memang TIDAK terhitung, sesuai daftar `FILLER_WORDS`.
 - **Mode suara saja (B12)** — 23 September 2026, Chrome. Dikonfirmasi pemilik
   proyek: Chrome hanya meminta mikrofon, dan lampu kamera tidak pernah menyala
   sepanjang sesi. Sisanya diperiksa langsung di kode, bukan di layar:
