@@ -47,6 +47,25 @@ Seluruh pemrosesan berjalan di peramban. Tidak ada backend, tidak ada basis
 data, dan tidak ada berkas yang dikirim ke mana pun. Riwayat latihan disimpan di
 `localStorage` peramban.
 
+## Dibuat dengan bantuan AI
+
+Aplikasi ini ditulis dengan bantuan **Claude (Anthropic)**, lewat Claude Code.
+
+Pembagiannya terus terang: AI menulis kodenya, komentar penjelas di dalamnya, dan
+berkas ini. Seluruh keputusan desain dan produk diambil pemilik proyek, dan
+seluruh pengujian dijalankan manusia di perangkat nyata.
+
+Itu bukan pembedaan kosmetik. Setiap angka hasil uji di berkas ini dan di
+komentar kode berasal dari sesi yang benar-benar dijalankan di depan kamera dan
+mikrofon — bukan perkiraan AI. Angka-angka itulah yang jadi dasar keputusan
+seperti menghentikan metrik volume, membatalkan modul postur, dan menutup
+latihan di peramban tanpa pengenal suara.
+
+Catatan: aplikasinya sendiri **tidak memakai AI generatif atau LLM apa pun**.
+Tidak ada API key, tidak ada panggilan ke layanan AI, dan tidak ada teks yang
+dikirim ke mana pun untuk dianalisis. Seluruh penilaian dihitung dari rumus
+aritmetika biasa di `js/report.js`, yang bisa dibaca dan diperiksa seluruhnya.
+
 ## Metrik
 
 | Metrik | Status | Cara mengukurnya |
