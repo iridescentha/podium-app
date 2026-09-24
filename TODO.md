@@ -18,9 +18,9 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 
 | Bagian | Isi | Sisa waktu |
 |---|---|---|
-| B | Uji yang bisa memaksa perubahan kode | ~5 menit |
+| B | Uji yang bisa memaksa perubahan kode | ~2 menit |
 | C | Uji tampilan | ~1 menit |
-| | **Sisa pemeriksaan** | **~6 menit** |
+| | **Sisa pemeriksaan** | **~3 menit** |
 
 ---
 
@@ -29,63 +29,49 @@ sudah tersimpan di komentar kepala modul terkait dan di pesan commit-nya.
 Diurutkan dari yang akibatnya paling besar. Kegagalan di sini berarti ada yang
 harus diperbaiki, bukan sekadar dicatat.
 
-## B13. Apakah kurva skor terlalu murah hati · ~5 menit
+## B13 sisa. Satu keputusan: ambang kata pengisi · ~2 menit
 
-Muncul dari data B5, bukan dari kesan. Sesi "B5 Test" berisi satu jeda 5 detik,
-dua kata pengisi, dan kontak pandang 88,2% — tetap mendapat **94**. Grafik tren
-di Riwayat memperlihatkan sepuluh sesi terakhir menumpuk di 90–100, dengan hanya
-dua sesi di bawah 60, dan dua sesi itu rendah karena metriknya memang **hilang**,
-bukan karena penampilannya buruk.
+Sebaran skor sudah diperiksa dan DITERIMA (23 sesi berskor, 23-24 September
+2026, Chrome). Bagian ini tinggal satu keputusan pemilik proyek.
 
-Kalau hampir semua sesi bernilai 90-an, angkanya berhenti memberi informasi:
-pengguna tidak bisa melihat dirinya membaik, dan itu justru inti produknya.
+**Temuan: metrik kata pengisi tidak berpengaruh apa pun pada skor.** Korelasi
+skor terhadap tiap metrik di 22 sesi berskor:
 
-**Data baru yang MELEMAHKAN dugaan di atas.** Sesi "B8 test" (41 detik,
-berhitung satu sampai empat puluh) punya kontak pandang 100%, nol kata pengisi,
-dan nol jeda panjang — tetapi cuma dapat **65**, karena kecepatannya 50 WPM.
-Sesi "B8 gitu test" dapat 75. Jadi kurvanya jelas bisa membedakan, dan yang
-paling menentukan adalah WPM, bukan tiga metrik lainnya. Penumpukan di 90-an
-kemungkinan besar cuma karena hampir semua sesi uji kebetulan berkecepatan
-wajar.
+| Metrik | Korelasi |
+|---|---|
+| WPM | **0,868** |
+| Arah pandang | 0,407 (hanya 6 sesi) |
+| Jeda | -0,235 |
+| Kata pengisi | **-0,015** |
 
-Yang perlu diputuskan jadi bergeser: bukan lagi "kurvanya terlalu murah hati",
-melainkan **apakah WPM pantas sedominan itu**. Satu sesi dengan kontak pandang
-sempurna dan tanpa satu pun kata pengisi turun ke 65 hanya karena bicaranya
-pelan. Untuk pelatih presentasi, itu bisa dibenarkan — tapi itu keputusanmu,
-bukan keputusanku.
+Sebabnya bukan bobot — bobot filler (27, atau 37 ternormalisasi tanpa pandang)
+justru terbesar kedua. Sebabnya `hitungSkorFiller()` mengembalikan tepat 1,000
+di 21 dari 22 sesi. Seluruh laju filler yang pernah tercatat: 1,0 / 1,1 / 1,2 /
+1,5 / 5,3 per menit, dan 17 sesi lainnya nol. `FILLER_IDEAL_PER_MENIT: 2` berada
+DI ATAS empat dari lima sesi yang punya kata pengisi sama sekali.
 
-**DATA YANG DIKUTIP DI ATAS SUDAH TIDAK ADA.** Diperiksa 23 September 2026 di
-Chrome: `podium_sessions` cuma berisi dua sesi, "B4" (skor 60) dan "B8 test"
-(skor 65). Sesi "B5 Test", "B8 gitu test", dan sepuluh sesi yang dulu menumpuk
-di 90–100 sudah terhapus, jadi sebaran yang jadi alasan butir ini dibuat tidak
-bisa dilihat lagi. Temuannya tetap dicatat di atas sebagai riwayat pengamatan,
-bukan sebagai sesuatu yang masih bisa diperiksa di layar.
+Akibatnya bisa ditunjukkan dengan dua sesi: "B8 gitu test" (5,3 kata pengisi per
+menit, laju terburuk yang pernah tercatat) dapat **75**, sementara "Pitch AI"
+(nol kata pengisi, nol jeda, kontak pandang 100%) cuma dapat **68** karena
+bicaranya 63 WPM.
 
-Butir ini karena itu **tidak bisa dijalankan sebelum ada data baru**: perlu
-setidaknya satu sesi yang sengaja dibuat mulus dan satu yang sengaja dibuat
-cacat (jeda panjang, kata pengisi banyak, sering menunduk), keduanya dengan
-bicara sungguhan. Dua sesi yang tersisa berjarak lima angka dan tak satu pun
-sengaja dibuat cacat.
+Akar masalahnya di hulu: aplikasi hanya menghitung kata pengisi LEKSIKAL dari
+transkrip. Bunyi "eee" dan "emm" dibuang pengenal suara sebelum sampai ke
+aplikasi, jadi angka yang terukur adalah batas bawah dari kata pengisi yang
+sebenarnya, dan wajar saja selalu di bawah ambang yang dirancang untuk perilaku
+filler seutuhnya.
 
-**Jalankan:** buka Riwayat, lihat sebaran Tren Skor. Lalu putuskan satu hal
-saja: apakah sesi yang jelas-jelas cacat (jeda panjang, kata pengisi banyak,
-sering menunduk) sudah jatuh ke angka yang terasa berbeda dari sesi yang mulus.
+**Perubahan terkecil yang mungkin:** dua nilai di `CONFIG` (`js/app.js`),
+`FILLER_IDEAL_PER_MENIT` 2 -> 1 dan `FILLER_BURUK_PER_MENIT` 10 -> 5. Tanpa
+menyentuh logika; `report.js` sudah membaca keduanya dari CONFIG.
 
-**Lulus bila:** sesi bagus dan sesi cacat terpisah setidaknya 20 angka.
+**Ongkosnya:** ambang itu akan ditetapkan dari lima titik data yang cuma satu di
+antaranya melewati nilai sekarang. Itu menebak, dan CLAUDE.md melarangnya.
+Supaya jujur, ada dua jalan: rekam dua-tiga sesi sengaja penuh "kayak"/"gitu"
+(sekitar lima menit) lalu tetapkan ambang dari angka itu, atau ambil
+perubahannya dan catat bahwa ambangnya sementara.
 
-**Kalau gagal:** ini keputusan pemilik proyek, bukan keputusanku — ambangnya
-soal rasa, bukan soal benar/salah. Yang boleh kuubah hanyalah kurva di
-`js/report.js`, dan hanya sesudah kamu menyebut angka yang kamu mau. **Jangan
-diubah sebelum B4–B12 selesai**, karena mengubah kurva membuat seluruh skor di
-Riwayat tidak lagi sebanding dengan hasil uji sebelumnya.
-
-**Commit:** belum ada.
-
----
-
-# C. UJI TAMPILAN
-
-Tidak mengubah kode kalau lulus. Dikerjakan terakhir.
+**Belum diputuskan.**
 
 ## C2 sisa. Hapus riwayat tanpa kehilangan pilihan tema · ~1 menit
 
@@ -292,6 +278,27 @@ diuji ulang tanpa alasan.
   adalah lirikan-lirikan pendek ke bawah saat membaca naskah di layar. Ini
   perilaku yang diinginkan: lirikan pendek ikut menurunkan persentase tetapi
   tidak dijadikan segmen di lintasan waktu.
+
+# Keterbatasan yang diketahui dan sengaja dibiarkan
+
+Ditulis supaya siap dijawab kalau juri bertanya, bukan supaya diperbaiki
+sekarang.
+
+- **Skor jeda dihitung mutlak, bukan per menit.** `skorJeda = 1 - (0,25 x jumlah
+  jeda)`, tanpa melihat durasi sesi. Akibatnya sesi dua menit dihukum sama
+  beratnya dengan sesi empat puluh detik untuk jumlah jeda yang sama, padahal
+  sesi yang lebih panjang memang punya lebih banyak kesempatan untuk berhenti.
+  Seluruh metrik lain memakai laju: WPM per menit, kata pengisi per menit.
+  Terlihat di data 23-24 September 2026: "pitch test" (113 detik, 6 jeda) dapat
+  skorJeda 0, sementara "pitch test" yang lain (42 detik, 3 jeda) dapat 0,25 —
+  padahal laju keduanya praktis sama, 3,2 dan 4,3 jeda per menit. Dibiarkan
+  karena mengubahnya menggeser seluruh skor yang sudah ada, dan tenggatnya
+  tinggal dua hari.
+- **Jarak skor sesi bagus dan sesi cacat 11 angka, bukan 20.** Angka 20 di
+  daftar uji adalah tebakan yang ditulis pemilik proyek, bukan syarat nyata, dan
+  11 diterima apa adanya. Sesi bersih (WPM 100-150, <=2 filler/menit, <=1,5
+  jeda/menit) berskor 94-100; sesi cacat berskor 52-83. Kurvanya memang
+  membedakan, hanya tidak selebar tebakan awalnya.
 
 # Keputusan yang diambil tanpa pengujian
 
