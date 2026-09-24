@@ -18,11 +18,17 @@ Kalau port 8000 sedang dipakai, ganti angkanya: `python3 -m http.server 8080`.
 
 ### Tentang peramban
 
-Chrome desktop adalah satu-satunya peramban yang diuji. Peramban lain tidak
-diblokir — aplikasi tetap berjalan dan menampilkan satu baris keterangan bahwa
-perilakunya belum diuji. Di peramban tanpa pengenal suara (misalnya Firefox),
-kecepatan bicara dan kata pengisi tidak akan dinilai, dan rapor menandainya
-"belum aktif" alih-alih menampilkan angka nol.
+Chrome desktop adalah satu-satunya peramban yang diuji. Peramban lain seperti
+Safari tidak diblokir: aplikasi tetap berjalan dan menampilkan satu baris
+keterangan yang bisa ditutup bahwa perilakunya belum diuji.
+
+Ada satu pengecualian. Peramban yang sama sekali tidak menyediakan pengenal
+suara — Firefox, misalnya — tidak bisa memulai latihan, dan tombolnya dimatikan
+dengan panel yang menyebut alasannya. Sebabnya bukan selera: tanpa kecepatan
+bicara dan kata pengisi, bobot yang tersisa cuma 38 dari ambang minimal 50, jadi
+SETIAP sesi di sana pasti berakhir "Tidak dinilai". Meminta orang bicara beberapa
+menit untuk hasil yang sudah pasti kosong lebih buruk daripada mengatakannya di
+depan. Tombol "Riwayat" tetap hidup, jadi aplikasinya masih bisa dilihat.
 
 ---
 
@@ -94,20 +100,18 @@ podium-app/
 ├── index.html      lima layar dalam satu halaman
 ├── style.css       token desain, tema panggung dan ruang evaluasi
 ├── README.md       berkas ini
-├── CLAUDE.md       aturan kerja pengembangan
-├── GEMINI.md       spesifikasi produk
-├── TODO.md         daftar periksa sebelum dikumpulkan
-└── js/
-    ├── app.js      orkestrator, objek CONFIG, navigasi, alur sesi
-    ├── speech.js   Web Speech API: transkrip, WPM, kata pengisi
-    ├── audio.js    Web Audio API: jeda panjang, volume
-    ├── face.js     MediaPipe: sudut kepala, arah pandang
-    ├── timeline.js lintasan waktu sesi: kepala pemutar, panel, mode putar
-    ├── report.js   rumus skor, kalimat ringkasan, saran, grafik Chart.js
-    ├── storage.js  riwayat di localStorage
-    ├── tema.js     pilihan tema gelap/terang
-    ├── browser.js  deteksi peramban untuk teks privasi
-    └── pose.js     stub modul postur (tidak aktif)
+├── js/
+│   ├── app.js      orkestrator, objek CONFIG, navigasi, alur sesi
+│   ├── speech.js   Web Speech API: transkrip, WPM, kata pengisi
+│   ├── audio.js    Web Audio API: jeda panjang
+│   ├── face.js     MediaPipe: sudut kepala, arah pandang
+│   ├── timeline.js lintasan waktu sesi: kepala pemutar, panel, mode putar
+│   ├── report.js   rumus skor, kalimat ringkasan, saran, grafik Chart.js
+│   ├── storage.js  riwayat di localStorage
+│   ├── tema.js     pilihan tema gelap/terang
+│   ├── browser.js  deteksi peramban untuk teks privasi dan gerbang pengenal suara
+│   └── pose.js     stub modul postur (tidak aktif)
+└── uji/            berkas uji Node, tanpa dependensi
 ```
 
 Seluruh ambang yang bisa dikalibrasi terkumpul di objek `CONFIG` pada
@@ -118,11 +122,16 @@ Seluruh ambang yang bisa dikalibrasi terkumpul di objek `CONFIG` pada
 1. **Beranda** → Mulai latihan.
 2. **Persiapan** — isi judul, pilih durasi target, pilih mode (lengkap atau suara
    saja), beri izin perangkat, lalu jalankan dua kalibrasi: suara ruangan dan
-   postur netral. Keduanya wajib ditekan sendiri, masing-masing sekitar dua detik.
+   postur netral. Keduanya ditekan sendiri, masing-masing sekitar dua detik —
+   pengukuran otomatis bisa merekam ruangan yang sedang ramai tanpa pengguna
+   sadar. Kalibrasi boleh dilewatkan, dan kalau dilewatkan layar ini menyebut
+   lebih dulu metrik mana yang tidak akan dinilai.
 3. **Sesi** — berbicara. Layar sengaja tenang: hanya timer, tiga indikator, dan
    preview kamera kecil.
 4. **Rapor** — skor, kartu metrik, lintasan waktu yang bisa ditelusuri dan
-   diputar ulang, serta tiga saran konkret.
+   diputar ulang, serta sampai tiga saran konkret. Sarannya hanya muncul untuk
+   masalah yang benar-benar terdeteksi, jadi sesi yang mulus bisa saja tidak
+   mendapat saran sama sekali.
 5. **Riwayat** — daftar sesi tersimpan dan grafik tren skor. Klik satu sesi untuk
    membuka kembali rapor lengkapnya.
 
