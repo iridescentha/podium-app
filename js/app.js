@@ -1002,7 +1002,11 @@ function mulaiSesiLatihan() {
 
   state.judulLatihan = judul;
   state.durasiTargetDetik = parseInt(DOM.selectDurasi.value, 10) || 0;
-  state.analisisPosturAktif = DOM.checkboxPostur.checked;
+  // Kontrol analisis postur bersifat opsional: UI tahap ini tidak
+  // menampilkannya, tetapi modulnya tetap didukung bila kontrol tersebut
+  // ditambahkan kembali. Jangan membaca `.checked` dari elemen yang tidak ada,
+  // karena itu menghentikan klik "Mulai sesi" sebelum layar sesi terbuka.
+  state.analisisPosturAktif = Boolean(DOM.checkboxPostur?.checked);
 
   // Berpindah ke Layar Sesi
   tampilkanLayar('layar-sesi');
